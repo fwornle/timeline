@@ -63,6 +63,7 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
     }
 
     // Notify parent component about repo URL change
+    // Always trigger a refresh when saving, even if the URL hasn't changed
     if (onRepoUrlChange && repoUrl) {
       onRepoUrlChange(repoUrl);
     }

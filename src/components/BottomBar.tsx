@@ -60,7 +60,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 {isCached && (
                   <span className="badge bg-warning text-dark">
                     <i className="bi bi-database me-1"></i>
-                    Cached
+                    Mocked
                   </span>
                 )}
                 <span className="badge bg-primary">

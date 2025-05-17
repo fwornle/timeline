@@ -51,11 +51,12 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     const isSelected = id === state.selectedCardId;
     const isHovered = id === state.hoveredCardId;
 
+    // Explicitly type the scale values to match the expected types in TimelineScene
     const scale = isSelected
-      ? DEFAULTS.CARD.SCALE.SELECTED
+      ? DEFAULTS.CARD.SCALE.SELECTED as 1.2
       : isHovered
-        ? DEFAULTS.CARD.SCALE.HOVER
-        : DEFAULTS.CARD.SCALE.DEFAULT;
+        ? DEFAULTS.CARD.SCALE.HOVER as 1.1
+        : DEFAULTS.CARD.SCALE.DEFAULT as 1;
 
     const rotation = isSelected
       ? DEFAULTS.CARD.ROTATION.SELECTED
@@ -63,11 +64,12 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         ? DEFAULTS.CARD.ROTATION.HOVER
         : DEFAULTS.CARD.ROTATION.DEFAULT;
 
+    // Explicitly type the positionY values to match the expected types in TimelineScene
     const positionY = isSelected
-      ? DEFAULTS.CARD.POSITION_Y.SELECTED
+      ? DEFAULTS.CARD.POSITION_Y.SELECTED as 0.5
       : isHovered
-        ? DEFAULTS.CARD.POSITION_Y.HOVER
-        : DEFAULTS.CARD.POSITION_Y.DEFAULT;
+        ? DEFAULTS.CARD.POSITION_Y.HOVER as 0.2
+        : DEFAULTS.CARD.POSITION_Y.DEFAULT as 0;
 
     return {
       scale,

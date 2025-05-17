@@ -11,7 +11,7 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const logger = useLogger({ component: 'MainLayout', topic: 'ui' });
   const { preferences, setPreferences } = usePreferences();
-  const [repoUrl, setRepoUrl] = useState(preferences.repoUrl || '');
+  const [repoUrl, setRepoUrl] = useState(preferences.repoUrl || 'https://github.com/example/repo.git');
   const [animationSpeed, setAnimationSpeed] = useState(preferences.animationSpeed || 1);
   const [autoDrift, setAutoDrift] = useState(preferences.autoDrift || false);
   const [gitCount, setGitCount] = useState(0);
@@ -75,7 +75,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="d-flex flex-column min-vh-100 p-0 m-0 overflow-hidden">
       <TopBar onRepoUrlChange={handleRepoUrlChange} />
-      <main className="flex-fill container-fluid my-4">
+      <main className="flex-fill d-flex p-0 m-0 overflow-hidden">
         {childrenWithProps}
       </main>
       <BottomBar

@@ -101,7 +101,8 @@ export class GitService {
       );
 
       const data = await response.json();
-      return data.data as T;
+      // Return the full response data to access the cached flag
+      return data;
     } catch (error) {
       if (error instanceof TimelineAPIError) {
         throw error;
@@ -168,7 +169,7 @@ export class GitService {
   /**
    * Fetches git history from the API
    */
-  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<GitTimelineEvent[]> {
+  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], cached: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
 
@@ -183,16 +184,21 @@ export class GitService {
       logger.info('data', 'Fetching git history', { repository: this.repository, startDate, endDate });
 
       params.append('repository', this.repository);
-      const data = await this.makeRequest<GitCommitResponse[]>(
+      const response = await this.makeRequest<any>(
         `${this.baseUrl}/git/history?${params.toString()}`
       );
 
-      const events = this.parseGitHistory(data);
+      const events = this.parseGitHistory(response.data);
+      // Use mocked flag if available, otherwise fall back to cached
+      const cached = response.mocked || response.cached || false;
+
       logger.info('data', 'Successfully fetched git history', {
-        eventCount: events.length
+        eventCount: events.length,
+        cached,
+        mocked: response.mocked
       });
 
-      return events;
+      return { events, cached };
     } catch (error) {
       logger.error('data', 'Failed to fetch git history', {
         error,

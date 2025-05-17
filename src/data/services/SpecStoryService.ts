@@ -127,7 +127,8 @@ export class SpecStoryService {
       );
 
       const data = await response.json();
-      return data.data as T;
+      // Return the full response data to access the cached/mocked flags
+      return data;
     } catch (error) {
       if (error instanceof TimelineAPIError) {
         throw error;
@@ -200,7 +201,7 @@ export class SpecStoryService {
   /**
    * Fetches spec history from the API
    */
-  async fetchSpecHistory(startDate?: Date, endDate?: Date): Promise<SpecTimelineEvent[]> {
+  async fetchSpecHistory(startDate?: Date, endDate?: Date): Promise<{ events: SpecTimelineEvent[], cached: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
       const specDir = this.resolveSpecDirectory(this.repository);
@@ -223,16 +224,21 @@ export class SpecStoryService {
       logger.info('data', 'Fetching spec history', { repository: this.repository, startDate, endDate });
 
       params.append('repository', this.repository);
-      const data = await this.makeRequest<SpecHistoryResponse[]>(
+      const response = await this.makeRequest<any>(
         `${this.baseUrl}/specs/history?${params.toString()}`
       );
 
-      const events = data.map(spec => this.parseSpecEvent(spec));
+      const events = response.data.map((spec: SpecHistoryResponse) => this.parseSpecEvent(spec));
+      // Use mocked flag if available, otherwise fall back to cached
+      const cached = response.mocked || response.cached || false;
+
       logger.info('data', 'Successfully fetched spec history', {
-        eventCount: events.length
+        eventCount: events.length,
+        cached,
+        mocked: response.mocked
       });
 
-      return events;
+      return { events, cached };
     } catch (error) {
       logger.error('data', 'Failed to fetch spec history', {
         error,

@@ -59,9 +59,9 @@ const Home: React.FC<HomeProps> = ({
   }, [isCached, onCacheStatusChange]);
 
   return (
-    <div className="position-relative h-100">
+    <div className="position-relative w-100 h-100 d-flex">
       {!repoUrl ? (
-        <div className="text-center py-5">
+        <div className="text-center py-5 w-100 d-flex flex-column align-items-center justify-content-center">
           <h2 className="mb-4">Welcome to Timeline</h2>
           <p className="lead mb-4">
             Visualize Git repository history in an interactive 3D timeline.
@@ -100,7 +100,7 @@ const Home: React.FC<HomeProps> = ({
           </div>
         </div>
       ) : (
-        <div className="h-100">
+        <div className="w-100 h-100">
           <TimelineVisualization
             repoUrl={repoUrl}
             animationSpeed={animationSpeed}
@@ -137,16 +137,7 @@ const Home: React.FC<HomeProps> = ({
         </div>
       )}
 
-      {error && (
-        <Alert
-          variant="danger"
-          className="position-absolute bottom-0 start-0 m-3"
-          style={{ zIndex: 1000, maxWidth: '500px' }}
-        >
-          <Alert.Heading>Error</Alert.Heading>
-          <p>{error.message}</p>
-        </Alert>
-      )}
+      {/* Error alerts are now handled within the TimelineVisualization component */}
     </div>
   );
 };

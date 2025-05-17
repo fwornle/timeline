@@ -30,6 +30,17 @@ const server = http.createServer((req, res) => {
     console.log(`[${new Date().toISOString()}] Query params:`, query);
   }
 
+  // Log the request body if it's a POST request
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      console.log(`[${new Date().toISOString()}] Request body:`, body);
+    });
+  }
+
   // Set default headers
   res.setHeader('Content-Type', 'application/json');
 
@@ -57,6 +68,10 @@ const server = http.createServer((req, res) => {
       if (!repository) {
         throw new Error('Repository path is required');
       }
+
+      // Check if we should use real repository data
+      // For now, we'll use mock data but log that we would fetch from the real repository
+      console.log(`Would fetch real git history from repository: ${repository}`);
 
       // Generate mock data with multiple commits
       const mockCommits = [];
@@ -94,7 +109,9 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({
         success: true,
         data: mockCommits,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        cached: true, // Keep for backward compatibility
+        mocked: true  // New flag to indicate this is mock data
       }));
     } catch (error) {
       console.error('Git history request failed', {
@@ -126,6 +143,10 @@ const server = http.createServer((req, res) => {
       if (!repository) {
         throw new Error('Repository path is required');
       }
+
+      // Check if we should use real repository data
+      // For now, we'll use mock data but log that we would fetch from the real repository
+      console.log(`Would fetch real spec history from repository: ${repository}, path: .specstory/history`);
 
       // Generate mock data with multiple specs
       const mockSpecs = [];
@@ -166,7 +187,9 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({
         success: true,
         data: mockSpecs,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        cached: true, // Keep for backward compatibility
+        mocked: true  // New flag to indicate this is mock data
       }));
     } catch (error) {
       console.error('Spec history request failed', {

@@ -4,6 +4,8 @@ import { useTimelineData } from '../data/hooks/useTimelineData';
 import { useTimelineAnimation } from '../animation/useTimelineAnimation';
 import { TimelineScene } from './three/TimelineScene';
 import type { TimelineEvent } from '../data/types/TimelineEvent';
+import { mockGitHistory } from '../data/mocks/mockGitHistory';
+import { mockSpecHistory } from '../data/mocks/mockSpecHistory';
 
 interface TimelineVisualizationProps {
   repoUrl: string;
@@ -34,59 +36,43 @@ const LoadingView: React.FC<{
   </div>
 );
 
-// Error component
+// Error component - memoized to prevent unnecessary re-renders
 const ErrorView: React.FC<{
-  errors: { git: Error | null; spec: Error | null };
-  onRetryGit: (e: React.MouseEvent) => void;
-  onRetrySpec: (e: React.MouseEvent) => void;
   onRetryAll: (e: React.MouseEvent) => void;
-  hasPartialData: boolean;
-}> = ({ errors, onRetryGit, onRetrySpec, onRetryAll, hasPartialData }) => (
+  onUseMockData?: () => void;
+}> = React.memo(({ onRetryAll, onUseMockData }) => (
   <div className="h-full flex items-center justify-center bg-light">
     <div className="text-center space-y-4 max-w-lg px-4">
       <p className="text-danger text-xl">Error loading timeline data</p>
-      {errors.git && (
-        <div className="bg-danger bg-opacity-10 p-4 rounded-lg mb-2">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-danger font-medium">Git History Error:</p>
+
+      <div className="bg-danger bg-opacity-10 p-4 rounded-lg mb-2">
+        <p className="text-sm mb-3">Network error: Unable to connect to the server</p>
+
+        <div className="d-flex gap-2 justify-content-center">
+          <button
+            onClick={onRetryAll}
+            className="btn btn-danger"
+          >
+            Retry Connection
+          </button>
+
+          {onUseMockData && (
             <button
-              onClick={onRetryGit}
-              className="px-2 py-1 bg-danger text-white rounded-lg text-sm"
+              onClick={onUseMockData}
+              className="btn btn-warning text-dark"
             >
-              Retry Git
+              Use Mocked Data
             </button>
-          </div>
-          <p className="text-sm">{errors.git.message}</p>
+          )}
         </div>
-      )}
-      {errors.spec && (
-        <div className="bg-danger bg-opacity-10 p-4 rounded-lg mb-2">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-danger font-medium">Spec History Error:</p>
-            <button
-              onClick={onRetrySpec}
-              className="px-2 py-1 bg-danger text-white rounded-lg text-sm"
-            >
-              Retry Spec
-            </button>
-          </div>
-          <p className="text-sm">{errors.spec.message}</p>
-        </div>
-      )}
-      <button
-        onClick={onRetryAll}
-        className="px-4 py-2 bg-primary text-white rounded-lg"
-      >
-        Retry All
-      </button>
-      {hasPartialData && (
-        <p className="text-sm text-muted mt-4">
-          Showing partial timeline data. Click retry to load all data.
-        </p>
-      )}
+      </div>
+
+      <p className="text-sm text-muted mt-4">
+        If the server is offline, you can use mocked data to explore the timeline visualization.
+      </p>
     </div>
   </div>
-);
+));
 
 // Main component
 export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
@@ -115,7 +101,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     sources,
     period,
     refresh,
-    retry,
+    usingMockedData,
   } = useTimelineData(repoUrl);
 
   // Animation state
@@ -134,11 +120,25 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     initialScrollSpeed: animationSpeed,
   });
 
-  // Determine which view to show based on state
+  // Determine which view to show based on state - with stable error handling
   useEffect(() => {
+    // Welcome screen logic remains the same
     setShowWelcome(!repoUrl);
-    setShowLoading(!!repoUrl && isLoading && events.length === 0);
-    setShowError(!!repoUrl && !!hasError && events.length === 0);
+
+    // Only show loading on initial load, not during error states
+    if (!!repoUrl && isLoading && events.length === 0 && !hasError) {
+      setShowLoading(true);
+      setShowError(false);
+    }
+    // Show error screen and keep it stable
+    else if (!!repoUrl && !!hasError && events.length === 0) {
+      setShowLoading(false);
+      setShowError(true);
+    }
+    // Normal state - no error, no loading
+    else if (!isLoading) {
+      setShowLoading(false);
+    }
   }, [repoUrl, isLoading, hasError, events.length]);
 
   // Update parent loading state
@@ -183,6 +183,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         eventCount: events.length,
         periodStart: period?.start,
         periodEnd: period?.end,
+        usingMockedData
       });
 
       // Separate git and spec events
@@ -191,28 +192,17 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
       // Notify parent component about data loading
       if (onDataLoaded) {
-        // We can determine if data is cached by checking if we're still loading
-        // If we have events but we're not loading, it's likely from cache
-        onDataLoaded(gitEvents, specEvents, !isLoading && events.length > 0);
+        // Pass the mocked status to the parent component
+        onDataLoaded(gitEvents, specEvents, usingMockedData);
       }
     }
-  }, [events, period, logger, onDataLoaded, isLoading]);
+  }, [events, period, logger, onDataLoaded, isLoading, usingMockedData]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     refresh();
   }, [refresh]);
-
-  const handleRetryGit = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    retry('git');
-  }, [retry]);
-
-  const handleRetrySpec = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    retry('spec');
-  }, [retry]);
 
   // Render the appropriate view
   if (showWelcome) {
@@ -248,11 +238,29 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   if (showError) {
     return (
       <ErrorView
-        errors={errors}
-        onRetryGit={handleRetryGit}
-        onRetrySpec={handleRetrySpec}
         onRetryAll={handleRefresh}
-        hasPartialData={events.length > 0}
+        onUseMockData={() => {
+          // Load mock data and clear error state
+          if (onDataLoaded) {
+            const mockGitEvents = mockGitHistory();
+            const mockSpecEvents = mockSpecHistory();
+
+            // Update the parent component with mock data
+            onDataLoaded(mockGitEvents, mockSpecEvents, true);
+
+            // Clear error state to show the timeline
+            setShowError(false);
+
+            // Update local state with mock data
+            const allMockEvents = [...mockGitEvents, ...mockSpecEvents];
+            allMockEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+            // If there's an onError handler, clear the error
+            if (onError) {
+              onError(null);
+            }
+          }
+        }}
       />
     );
   }
@@ -260,62 +268,99 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   // Show timeline view with optional loading overlay
   const isPartialLoading = isLoading && events.length > 0;
 
+  // Use a single status overlay for both loading and error states
+  const showStatusOverlay = (isPartialLoading || (hasError && events.length > 0));
+
   return (
-    <div className="relative h-full">
-      {isPartialLoading && (
-        <div className="absolute top-4 right-4 flex items-center bg-dark bg-opacity-80 rounded-lg p-3 z-10">
-          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary mr-3" />
-          <div className="text-sm space-y-1">
-            {sources.git.isLoading && (
-              <p className="text-primary">Updating git history...</p>
-            )}
-            {sources.spec.isLoading && (
-              <p className="text-primary">Updating spec history...</p>
-            )}
-          </div>
-        </div>
-      )}
-      <TimelineScene
-        events={events}
-        selectedCardId={selectedCardId}
-        cameraTarget={cameraTarget}
-        onCardSelect={selectCard}
-        onCardHover={setHoveredCard}
-        onCardPositionUpdate={updateCardPosition}
-        getCardAnimationProps={getCardAnimationProps}
-      />
-      {hasError && events.length > 0 && (
-        <div className="absolute bottom-4 right-4 bg-danger bg-opacity-80 rounded-lg p-3 z-10 max-w-md">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-white font-medium">Partial Data Load Error</p>
-              <button
-                onClick={handleRefresh}
-                className="text-sm px-2 py-1 bg-danger hover:bg-danger-dark rounded transition-colors"
-              >
-                Retry All
-              </button>
+    <div className="position-relative w-100 h-100">
+      <div className="w-100 h-100">
+        <TimelineScene
+          events={events}
+          selectedCardId={selectedCardId}
+          cameraTarget={cameraTarget}
+          onCardSelect={selectCard}
+          onCardHover={setHoveredCard}
+          onCardPositionUpdate={updateCardPosition}
+          getCardAnimationProps={getCardAnimationProps}
+        />
+      </div>
+
+      {/* Single status overlay for both loading and error states */}
+      {showStatusOverlay && (
+        <div
+          className="position-absolute bottom-4 end-4 rounded p-3"
+          style={{
+            zIndex: 10,
+            maxWidth: '400px',
+            backgroundColor: hasError ? 'rgba(220, 53, 69, 0.8)' : 'rgba(33, 37, 41, 0.8)',
+            transition: 'background-color 0.3s ease'
+          }}
+        >
+          <div className="d-flex flex-column gap-2">
+            {/* Status header */}
+            <div className="d-flex align-items-center justify-content-between">
+              {isPartialLoading && !hasError && (
+                <>
+                  <div className="d-flex align-items-center">
+                    <div className="spinner-border spinner-border-sm text-light me-2" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="text-white fw-medium mb-0">Updating timeline data...</p>
+                  </div>
+                </>
+              )}
+
+              {hasError && (
+                <>
+                  <p className="text-white fw-medium mb-0">Connection Error</p>
+                  <button
+                    onClick={handleRefresh}
+                    className="btn btn-sm btn-outline-light"
+                  >
+                    Retry All
+                  </button>
+                </>
+              )}
             </div>
-            {errors.git && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-white">Git History Failed</span>
-                <button
-                  onClick={handleRetryGit}
-                  className="px-2 py-1 bg-danger hover:bg-danger-dark rounded transition-colors ml-2"
-                >
-                  Retry Git
-                </button>
+
+            {/* Loading details */}
+            {isPartialLoading && !hasError && (
+              <div className="text-sm text-white">
+                {sources.git.isLoading && <p className="mb-1">Fetching git history...</p>}
+                {sources.spec.isLoading && <p className="mb-0">Fetching spec history...</p>}
               </div>
             )}
-            {errors.spec && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-white">Spec History Failed</span>
-                <button
-                  onClick={handleRetrySpec}
-                  className="px-2 py-1 bg-danger hover:bg-danger-dark rounded transition-colors ml-2"
-                >
-                  Retry Spec
-                </button>
+
+            {/* Error details */}
+            {hasError && (
+              <div className="text-sm text-white">
+                <p className="mb-2">Network error: Unable to connect to the server</p>
+                <div className="d-flex gap-2">
+                  <button
+                    onClick={handleRefresh}
+                    className="btn btn-sm btn-outline-light"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Force loading mock data
+                      if (onDataLoaded) {
+                        const mockGitEvents = mockGitHistory();
+                        const mockSpecEvents = mockSpecHistory();
+                        onDataLoaded(mockGitEvents, mockSpecEvents, true);
+
+                        // Clear error state
+                        if (onError) {
+                          onError(null);
+                        }
+                      }
+                    }}
+                    className="btn btn-sm btn-warning text-dark"
+                  >
+                    Use Mocked Data
+                  </button>
+                </div>
               </div>
             )}
           </div>
