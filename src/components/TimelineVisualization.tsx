@@ -3,6 +3,7 @@ import { useLogger } from '../utils/logging/hooks/useLogger';
 import { useTimelineData } from '../data/hooks/useTimelineData';
 import { useTimelineAnimation } from '../animation/useTimelineAnimation';
 import { TimelineScene } from './three/TimelineScene';
+import type { TimelineEvent } from '../data/types/TimelineEvent';
 
 interface TimelineVisualizationProps {
   repoUrl: string;
@@ -10,6 +11,8 @@ interface TimelineVisualizationProps {
   autoDrift: boolean;
   onLoadingChange: (isLoading: boolean) => void;
   onError: (error: Error | null) => void;
+  onDataLoaded?: (gitEvents: TimelineEvent[], specEvents: TimelineEvent[], isCached: boolean) => void;
+  onPositionUpdate?: (position: number) => void;
 }
 
 // Loading component
@@ -92,6 +95,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   autoDrift,
   onLoadingChange,
   onError,
+  onDataLoaded,
+  onPositionUpdate,
 }) => {
   // Always initialize hooks regardless of repoUrl to maintain hook order
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
@@ -163,7 +168,15 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     }
   }, [autoDrift, isAutoScrolling, toggleAutoScroll]);
 
-  // Log significant state changes
+  // Update position for parent component
+  useEffect(() => {
+    if (onPositionUpdate && cameraTarget) {
+      // Use the z position as the timeline position
+      onPositionUpdate(cameraTarget.z);
+    }
+  }, [cameraTarget, onPositionUpdate]);
+
+  // Log significant state changes and notify parent
   useEffect(() => {
     if (events.length > 0) {
       logger.info('Timeline data loaded', {
@@ -171,8 +184,19 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         periodStart: period?.start,
         periodEnd: period?.end,
       });
+
+      // Separate git and spec events
+      const gitEvents = events.filter(e => e.type === 'git');
+      const specEvents = events.filter(e => e.type === 'spec');
+
+      // Notify parent component about data loading
+      if (onDataLoaded) {
+        // We can determine if data is cached by checking if we're still loading
+        // If we have events but we're not loading, it's likely from cache
+        onDataLoaded(gitEvents, specEvents, !isLoading && events.length > 0);
+      }
     }
-  }, [events, period, logger]);
+  }, [events, period, logger, onDataLoaded, isLoading]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {

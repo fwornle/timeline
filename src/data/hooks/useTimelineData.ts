@@ -199,10 +199,13 @@ export function useTimelineData(baseUrl: string) {
 
     try {
       // Validate the repository URL format if provided
-      if (baseUrl && !baseUrl.includes('github.com') && !baseUrl.includes('git@')) {
-        logger.error('data', 'Invalid repository URL format', { baseUrl });
-        throw new TimelineAPIError('Invalid repository URL format. Please check the URL and try again.');
+      if (!baseUrl || baseUrl.trim() === '') {
+        logger.error('data', 'Empty repository URL', { baseUrl });
+        throw new TimelineAPIError('Repository URL is required. Please enter a valid URL.');
       }
+
+      // Log the repository URL being used
+      logger.info('data', 'Using repository URL for data fetch', { baseUrl });
 
       const shouldFetchGit = sourceToRetry
         ? sourceToRetry === 'git'

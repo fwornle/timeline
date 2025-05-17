@@ -1,12 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
 import { Alert, Button } from 'react-bootstrap';
 import { TimelineVisualization } from '../components/TimelineVisualization';
+import { useLogger } from '../utils/logging/hooks/useLogger';
 
-const Home: React.FC = () => {
+interface HomeProps {
+  onLoadingChange?: (loading: boolean) => void;
+  onEventCountsChange?: (gitCount: number, specCount: number) => void;
+  onCacheStatusChange?: (isCached: boolean) => void;
+  onPositionChange?: (position: number) => void;
+}
+
+const Home: React.FC<HomeProps> = ({
+  onLoadingChange,
+  onEventCountsChange,
+  onCacheStatusChange,
+  onPositionChange
+}) => {
+  const logger = useLogger({ component: 'Home', topic: 'ui' });
   const { preferences } = usePreferences();
   const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [gitCount, setGitCount] = useState(0);
+  const [specCount, setSpecCount] = useState(0);
+  const [isCached, setIsCached] = useState(false);
 
   // Get repository URL from preferences
   const repoUrl = preferences.repoUrl || '';
@@ -16,12 +33,30 @@ const Home: React.FC = () => {
   // Handle loading state changes
   const handleLoadingChange = (loading: boolean) => {
     setIsLoading(loading);
+    if (onLoadingChange) {
+      onLoadingChange(loading);
+    }
   };
 
   // Handle errors
   const handleError = (err: Error | null) => {
     setError(err);
   };
+
+  // Update event counts when data is loaded
+  useEffect(() => {
+    if (onEventCountsChange && (gitCount > 0 || specCount > 0)) {
+      onEventCountsChange(gitCount, specCount);
+      logger.info('Event counts updated', { gitCount, specCount });
+    }
+  }, [gitCount, specCount, onEventCountsChange]);
+
+  // Update cache status
+  useEffect(() => {
+    if (onCacheStatusChange) {
+      onCacheStatusChange(isCached);
+    }
+  }, [isCached, onCacheStatusChange]);
 
   return (
     <div className="position-relative h-100">
@@ -72,6 +107,21 @@ const Home: React.FC = () => {
             autoDrift={autoDrift}
             onLoadingChange={handleLoadingChange}
             onError={handleError}
+            onDataLoaded={(gitEvents, specEvents, cached) => {
+              setGitCount(gitEvents.length);
+              setSpecCount(specEvents.length);
+              setIsCached(cached);
+              logger.info('Timeline data loaded', {
+                gitCount: gitEvents.length,
+                specCount: specEvents.length,
+                isCached: cached
+              });
+            }}
+            onPositionUpdate={(pos) => {
+              if (onPositionChange) {
+                onPositionChange(pos);
+              }
+            }}
           />
         </div>
       )}

@@ -23,8 +23,12 @@ const server = http.createServer((req, res) => {
   const path = parsedUrl.pathname;
   const query = parsedUrl.query;
 
-  // Log the request
+  // Log the request with more details
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log(`[${new Date().toISOString()}] Headers:`, req.headers);
+  if (Object.keys(query).length > 0) {
+    console.log(`[${new Date().toISOString()}] Query params:`, query);
+  }
 
   // Set default headers
   res.setHeader('Content-Type', 'application/json');
@@ -81,7 +85,9 @@ const server = http.createServer((req, res) => {
 
       console.log('Git history request successful', {
         repository,
-        commitCount: mockCommits.length
+        commitCount: mockCommits.length,
+        firstCommitDate: mockCommits[0]?.timestamp,
+        lastCommitDate: mockCommits[mockCommits.length - 1]?.timestamp
       });
 
       res.writeHead(200);
@@ -151,7 +157,9 @@ const server = http.createServer((req, res) => {
 
       console.log('Spec history request successful', {
         repository,
-        entryCount: mockSpecs.length
+        entryCount: mockSpecs.length,
+        firstSpecDate: mockSpecs[0]?.timestamp,
+        lastSpecDate: mockSpecs[mockSpecs.length - 1]?.timestamp
       });
 
       res.writeHead(200);
