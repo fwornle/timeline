@@ -15,6 +15,7 @@ interface TimelineVisualizationProps {
   onError: (error: Error | null) => void;
   onDataLoaded?: (gitEvents: TimelineEvent[], specEvents: TimelineEvent[], isCached: boolean) => void;
   onPositionUpdate?: (position: number) => void;
+  forceReload?: boolean;
 }
 
 // Loading component
@@ -83,6 +84,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   onError,
   onDataLoaded,
   onPositionUpdate,
+  forceReload = false,
 }) => {
   // Always initialize hooks regardless of repoUrl to maintain hook order
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
@@ -103,6 +105,14 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     refresh,
     usingMockedData,
   } = useTimelineData(repoUrl);
+
+  // Handle force reload when the prop changes
+  useEffect(() => {
+    if (forceReload && repoUrl) {
+      logger.info('Forcing data reload', { repoUrl });
+      refresh();
+    }
+  }, [forceReload, repoUrl, refresh, logger]);
 
   // Animation state
   const {

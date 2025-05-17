@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Container, Row, Col, Form } from 'react-bootstrap';
+import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
 
 interface BottomBarProps {
@@ -42,7 +42,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   };
 
   return (
-    <div className="bg-light border-top fixed-bottom py-2">
+    <div className="bg-light border-top py-2">
       <Container fluid>
         <Row className="align-items-center">
           {/* Repository Status (left) */}
@@ -91,15 +91,13 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   <span className="text-nowrap">{animationSpeed.toFixed(1)}x</span>
                 </div>
 
-                <Button
-                  variant={autoDrift ? "primary" : "outline-primary"}
-                  size="sm"
+                <button
+                  className={`btn btn-sm ${autoDrift ? 'btn-primary' : 'btn-outline-primary'}`}
                   onClick={handleAutoDriftChange}
-                  title={autoDrift ? "Pause auto-drift" : "Start auto-drift"}
                 >
-                  <i className={`bi ${autoDrift ? "bi-pause-fill" : "bi-play-fill"}`}></i>
-                  {autoDrift ? " Auto" : " Play"}
-                </Button>
+                  <i className={`bi ${autoDrift ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+                  {autoDrift ? ' Auto' : ' Play'}
+                </button>
               </div>
             </Col>
           )}

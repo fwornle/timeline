@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
-import { Alert, Button } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { TimelineVisualization } from '../components/TimelineVisualization';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
@@ -9,13 +9,15 @@ interface HomeProps {
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
   onCacheStatusChange?: (isCached: boolean) => void;
   onPositionChange?: (position: number) => void;
+  forceReload?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({
   onLoadingChange,
   onEventCountsChange,
   onCacheStatusChange,
-  onPositionChange
+  onPositionChange,
+  forceReload = false
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
   const { preferences } = usePreferences();
@@ -89,24 +91,24 @@ const Home: React.FC<HomeProps> = ({
                 </li>
               </ul>
             </div>
-            <Button
-              variant="primary"
-              className="mt-3"
+            <button
+              className="btn btn-primary mt-3"
               onClick={() => document.querySelector<HTMLButtonElement>('[aria-label="Repository Settings"]')?.click()}
             >
               <i className="bi bi-gear me-2"></i>
               Configure Repository
-            </Button>
+            </button>
           </div>
         </div>
       ) : (
-        <div className="w-100 h-100">
+        <div className="w-100 h-100 position-absolute top-0 start-0 bottom-0 end-0" style={{ paddingTop: '56px', paddingBottom: '56px' }}>
           <TimelineVisualization
             repoUrl={repoUrl}
             animationSpeed={animationSpeed}
             autoDrift={autoDrift}
             onLoadingChange={handleLoadingChange}
             onError={handleError}
+            forceReload={forceReload}
             onDataLoaded={(gitEvents, specEvents, cached) => {
               setGitCount(gitEvents.length);
               setSpecCount(specEvents.length);

@@ -1,9 +1,26 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from 'react-bootstrap';
 
 const About: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleDismiss = () => {
+    navigate('/');
+  };
+
   return (
     <div className="container py-4">
-      <h1 className="mb-4">About Timeline</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="mb-0">About Timeline</h1>
+        <Button
+          variant="primary"
+          onClick={handleDismiss}
+        >
+          <i className="bi bi-arrow-left me-2"></i>
+          Dismiss
+        </Button>
+      </div>
       <p className="lead mb-4">
         Timeline is an interactive 3D visualization tool for Git repository history.
       </p>
