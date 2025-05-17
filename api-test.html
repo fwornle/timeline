@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .result {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+    }
+    .error {
+      color: red;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    input {
+      padding: 8px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>API Test</h1>
+  
+  <div>
+    <h2>Repository URL</h2>
+    <input type="text" id="repoUrl" placeholder="Enter repository URL" value="https://github.com/test/repo.git">
+  </div>
+  
+  <div>
+    <h2>Health Check</h2>
+    <button id="healthCheck">Test Health Endpoint</button>
+    <div id="healthResult" class="result"></div>
+  </div>
+  
+  <div>
+    <h2>Git History</h2>
+    <button id="gitHistory">Test Git History Endpoint</button>
+    <div id="gitResult" class="result"></div>
+  </div>
+  
+  <div>
+    <h2>Specs History</h2>
+    <button id="specsHistory">Test Specs History Endpoint</button>
+    <div id="specsResult" class="result"></div>
+  </div>
+  
+  <script>
+    const API_BASE_URL = 'http://localhost:5173/api/v1';
+    
+    // Health Check
+    document.getElementById('healthCheck').addEventListener('click', async () => {
+      const resultElement = document.getElementById('healthResult');
+      resultElement.textContent = 'Loading...';
+      resultElement.className = 'result';
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        const data = await response.json();
+        resultElement.textContent = JSON.stringify(data, null, 2);
+        console.log('Health check response:', data);
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+        resultElement.className = 'result error';
+        console.error('Health check error:', error);
+      }
+    });
+    
+    // Git History
+    document.getElementById('gitHistory').addEventListener('click', async () => {
+      const resultElement = document.getElementById('gitResult');
+      const repoUrl = document.getElementById('repoUrl').value;
+      resultElement.textContent = 'Loading...';
+      resultElement.className = 'result';
+      
+      try {
+        const params = new URLSearchParams();
+        params.append('repository', repoUrl);
+        const response = await fetch(`${API_BASE_URL}/git/history?${params.toString()}`);
+        const data = await response.json();
+        resultElement.textContent = JSON.stringify(data, null, 2);
+        console.log('Git history response:', data);
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+        resultElement.className = 'result error';
+        console.error('Git history error:', error);
+      }
+    });
+    
+    // Specs History
+    document.getElementById('specsHistory').addEventListener('click', async () => {
+      const resultElement = document.getElementById('specsResult');
+      const repoUrl = document.getElementById('repoUrl').value;
+      resultElement.textContent = 'Loading...';
+      resultElement.className = 'result';
+      
+      try {
+        const params = new URLSearchParams();
+        params.append('repository', repoUrl);
+        const response = await fetch(`${API_BASE_URL}/specs/history?${params.toString()}`);
+        const data = await response.json();
+        resultElement.textContent = JSON.stringify(data, null, 2);
+        console.log('Specs history response:', data);
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+        resultElement.className = 'result error';
+        console.error('Specs history error:', error);
+      }
+    });
+  </script>
+</body>
+</html>

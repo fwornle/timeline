@@ -31,12 +31,12 @@ cd timeline
 npm install
 ```
 
-3. Start the development server:
+3. Start the development server and API server:
 ```bash
-npm run dev
+npm run start
 ```
 
-The application will be available at `http://localhost:5173` by default.
+The frontend will be available at `http://localhost:3001` and the API server at `http://localhost:5173`.
 
 ## Usage Guide
 

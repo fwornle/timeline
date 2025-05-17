@@ -2,12 +2,18 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { LogProvider } from './utils/logging/LogContext'
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import { PreferencesProvider } from './context/PreferencesContext';
+import { ThemeProvider } from './context/ThemeProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <LogProvider>
-      <App />
-    </LogProvider>
+    <PreferencesProvider>
+      <ThemeProvider>
+    <App />
+      </ThemeProvider>
+    </PreferencesProvider>
   </StrictMode>,
 )
