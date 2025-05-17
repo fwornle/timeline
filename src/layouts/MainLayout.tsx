@@ -38,34 +38,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setIsCached(false);
   };
 
-  // These would be updated by the TimelineVisualization component
-  // For now, we'll simulate some data for demonstration
-  useEffect(() => {
-    if (repoUrl) {
-      const timer = setTimeout(() => {
-        setGitCount(Math.floor(Math.random() * 100) + 20);
-        setSpecCount(Math.floor(Math.random() * 50) + 10);
-        setIsLoading(false);
-        setIsCached(Math.random() > 0.5);
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [repoUrl]);
-
-  // Simulate position changes
-  useEffect(() => {
-    if (repoUrl && autoDrift) {
-      const interval = setInterval(() => {
-        setCurrentPosition(prev => {
-          const newPos = prev + 0.01 * animationSpeed;
-          return newPos > 100 ? 0 : newPos;
-        });
-      }, 100);
-
-      return () => clearInterval(interval);
-    }
-  }, [repoUrl, autoDrift, animationSpeed]);
+  // These will be updated by the TimelineVisualization component
+  // through the BottomBar props
 
   return (
     <div className="d-flex flex-column min-vh-100 p-0 m-0 overflow-hidden">

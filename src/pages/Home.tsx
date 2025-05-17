@@ -1,28 +1,7 @@
 import React, { useState } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
 import { Alert, Button } from 'react-bootstrap';
-
-// Create a placeholder TimelineVisualization component
-// We'll implement this properly later
-const TimelineVisualization: React.FC<{
-  repoUrl: string;
-  animationSpeed: number;
-  autoDrift: boolean;
-  onLoadingChange: (loading: boolean) => void;
-  onError: (error: Error | null) => void;
-}> = ({ repoUrl, animationSpeed, autoDrift, onLoadingChange, onError }) => {
-  return (
-    <div className="p-5 text-center">
-      <h3>Timeline Visualization</h3>
-      <p>Repository: {repoUrl}</p>
-      <p>Animation Speed: {animationSpeed}x</p>
-      <p>Auto-drift: {autoDrift ? 'Enabled' : 'Disabled'}</p>
-      <div className="alert alert-info">
-        This is a placeholder for the 3D visualization component.
-      </div>
-    </div>
-  );
-};
+import { TimelineVisualization } from '../components/TimelineVisualization';
 
 const Home: React.FC = () => {
   const { preferences } = usePreferences();
