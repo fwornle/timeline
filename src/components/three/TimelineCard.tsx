@@ -1,9 +1,10 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Text } from '@react-three/drei';
-import { Group, Vector3, MathUtils } from 'three';
+import { Group, MathUtils, Vector3 } from 'three';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
+import { DEFAULTS } from '../../animation/constants';
 
 interface TimelineCardProps {
   event: TimelineEvent;
@@ -32,54 +33,103 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     springConfig: { mass: 1, tension: 170, friction: 26 }
   }
 }) => {
+  // Refs for animation
   const groupRef = useRef<Group>(null);
-  const targetPositionY = useRef(position[1]);
-  const targetScale = useRef(1);
-  const targetRotationY = useRef(0);
+  const isHovered = useRef(false);
 
-  // Update target values when animation props change
+  // Animation state
+  const [animState, setAnimState] = useState({
+    // Target values for animation
+    targetRotationY: 0,
+    targetPositionZ: 0,
+    targetScale: 1,
+
+    // Animation timing
+    animationStartTime: 0,
+    isAnimating: false,
+
+    // Starting values for smooth interpolation
+    startRotationY: 0,
+    startPositionZ: 0,
+    startScale: 1,
+  });
+
+  // Update hover state when animation props change
   useEffect(() => {
-    targetPositionY.current = position[1] + animationProps.positionY;
-    targetScale.current = animationProps.scale;
-    targetRotationY.current = animationProps.rotation[1];
+    const newIsHovered = animationProps.scale === DEFAULTS.CARD.SCALE.HOVER;
+
+    // Only trigger animation if hover state changed
+    if (newIsHovered !== isHovered.current) {
+      isHovered.current = newIsHovered;
+
+      // Store current values as starting point
+      const currentRotationY = groupRef.current?.rotation.y || 0;
+      const currentPositionZ = groupRef.current?.position.z || position[2];
+      const currentScale = groupRef.current?.scale.x || 1;
+
+      // Set target values based on hover state
+      const targetRotationY = newIsHovered ? Math.PI / 3 : 0; // 60 degrees when hovered
+      const targetPositionZ = newIsHovered ? position[2] + 0.5 : position[2]; // Move slightly toward camera
+      const targetScale = newIsHovered ? 1.3 : 1; // Larger when hovered
+
+      // Start animation
+      setAnimState({
+        targetRotationY,
+        targetPositionZ,
+        targetScale,
+        animationStartTime: performance.now(),
+        isAnimating: true,
+        startRotationY: currentRotationY,
+        startPositionZ: currentPositionZ,
+        startScale: currentScale,
+      });
+    }
   }, [animationProps, position]);
 
-  // Apply spring animation
+  // Animation frame
   useFrame(() => {
     if (!groupRef.current) return;
 
-    const { springConfig } = animationProps;
-    const { mass, tension, friction } = springConfig;
+    if (animState.isAnimating) {
+      // Calculate animation progress
+      const elapsedTime = performance.now() - animState.animationStartTime;
+      const duration = 300; // Animation duration in ms (faster for better responsiveness)
+      const progress = Math.min(elapsedTime / duration, 1);
 
-    // Calculate spring forces
-    const currentPositionY = groupRef.current.position.y;
-    const currentScale = groupRef.current.scale.x;
-    const currentRotationY = groupRef.current.rotation.y;
+      // Easing function (ease-in-out)
+      const easedProgress = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-    // Position Y spring
-    const posYDiff = targetPositionY.current - currentPositionY;
-    const posYVelocity = posYDiff * tension / mass;
-    const posYDamping = friction / mass;
-    const newPositionY = currentPositionY + posYVelocity * (1 - posYDamping) * 0.016;
+      // Interpolate values
+      const newRotationY = MathUtils.lerp(
+        animState.startRotationY,
+        animState.targetRotationY,
+        easedProgress
+      );
 
-    // Scale spring
-    const scaleDiff = targetScale.current - currentScale;
-    const scaleVelocity = scaleDiff * tension / mass;
-    const scaleDamping = friction / mass;
-    // Ensure scale never goes below a minimum value to prevent disappearing
-    const newScale = Math.max(0.5, currentScale + scaleVelocity * (1 - scaleDamping) * 0.016);
+      const newPositionZ = MathUtils.lerp(
+        animState.startPositionZ,
+        animState.targetPositionZ,
+        easedProgress
+      );
 
-    // Rotation spring
-    const rotYDiff = targetRotationY.current - currentRotationY;
-    const rotYVelocity = rotYDiff * tension / mass;
-    const rotYDamping = friction / mass;
-    const newRotationY = currentRotationY + rotYVelocity * (1 - rotYDamping) * 0.016;
+      const newScale = MathUtils.lerp(
+        animState.startScale,
+        animState.targetScale,
+        easedProgress
+      );
 
-    // Apply new values - ensure position.y never goes below a minimum value
-    // This prevents the card from disappearing below the view
-    groupRef.current.position.y = Math.max(-5, newPositionY); // Prevent going too far down
-    groupRef.current.scale.set(newScale, newScale, newScale);
-    groupRef.current.rotation.y = newRotationY;
+      // Apply values
+      groupRef.current.rotation.y = newRotationY;
+      groupRef.current.position.z = newPositionZ;
+      groupRef.current.scale.set(newScale, newScale, newScale);
+
+      // End animation when complete
+      if (progress >= 1) {
+        setAnimState(prev => ({ ...prev, isAnimating: false }));
+      }
+    }
   });
 
   // Event handlers

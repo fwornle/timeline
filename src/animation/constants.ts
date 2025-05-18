@@ -5,17 +5,17 @@ export const DEFAULTS = {
   CARD: {
     SCALE: {
       DEFAULT: 1,
-      HOVER: 1.1,
-      SELECTED: 1.2,
+      HOVER: 1.3,  // Increased for more noticeable hover effect
+      SELECTED: 1.5,  // Increased for more noticeable selection
     },
     ROTATION: {
       DEFAULT: [0, 0, 0] as const,
-      HOVER: [0, 0.1, 0] as const,
-      SELECTED: [0, 0.2, 0] as const,
+      HOVER: [0, Math.PI * 2, 0] as const,  // Full 360-degree rotation
+      SELECTED: [0, 0, 0] as const,  // No rotation for selected state
     },
     POSITION_Y: {
       DEFAULT: 0,
-      HOVER: 0.2,
+      HOVER: 0.3,  // Increased to make it more visible
       SELECTED: 0.5,
     },
   },
@@ -38,8 +38,8 @@ export const DEFAULTS = {
 export const SPRING_CONFIG = {
   GENTLE: {
     mass: 1,
-    tension: 170,
-    friction: 26,
+    tension: 120,  // Reduced for smoother animation
+    friction: 30,  // Increased to prevent oscillation
   },
   WOBBLY: {
     mass: 1,
@@ -63,7 +63,7 @@ export const SPRING_CONFIG = {
   },
   BOUNCY: {
     mass: 1.2,
-    tension: 250,
-    friction: 14,
+    tension: 180,  // Reduced for smoother animation
+    friction: 18,  // Increased to prevent excessive bouncing
   },
 };
