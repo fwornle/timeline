@@ -169,7 +169,7 @@ export class GitService {
   /**
    * Fetches git history from the API
    */
-  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], cached: boolean, mocked?: boolean }> {
+  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], cached: boolean, mocked: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
 
@@ -191,14 +191,15 @@ export class GitService {
       const events = this.parseGitHistory(response.data);
       // Use mocked flag if available, otherwise fall back to cached
       const cached = response.mocked || response.cached || false;
+      const mocked = response.mocked || false;
 
       logger.info('data', 'Successfully fetched git history', {
         eventCount: events.length,
         cached,
-        mocked: response.mocked
+        mocked
       });
 
-      return { events, cached };
+      return { events, cached, mocked };
     } catch (error) {
       logger.error('data', 'Failed to fetch git history', {
         error,

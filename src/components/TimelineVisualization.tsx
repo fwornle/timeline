@@ -13,11 +13,12 @@ interface TimelineVisualizationProps {
   autoDrift: boolean;
   onLoadingChange: (isLoading: boolean) => void;
   onError: (error: Error | null) => void;
-  onDataLoaded?: (gitEvents: TimelineEvent[], specEvents: TimelineEvent[], isCached: boolean) => void;
+  onDataLoaded?: (gitEvents: TimelineEvent[], specEvents: TimelineEvent[], isMocked: boolean) => void;
   onPositionUpdate?: (position: number) => void;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
+  debugMode?: boolean;
 }
 
 // Loading component
@@ -89,6 +90,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   forceReload = false,
   viewAllMode: externalViewAllMode = false,
   focusCurrentMode: externalFocusCurrentMode = false,
+  debugMode = false,
 }) => {
   // Always initialize hooks regardless of repoUrl to maintain hook order
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
@@ -120,13 +122,19 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     }
   }, [forceReload, repoUrl, purgeAndRefresh, logger]);
 
-  // Camera view modes - combine internal state with external props
-  const [internalViewAllMode, setViewAllMode] = useState(true); // Start with view all mode
-  const [internalFocusCurrentMode, setFocusCurrentMode] = useState(false);
+  // Track external view mode changes
+  useEffect(() => {
+    if (externalViewAllMode) {
+      logger.info('External view all mode activated');
+    }
+    if (externalFocusCurrentMode) {
+      logger.info('External focus mode activated');
+    }
+  }, [externalViewAllMode, externalFocusCurrentMode, logger]);
 
-  // Combine internal state with external props
-  const viewAllMode = externalViewAllMode || internalViewAllMode;
-  const focusCurrentMode = externalFocusCurrentMode || internalFocusCurrentMode;
+  // Use external props directly - we don't need internal state anymore
+  const viewAllMode = externalViewAllMode;
+  const focusCurrentMode = externalFocusCurrentMode;
 
   // Animation state
   const {
@@ -269,7 +277,20 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
     // Notify parent component about data loading
     if (onDataLoaded) {
+      // Force a console log to debug the values being passed
+      console.debug('SENDING TO PARENT:', {
+        gitCount: gitEvents.length,
+        specCount: specEvents.length,
+        isMocked: usingMockedData
+      });
+
       // Pass the mocked status to the parent component
+      console.debug('TimelineVisualization calling onDataLoaded with:', {
+        gitCount: gitEvents.length,
+        specCount: specEvents.length,
+        isMocked: usingMockedData,
+        stack: new Error().stack
+      });
       onDataLoaded(gitEvents, specEvents, usingMockedData);
 
       // Log the counts being sent to the parent
@@ -380,6 +401,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
           currentPosition={cameraTarget.z}
+          debugMode={debugMode}
         />
       </div>
 

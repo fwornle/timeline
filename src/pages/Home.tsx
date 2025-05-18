@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
-import { Alert } from 'react-bootstrap';
 import { TimelineVisualization } from '../components/TimelineVisualization';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
 interface HomeProps {
   onLoadingChange?: (loading: boolean) => void;
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
-  onCacheStatusChange?: (isCached: boolean) => void;
+  onCacheStatusChange?: (isMocked: boolean) => void;
   onPositionChange?: (position: number) => void;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
+  debugMode?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({
@@ -21,15 +21,23 @@ const Home: React.FC<HomeProps> = ({
   onPositionChange,
   forceReload = false,
   viewAllMode = false,
-  focusCurrentMode = false
+  focusCurrentMode = false,
+  debugMode = false
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
   const { preferences } = usePreferences();
   const [error, setError] = useState<Error | null>(null);
+
+  // Log error state changes
+  useEffect(() => {
+    if (error) {
+      logger.error('Error state updated', { error: error.message });
+    }
+  }, [error, logger]);
   const [isLoading, setIsLoading] = useState(false);
   const [gitCount, setGitCount] = useState(0);
   const [specCount, setSpecCount] = useState(0);
-  const [isCached, setIsCached] = useState(false);
+  const [isMocked, setIsMocked] = useState(false);
 
   // Get repository URL from preferences
   const repoUrl = preferences.repoUrl || '';
@@ -54,18 +62,20 @@ const Home: React.FC<HomeProps> = ({
 
   // Update event counts when data is loaded
   useEffect(() => {
-    if (onEventCountsChange && (gitCount > 0 || specCount > 0)) {
+    if (onEventCountsChange) {
+      // Always update the parent, even if counts are 0
       onEventCountsChange(gitCount, specCount);
       logger.info('Event counts updated', { gitCount, specCount });
     }
   }, [gitCount, specCount, onEventCountsChange]);
 
-  // Update cache status
+  // Update mocked status
   useEffect(() => {
     if (onCacheStatusChange) {
-      onCacheStatusChange(isCached);
+      console.debug('Home sending isMocked to parent:', isMocked);
+      onCacheStatusChange(isMocked);
     }
-  }, [isCached, onCacheStatusChange]);
+  }, [isMocked, onCacheStatusChange]);
 
   return (
     <div className="position-relative w-100 h-100 d-flex">
@@ -118,18 +128,34 @@ const Home: React.FC<HomeProps> = ({
             forceReload={forceReload}
             viewAllMode={viewAllMode}
             focusCurrentMode={focusCurrentMode}
+            debugMode={debugMode}
             onDataLoaded={(gitEvents, specEvents, isMocked) => {
-              setGitCount(gitEvents.length);
-              setSpecCount(specEvents.length);
-              setIsCached(isMocked);
+              // Log the received data
+              console.debug('Home received data from TimelineVisualization:', {
+                gitCount: gitEvents.length,
+                specCount: specEvents.length,
+                isMocked: isMocked
+              });
 
-              // Update parent component with the counts
+              // Update local state immediately using function form
+              console.debug('Home updating local state with:', {
+                gitCount: gitEvents.length,
+                specCount: specEvents.length,
+                isMocked: isMocked,
+                stack: new Error().stack
+              });
+              setGitCount(() => gitEvents.length);
+              setSpecCount(() => specEvents.length);
+              setIsMocked(() => isMocked);
+
+              // Update parent component with the counts - force immediate update
               if (onEventCountsChange) {
                 onEventCountsChange(gitEvents.length, specEvents.length);
               }
 
-              // Update parent component with the cache status
+              // Update parent component with the mocked status
               if (onCacheStatusChange) {
+                console.debug('Home sending isMocked to parent:', isMocked);
                 onCacheStatusChange(isMocked);
               }
 

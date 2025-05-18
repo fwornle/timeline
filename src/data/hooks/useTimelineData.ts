@@ -51,6 +51,9 @@ export function useTimelineData(baseUrl: string) {
   // Track if we've already attempted to fetch for this URL
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
+  // Track if we're currently fetching to prevent duplicate requests
+  const [isFetching, setIsFetching] = useState(false);
+
   const [state, setState] = useState<TimelineDataState>({
     events: [],
     period: null,
@@ -280,6 +283,15 @@ export function useTimelineData(baseUrl: string) {
     sourceToRetry?: 'git' | 'spec',
     forceRefresh = false
   ) => {
+    // Prevent duplicate requests
+    if (isFetching) {
+      logger.info('data', 'Already fetching data, skipping duplicate request');
+      return;
+    }
+
+    // Set fetching flag
+    setIsFetching(true);
+
     // Reset mocked data flag
     setUsingMockedData(false);
 
@@ -288,12 +300,14 @@ export function useTimelineData(baseUrl: string) {
       logger.warn('data', 'Empty repository URL, skipping fetch');
       // Load mock data when no repo URL is provided
       loadMockData();
+      setIsFetching(false);
       return;
     }
 
     // Check cache first unless force refresh is requested
     if (!forceRefresh && hasValidRepoData(baseUrl)) {
       logger.info('data', 'Using cached repository data', { baseUrl });
+      setIsFetching(false);
       return;
     }
 
@@ -336,7 +350,7 @@ export function useTimelineData(baseUrl: string) {
       // Use Promise.allSettled to handle partial failures
       const results = await Promise.allSettled([gitPromise, specPromise]);
 
-      // Extract successful results
+      // Extract successful results with proper type handling
       const gitResult = results[0].status === 'fulfilled' ? results[0].value : { events: [], cached: false, mocked: false };
       const specResult = results[1].status === 'fulfilled' ? results[1].value : { events: [], cached: false, mocked: false };
 
@@ -344,13 +358,16 @@ export function useTimelineData(baseUrl: string) {
       const specEvents = specResult.events;
 
       // Check if either result is marked as mocked
-      const isMocked = gitResult.mocked || specResult.mocked;
+      const gitMocked = 'mocked' in gitResult ? gitResult.mocked : false;
+      const specMocked = 'mocked' in specResult ? specResult.mocked : false;
+      const isMocked = gitMocked || specMocked;
+
       // Set the mocked data flag if either source is mocked
       if (isMocked) {
         setUsingMockedData(true);
         logger.info('data', 'Using mocked data from server', {
-          gitMocked: gitResult.mocked,
-          specMocked: specResult.mocked
+          gitMocked,
+          specMocked
         });
       }
 
@@ -405,6 +422,9 @@ export function useTimelineData(baseUrl: string) {
         isCached: isCached,
         isMocked: isMocked
       });
+
+      // Reset fetching flag
+      setIsFetching(false);
     } catch (error) {
       logger.error('data', 'Failed to update timeline data', { error });
 
@@ -435,12 +455,15 @@ export function useTimelineData(baseUrl: string) {
         logger.info('data', 'No data available, user can load mock data');
       }
 
+      // Reset fetching flag even on error
+      setIsFetching(false);
+
       // Don't throw here, let the UI handle the error state
     }
   }, [filter, gitService, specService, state.events, state.sources.git.retryCount, state.sources.spec.retryCount,
       state.sources.git.autoRetryEnabled, state.sources.spec.autoRetryEnabled,
       state.sources.git.maxAutoRetries, state.sources.spec.maxAutoRetries,
-      baseUrl, hasValidRepoData, loadRepoData, saveRepoData]);
+      baseUrl, hasValidRepoData, loadRepoData, saveRepoData, isFetching, loadMockData, setIsFetching]);
 
   // Only fetch data when baseUrl changes or on explicit refresh
 

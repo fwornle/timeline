@@ -18,11 +18,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [gitCount, setGitCount] = useState(0);
   const [specCount, setSpecCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCached, setIsCached] = useState(false);
+  const [isMocked, setIsMocked] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [forceReloadFlag, setForceReloadFlag] = useState(false);
   const [viewAllMode, setViewAllMode] = useState(false);
   const [focusCurrentMode, setFocusCurrentMode] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+
+  // Log debug mode changes
+  useEffect(() => {
+    logger.info('Debug mode changed', { debugMode });
+    console.debug('Debug mode is now:', debugMode);
+  }, [debugMode, logger]);
 
   // Update preferences when state changes
   useEffect(() => {
@@ -41,7 +48,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setGitCount(0);
     setSpecCount(0);
     setIsLoading(true);
-    setIsCached(false);
+    setIsMocked(false);
     logger.info('Repository URL changed', { url });
   };
 
@@ -53,12 +60,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Update event counts when data is loaded
   const updateEventCounts = (gitEvents: number, specEvents: number) => {
-    setGitCount(gitEvents);
-    setSpecCount(specEvents);
-    logger.info('Event counts updated', { gitEvents, specEvents });
+    // Log the update for debugging with stack trace
+    console.debug('MainLayout received event counts:', {
+      gitEvents,
+      specEvents,
+      currentGitCount: gitCount,
+      currentSpecCount: specCount,
+      stack: new Error().stack
+    });
 
-    // Debug log to verify counts are being updated
-    console.debug('MainLayout received event counts:', { gitEvents, specEvents });
+    // Force immediate state update using function form to ensure we get the latest state
+    if (gitEvents !== gitCount) {
+      setGitCount(gitEvents);
+    }
+
+    if (specEvents !== specCount) {
+      setSpecCount(specEvents);
+    }
+
+    // Log after the update
+    setTimeout(() => {
+      console.debug('MainLayout AFTER state update:', {
+        gitCount,
+        specCount,
+        newGitCount: gitEvents,
+        newSpecCount: specEvents
+      });
+    }, 0);
+
+    logger.info('Event counts updated', { gitEvents, specEvents });
   };
 
   // These will be updated by the TimelineVisualization component
@@ -82,7 +112,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setGitCount(0);
     setSpecCount(0);
     setIsLoading(true);
-    setIsCached(false);
+    setIsMocked(false);
 
     // Force a refresh of the data
     logger.info('Forcing data reload from upstream repository');
@@ -96,17 +126,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Handle camera view mode changes
   const handleViewAllClick = () => {
-    setViewAllMode(true);
-    // Reset after a short delay
-    setTimeout(() => setViewAllMode(false), 1000);
-    logger.info('Setting camera to view all mode');
+    logger.info('View All button clicked - setting camera to view all mode');
+    // First set both modes to false to ensure a state change even if already in view all mode
+    setViewAllMode(false);
+    setFocusCurrentMode(false);
+
+    // Use setTimeout to ensure the state update has time to process
+    setTimeout(() => {
+      setViewAllMode(true);
+
+      // Reset after a longer delay to ensure the animation completes
+      setTimeout(() => {
+        setViewAllMode(false);
+        logger.info('View All mode reset');
+      }, 2000);
+    }, 50);
   };
 
   const handleFocusCurrentClick = () => {
-    setFocusCurrentMode(true);
-    // Reset after a short delay
-    setTimeout(() => setFocusCurrentMode(false), 1000);
-    logger.info('Setting camera to focus on current position');
+    logger.info('Focus button clicked - setting camera to focus on current position');
+    // First set both modes to false to ensure a state change even if already in focus mode
+    setViewAllMode(false);
+    setFocusCurrentMode(false);
+
+    // Use setTimeout to ensure the state update has time to process
+    setTimeout(() => {
+      setFocusCurrentMode(true);
+
+      // Reset after a longer delay to ensure the animation completes
+      setTimeout(() => {
+        setFocusCurrentMode(false);
+        logger.info('Focus mode reset');
+      }, 2000);
+    }, 50);
   };
 
   // Create a modified version of children with additional props
@@ -117,11 +169,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       return React.cloneElement(child as React.ReactElement<any>, {
         onLoadingChange: handleLoadingChange,
         onEventCountsChange: updateEventCounts,
-        onCacheStatusChange: (cached: boolean) => setIsCached(cached),
+        onCacheStatusChange: (mocked: boolean) => {
+          console.debug('MainLayout received isMocked:', {
+            mocked,
+            currentIsMocked: isMocked,
+            stack: new Error().stack
+          });
+
+          // Force immediate state update using function form
+          if (mocked !== isMocked) {
+            setIsMocked(mocked);
+          }
+
+          // Log after the update
+          setTimeout(() => {
+            console.debug('MainLayout AFTER isMocked update:', {
+              isMocked,
+              newIsMocked: mocked
+            });
+          }, 0);
+
+          logger.info('Cache status updated', { isMocked: mocked });
+        },
         onPositionChange: (pos: number) => setCurrentPosition(pos),
         forceReload: forceReloadFlag, // Use the forceReloadFlag to trigger reload
         viewAllMode: viewAllMode,
-        focusCurrentMode: focusCurrentMode
+        focusCurrentMode: focusCurrentMode,
+        debugMode: debugMode
       });
     }
     return child;
@@ -141,14 +215,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         gitCount={gitCount}
         specCount={specCount}
         isLoading={isLoading}
-        isCached={isCached}
+        isMocked={isMocked}
         currentPosition={currentPosition}
         animationSpeed={animationSpeed}
         autoDrift={autoDrift}
+        debugMode={debugMode}
         onAnimationSpeedChange={setAnimationSpeed}
         onAutoDriftChange={setAutoDrift}
         onViewAllClick={handleViewAllClick}
         onFocusCurrentClick={handleFocusCurrentClick}
+        onDebugModeChange={(enabled) => {
+          console.debug('MainLayout received debug mode change:', enabled);
+          setDebugMode(enabled);
+        }}
       />
     </div>
   );

@@ -9,6 +9,13 @@ interface MainPageProps {
   autoDrift: boolean;
   onLoadingChange: (isLoading: boolean) => void;
   onError: (error: Error | null) => void;
+  viewAllMode?: boolean;
+  focusCurrentMode?: boolean;
+  forceReload?: boolean;
+  onEventCountsChange?: (gitEvents: number, specEvents: number) => void;
+  onCacheStatusChange?: (cached: boolean) => void;
+  onPositionChange?: (pos: number) => void;
+  debugMode?: boolean;
 }
 
 const MainPage: React.FC<MainPageProps> = ({
@@ -17,6 +24,13 @@ const MainPage: React.FC<MainPageProps> = ({
   autoDrift,
   onLoadingChange,
   onError,
+  viewAllMode,
+  focusCurrentMode,
+  forceReload,
+  onEventCountsChange,
+  onCacheStatusChange,
+  onPositionChange,
+  debugMode = false,
 }) => {
   const logger = useLogger({ component: 'MainPage', topic: 'ui' });
   const [error, setError] = useState<Error | null>(null);
@@ -54,7 +68,7 @@ const MainPage: React.FC<MainPageProps> = ({
         </div>
       ) : (
         <ErrorBoundary
-          onError={(err, errorInfo) => {
+          onError={(err: Error, errorInfo: React.ErrorInfo) => {
             // Log detailed error information
             logger.error('Error caught by boundary', {
               error: {
@@ -68,7 +82,7 @@ const MainPage: React.FC<MainPageProps> = ({
             // Set the error in the app state
             handleError(err);
           }}
-          fallback={(err, resetError) => (
+          fallback={(err: Error, resetError: () => void) => (
             <div className="absolute inset-0 flex items-center justify-center text-foreground">
               <div className="text-center bg-card/60 backdrop-blur-md p-8 rounded-xl border border-red-900/50 max-w-md">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-900/20 flex items-center justify-center">
@@ -109,6 +123,19 @@ const MainPage: React.FC<MainPageProps> = ({
               autoDrift={autoDrift}
               onLoadingChange={handleLoadingChange}
               onError={handleError}
+              viewAllMode={viewAllMode}
+              focusCurrentMode={focusCurrentMode}
+              forceReload={forceReload}
+              debugMode={debugMode}
+              onDataLoaded={(gitEvents, specEvents, isCached) => {
+                if (onEventCountsChange) {
+                  onEventCountsChange(gitEvents.length, specEvents.length);
+                }
+                if (onCacheStatusChange) {
+                  onCacheStatusChange(isCached);
+                }
+              }}
+              onPositionUpdate={onPositionChange}
             />
           )}
         </ErrorBoundary>

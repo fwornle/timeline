@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
 
@@ -6,32 +6,47 @@ interface BottomBarProps {
   gitCount?: number;
   specCount?: number;
   isLoading?: boolean;
-  isCached?: boolean;
+  isMocked?: boolean;
   currentPosition?: number;
   animationSpeed?: number;
   autoDrift?: boolean;
+  debugMode?: boolean;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
   onViewAllClick?: () => void;
   onFocusCurrentClick?: () => void;
+  onDebugModeChange?: (enabled: boolean) => void;
 }
 
 const BottomBar: React.FC<BottomBarProps> = ({
   gitCount = 0,
   specCount = 0,
   isLoading = false,
-  isCached = false,
+  isMocked = false,
   currentPosition = 0,
   animationSpeed = 1,
   autoDrift = false,
+  debugMode = false,
   onAnimationSpeedChange,
   onAutoDriftChange,
   onViewAllClick,
-  onFocusCurrentClick
+  onFocusCurrentClick,
+  onDebugModeChange
 }) => {
   const { preferences } = usePreferences();
   const repoUrl = preferences.repoUrl || '';
   const showControls = !!repoUrl;
+
+  // Log when props change
+  useEffect(() => {
+    console.debug('BottomBar props updated:', {
+      gitCount,
+      specCount,
+      isMocked,
+      debugMode,
+      showControls
+    });
+  }, [gitCount, specCount, isMocked, debugMode, showControls]);
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onAnimationSpeedChange) {
@@ -45,6 +60,14 @@ const BottomBar: React.FC<BottomBarProps> = ({
     }
   };
 
+  const handleDebugModeChange = () => {
+    console.debug('Debug mode change requested, current value:', debugMode);
+    if (onDebugModeChange) {
+      console.debug('Calling onDebugModeChange with new value:', !debugMode);
+      onDebugModeChange(!debugMode);
+    }
+  };
+
   return (
     <div className="bg-light border-top py-2">
       <Container fluid>
@@ -53,6 +76,12 @@ const BottomBar: React.FC<BottomBarProps> = ({
           <Col xs={12} md={6} className="text-md-start text-center mb-2 mb-md-0">
             {showControls ? (
               <div className="d-flex flex-wrap gap-2 align-items-center">
+                {/* Always log the values for debugging */}
+                <>{console.debug('BottomBar rendering with:', { gitCount, specCount, isMocked, debugMode })}</>
+                {/* Log a stack trace to see where this is being called from */}
+                <>{console.debug('BottomBar render stack:', new Error().stack)}</>
+                {/* Using empty fragment to avoid TypeScript error */}
+
                 <span className="badge bg-secondary">
                   <i className="bi bi-git me-1"></i>
                   {isLoading ? 'Loading...' : `${gitCount} commits`}
@@ -61,10 +90,17 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   <i className="bi bi-chat-dots me-1"></i>
                   {isLoading ? 'Loading...' : `${specCount} prompts`}
                 </span>
-                {isCached && (
-                  <span className="badge bg-warning text-dark">
-                    <i className="bi bi-database me-1"></i>
-                    Mocked
+                {/* Always show mocked indicator when isMocked is true */}
+                <>{console.debug('Checking isMocked for indicator:', isMocked)}</>
+                <span className={`badge ${isMocked ? 'bg-warning text-dark' : 'd-none'}`}>
+                  <i className="bi bi-database me-1"></i>
+                  Mocked
+                </span>
+                {/* Debug info for troubleshooting */}
+                {debugMode && (
+                  <span className="badge bg-dark text-white ms-2">
+                    <i className="bi bi-info-circle me-1"></i>
+                    Debug: {gitCount}/{specCount}
                   </span>
                 )}
                 <span className="badge bg-primary">
@@ -123,6 +159,16 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 >
                   <i className={`bi ${autoDrift ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
                   {autoDrift ? ' Auto' : ' Play'}
+                </button>
+
+                {/* Debug mode toggle */}
+                <button
+                  className={`btn btn-sm ${debugMode ? 'btn-danger' : 'btn-outline-danger'}`}
+                  onClick={handleDebugModeChange}
+                  title="Toggle camera debug mode"
+                >
+                  <i className="bi bi-camera"></i>
+                  {debugMode ? ' Debug On' : ' Debug'}
                 </button>
               </div>
             </Col>

@@ -27,6 +27,7 @@ interface TimelineSceneProps {
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
   currentPosition?: number;
+  debugMode?: boolean;
 }
 
 export const TimelineScene: React.FC<TimelineSceneProps> = ({
@@ -39,7 +40,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   getCardAnimationProps,
   viewAllMode = false,
   focusCurrentMode = false,
-  currentPosition = 0
+  currentPosition = 0,
+  debugMode = false
 }) => {
   // Calculate the date range from events
   const getDateRange = (): { startDate: Date | undefined, endDate: Date | undefined } => {
@@ -111,6 +113,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           target={cameraTarget}
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
+          events={events}
+          debugMode={debugMode}
         />
         <TimelineAxis
           startDate={startDate}

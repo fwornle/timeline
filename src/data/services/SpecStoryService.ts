@@ -201,7 +201,7 @@ export class SpecStoryService {
   /**
    * Fetches spec history from the API
    */
-  async fetchSpecHistory(startDate?: Date, endDate?: Date): Promise<{ events: SpecTimelineEvent[], cached: boolean, mocked?: boolean }> {
+  async fetchSpecHistory(startDate?: Date, endDate?: Date): Promise<{ events: SpecTimelineEvent[], cached: boolean, mocked: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
       const specDir = this.resolveSpecDirectory(this.repository);
@@ -231,14 +231,15 @@ export class SpecStoryService {
       const events = response.data.map((spec: SpecHistoryResponse) => this.parseSpecEvent(spec));
       // Use mocked flag if available, otherwise fall back to cached
       const cached = response.mocked || response.cached || false;
+      const mocked = response.mocked || false;
 
       logger.info('data', 'Successfully fetched spec history', {
         eventCount: events.length,
         cached,
-        mocked: response.mocked
+        mocked
       });
 
-      return { events, cached };
+      return { events, cached, mocked };
     } catch (error) {
       logger.error('data', 'Failed to fetch spec history', {
         error,
