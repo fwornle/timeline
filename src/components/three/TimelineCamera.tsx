@@ -74,16 +74,18 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (initialPositionSet) return;
 
-    // Position camera at the start of the timeline (Z=0)
-    const initialDistance = 20;
+    // Position camera to show the start of the timeline
+    // We want to be closer to the timeline and higher up for a better view
+    const initialDistance = 25;
     const initialPosition = new Vector3(
-      -initialDistance * 0.8,
-      initialDistance * 0.6,
-      0
+      -initialDistance * 0.5,  // Closer to the timeline horizontally
+      initialDistance * 0.8,   // Higher up for better overview
+      -initialDistance * 0.3   // Slightly behind the start for better perspective
     );
 
     camera.position.copy(initialPosition);
-    camera.lookAt(target);
+    // Look at a point slightly ahead of the start to show the direction
+    camera.lookAt(new Vector3(0, 0, 10));
 
     setInitialPositionSet(true);
     logger.info('Initial camera position set', {
@@ -136,11 +138,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       enableRotate={true}
       minDistance={5}
       maxDistance={100}
-      minPolarAngle={Math.PI / 6} // Allow more vertical viewing angle
-      maxPolarAngle={Math.PI / 2}
+      minPolarAngle={Math.PI / 4}  // Increased minimum angle to prevent too low views
+      maxPolarAngle={Math.PI * 0.6} // Allow slightly higher views
       // Restrict rotation to prevent seeing the back of cards
-      maxAzimuthAngle={Math.PI / 2}
-      minAzimuthAngle={-Math.PI / 2}
+      maxAzimuthAngle={Math.PI * 0.3}  // Allow less rotation to the right
+      minAzimuthAngle={-Math.PI * 0.4}  // Allow more rotation to the left
       onChange={() => {
         userControlledRef.current = true;
       }}

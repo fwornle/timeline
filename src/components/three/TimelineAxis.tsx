@@ -22,8 +22,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 }) => {
   // Generate axis points - now from 0 to length instead of -length/2 to length/2
   const axisPoints = [
-    [0, 0, 0] as [number, number, number],
-    [0, 0, length] as [number, number, number],
+    [0, 2, 0] as [number, number, number],  // Raised Y position to 2
+    [0, 2, length] as [number, number, number],  // Raised Y position to 2
   ];
 
   // Generate tick marks
@@ -62,8 +62,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       <Line
         key={`tick-${i}`}
         points={[
-          [0, -tickSize, i] as [number, number, number],
-          [0, tickSize, i] as [number, number, number],
+          [0, 2 - tickSize, i] as [number, number, number],  // Adjusted for new Y position
+          [0, 2 + tickSize, i] as [number, number, number],  // Adjusted for new Y position
         ]}
         color={color}
         lineWidth={1}
@@ -79,7 +79,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       ticks.push(
         <Text
           key={`label-${i}`}
-          position={[0, tickSize * 2, i]}
+          position={[0, 2 + tickSize * 2, i]}  // Adjusted for new Y position
           color={color}
           fontSize={0.4}
           anchorX="center"
@@ -100,7 +100,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
     // Create a vertical marker at the current position
     return (
-      <group position={[0, 0, currentPosition]}>
+      <group position={[0, 2, currentPosition]}>  {/* Adjusted Y position */}
         {/* Vertical line */}
         <Line
           points={[

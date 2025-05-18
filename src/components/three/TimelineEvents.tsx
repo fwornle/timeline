@@ -46,14 +46,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     if (timeRange === 0) {
       const index = allEvents.findIndex(e => e.id === event.id);
       const spacing = 5;
-      // Start from Z=0 and move forward
       const zPos = index * spacing;
       
       // Alternate x positions for better visibility
-      const xOffset = 4;
+      const xOffset = 3; // Reduced offset to save horizontal space
       const xPos = index % 2 === 0 ? -xOffset : xOffset;
       
-      return [xPos, 0, zPos];
+      return [xPos, 2, zPos]; // Raised Y position to move everything up
     }
     
     // Map the event time to a position on the Z axis
@@ -75,11 +74,11 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
     
     // Alternate x positions for better visibility based on sorted index
-    const xOffset = 4;
+    const xOffset = 3; // Reduced offset to save horizontal space
     const xPos = eventIndex % 2 === 0 ? -xOffset : xOffset;
     
-    // Y position is 0 by default, will be animated
-    const yPos = 0;
+    // Y position is raised to move everything up
+    const yPos = 2;
     
     return [xPos, yPos, zPos];
   };
