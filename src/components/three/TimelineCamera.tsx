@@ -4,6 +4,17 @@ import { useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+
+// Define DEBUG_POSITIONS array again
+const DEBUG_POSITIONS = [
+  { position: new Vector3(-30, 20, 25), name: "Overview Left" },        // Adjusted Z for centered timeline
+  { position: new Vector3(30, 20, 25), name: "Overview Right" },       // Adjusted Z
+  { position: new Vector3(0, 40, 25), name: "Top Down Middle" },      // Adjusted Z
+  { position: new Vector3(0, 5, -60), name: "Front View Low" },      // Look from the start, low angle
+  { position: new Vector3(-25, 10, -50), name: "Angled Start View" }, // Angled view of the start
+  { position: new Vector3(0, 10, 120), name: "End View" }              // View from beyond the end
+];
 
 interface TimelineCameraProps {
   target: Vector3;
@@ -63,12 +74,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   viewAllMode = false,
   focusCurrentMode = false,
   events = [],
+  debugMode = false,
 }) => {
   const { camera } = useThree();
   const [initialPositionSet, setInitialPositionSet] = useState(false);
   const logger = useLogger({ component: 'TimelineCamera', topic: 'ui' });
   const lastViewModeRef = useRef({ viewAll: false, focusCurrent: false });
   const userControlledRef = useRef(false);
+  const [debugPositionIndex, setDebugPositionIndex] = useState(0);
+  const orbitControlsRef = useRef<OrbitControlsImpl>(null);
 
   // Handle initial camera setup - only once
   useEffect(() => {
@@ -129,22 +143,67 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     lastViewModeRef.current = { viewAll: viewAllMode, focusCurrent: focusCurrentMode };
   }, [viewAllMode, focusCurrentMode, target, camera, logger, events]);
 
+  // Debug mode - cycle through camera positions
+  useEffect(() => {
+    let intervalId: number | undefined;
+
+    if (debugMode && camera && orbitControlsRef.current) {
+      logger.info('Debug mode activated - cycling camera positions');
+
+      const cycle = () => {
+        const nextIndex = (debugPositionIndex + 1) % DEBUG_POSITIONS.length;
+        const { position, name } = DEBUG_POSITIONS[nextIndex];
+        
+        camera.position.copy(position);
+        // For debug, look at a fixed point or center of timeline, e.g., new Vector3(0, 2, 0)
+        // Or, if you want it to follow the `target` prop:
+        camera.lookAt(target); 
+        if (orbitControlsRef.current) {
+          orbitControlsRef.current.target.copy(target); // Ensure controls target is also updated
+        }
+
+        logger.info(`Camera moved to debug position: ${name}`, { position });
+        setDebugPositionIndex(nextIndex);
+      };
+
+      // Initial move
+      const initialDebugPosition = DEBUG_POSITIONS[debugPositionIndex];
+      camera.position.copy(initialDebugPosition.position);
+      camera.lookAt(target);
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.target.copy(target);
+      }
+      logger.info(`Camera moved to initial debug position: ${initialDebugPosition.name}`, { position: initialDebugPosition.position });
+      
+      intervalId = window.setInterval(cycle, 3000); // Cycle every 3 seconds
+    }
+
+    return () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+        logger.info('Debug mode deactivated or component unmounted');
+      }
+    };
+  }, [debugMode, camera, target, logger, debugPositionIndex]);
+
   return (
     <OrbitControls
+      ref={orbitControlsRef}
       makeDefault
       target={target}
       enablePan={true}
       enableZoom={true}
       enableRotate={true}
       minDistance={5}
-      maxDistance={100}
-      minPolarAngle={Math.PI / 4}  // Increased minimum angle to prevent too low views
-      maxPolarAngle={Math.PI * 0.6} // Allow slightly higher views
-      // Restrict rotation to prevent seeing the back of cards
-      maxAzimuthAngle={Math.PI * 0.3}  // Allow less rotation to the right
-      minAzimuthAngle={-Math.PI * 0.4}  // Allow more rotation to the left
+      maxDistance={150}
+      minPolarAngle={0}
+      maxPolarAngle={Math.PI}
+      maxAzimuthAngle={Infinity}
+      minAzimuthAngle={-Infinity}
       onChange={() => {
-        userControlledRef.current = true;
+        if (!debugMode) {
+          userControlledRef.current = true;
+        }
       }}
     />
   );
