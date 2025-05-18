@@ -8,6 +8,7 @@ interface TimelineAxisProps {
   showLabels?: boolean;
   startDate?: Date;
   endDate?: Date;
+  currentPosition?: number;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -17,6 +18,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   showLabels = true,
   startDate,
   endDate,
+  currentPosition = 0,
 }) => {
   // Generate axis points
   const axisPoints = [
@@ -92,6 +94,49 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     }
   }
 
+  // Create a marker for the current position
+  const CurrentPositionMarker = () => {
+    // Only show marker if we have a valid position
+    if (currentPosition === undefined || currentPosition === null) {
+      return null;
+    }
+
+    // Create a vertical marker at the current position
+    return (
+      <group position={[0, 0, currentPosition]}>
+        {/* Vertical line */}
+        <Line
+          points={[
+            [0, -1, 0] as [number, number, number],
+            [0, 1, 0] as [number, number, number],
+          ]}
+          color="#ff9800" // Orange color for the marker
+          lineWidth={3}
+        />
+        {/* Horizontal marker */}
+        <Line
+          points={[
+            [-0.5, 0, 0] as [number, number, number],
+            [0.5, 0, 0] as [number, number, number],
+          ]}
+          color="#ff9800"
+          lineWidth={3}
+        />
+        {/* Label */}
+        <Text
+          position={[0, 1.2, 0]}
+          color="#ff9800"
+          fontSize={0.5}
+          anchorX="center"
+          anchorY="bottom"
+          fontWeight="bold"
+        >
+          Current
+        </Text>
+      </group>
+    );
+  };
+
   return (
     <group>
       <Line
@@ -100,6 +145,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         lineWidth={1}
       />
       {ticks}
+      <CurrentPositionMarker />
     </group>
   );
 };

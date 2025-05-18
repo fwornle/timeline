@@ -10,6 +10,8 @@ interface HomeProps {
   onCacheStatusChange?: (isCached: boolean) => void;
   onPositionChange?: (position: number) => void;
   forceReload?: boolean;
+  viewAllMode?: boolean;
+  focusCurrentMode?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({
@@ -17,7 +19,9 @@ const Home: React.FC<HomeProps> = ({
   onEventCountsChange,
   onCacheStatusChange,
   onPositionChange,
-  forceReload = false
+  forceReload = false,
+  viewAllMode = false,
+  focusCurrentMode = false
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
   const { preferences } = usePreferences();
@@ -112,6 +116,8 @@ const Home: React.FC<HomeProps> = ({
             onLoadingChange={handleLoadingChange}
             onError={handleError}
             forceReload={forceReload}
+            viewAllMode={viewAllMode}
+            focusCurrentMode={focusCurrentMode}
             onDataLoaded={(gitEvents, specEvents, isMocked) => {
               setGitCount(gitEvents.length);
               setSpecCount(specEvents.length);

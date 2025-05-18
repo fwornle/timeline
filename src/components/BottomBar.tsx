@@ -12,6 +12,8 @@ interface BottomBarProps {
   autoDrift?: boolean;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
+  onViewAllClick?: () => void;
+  onFocusCurrentClick?: () => void;
 }
 
 const BottomBar: React.FC<BottomBarProps> = ({
@@ -23,7 +25,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
   animationSpeed = 1,
   autoDrift = false,
   onAnimationSpeedChange,
-  onAutoDriftChange
+  onAutoDriftChange,
+  onViewAllClick,
+  onFocusCurrentClick
 }) => {
   const { preferences } = usePreferences();
   const repoUrl = preferences.repoUrl || '';
@@ -77,6 +81,27 @@ const BottomBar: React.FC<BottomBarProps> = ({
           {showControls && (
             <Col xs={12} md={6} className="text-md-end text-center mt-2 mt-md-0">
               <div className="d-flex align-items-center justify-content-md-end justify-content-center gap-3">
+                {/* Camera control buttons */}
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={onViewAllClick}
+                    title="View all events"
+                  >
+                    <i className="bi bi-arrows-fullscreen"></i>
+                    <span className="ms-1 d-none d-md-inline">View All</span>
+                  </button>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={onFocusCurrentClick}
+                    title="Focus on current position"
+                  >
+                    <i className="bi bi-bullseye"></i>
+                    <span className="ms-1 d-none d-md-inline">Focus</span>
+                  </button>
+                </div>
+
+                {/* Speed control */}
                 <div className="d-flex align-items-center gap-2" style={{ minWidth: '180px' }}>
                   <label htmlFor="speed-control" className="form-label mb-0 text-nowrap">Speed:</label>
                   <Form.Range
@@ -91,6 +116,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   <span className="text-nowrap">{animationSpeed.toFixed(1)}x</span>
                 </div>
 
+                {/* Auto-drift button */}
                 <button
                   className={`btn btn-sm ${autoDrift ? 'btn-primary' : 'btn-outline-primary'}`}
                   onClick={handleAutoDriftChange}

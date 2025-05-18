@@ -1,10 +1,11 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Environment, Grid } from '@react-three/drei';
 import { TimelineCamera } from './TimelineCamera';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { Vector3 } from 'three';
+import { useCallback, useEffect } from 'react';
 
 interface TimelineSceneProps {
   events: TimelineEvent[];
@@ -23,6 +24,9 @@ interface TimelineSceneProps {
       friction: number;
     };
   };
+  viewAllMode?: boolean;
+  focusCurrentMode?: boolean;
+  currentPosition?: number;
 }
 
 export const TimelineScene: React.FC<TimelineSceneProps> = ({
@@ -32,7 +36,10 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   onCardSelect,
   onCardHover,
   onCardPositionUpdate,
-  getCardAnimationProps
+  getCardAnimationProps,
+  viewAllMode = false,
+  focusCurrentMode = false,
+  currentPosition = 0
 }) => {
   // Calculate the date range from events
   const getDateRange = (): { startDate: Date | undefined, endDate: Date | undefined } => {
@@ -52,6 +59,32 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
 
   const { startDate, endDate } = getDateRange();
 
+  // Background click handler component
+  const BackgroundClickHandler = useCallback(() => {
+    const { gl } = useThree();
+
+    // Add a click handler to the canvas
+    useEffect(() => {
+      const handleCanvasClick = (event: MouseEvent) => {
+        // Only handle direct clicks on the canvas (not on cards)
+        if (event.target === gl.domElement) {
+          // Deselect any selected card
+          onCardSelect(null);
+        }
+      };
+
+      // Add event listener to the canvas
+      gl.domElement.addEventListener('click', handleCanvasClick);
+
+      // Clean up
+      return () => {
+        gl.domElement.removeEventListener('click', handleCanvasClick);
+      };
+    }, [gl, onCardSelect]);
+
+    return null;
+  }, [onCardSelect]);
+
   return (
     <div className="w-full h-full" style={{ height: '100%' }}>
       <Canvas
@@ -59,6 +92,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         camera={{ position: [10, 10, 10], fov: 45 }}
         style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
       >
+        {/* Background click handler */}
+        <BackgroundClickHandler />
+
         {/* Lighting */}
         <ambientLight intensity={0.7} />
         <directionalLight
@@ -71,12 +107,17 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         <pointLight position={[0, -10, 0]} intensity={0.5} color="#0ea5e9" />
 
         {/* Core Components */}
-        <TimelineCamera target={cameraTarget} />
+        <TimelineCamera
+          target={cameraTarget}
+          viewAllMode={viewAllMode}
+          focusCurrentMode={focusCurrentMode}
+        />
         <TimelineAxis
           startDate={startDate}
           endDate={endDate}
           tickInterval={5}
           color="#aaaaaa"
+          currentPosition={currentPosition}
         />
         <TimelineEvents
           events={events}

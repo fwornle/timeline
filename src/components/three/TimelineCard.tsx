@@ -33,6 +33,12 @@ const hoverDebounce = {
   isInHoverAnimation: false,
   // Track the last mouse position
   lastMousePosition: { x: 0, y: 0 },
+  // Track if camera is moving (to disable hover effects)
+  isCameraMoving: false,
+  // Last time camera moved
+  lastCameraMoveTime: 0,
+  // Camera movement cooldown (ms)
+  cameraCooldownTime: 300,
 };
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -48,8 +54,40 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     springConfig: { mass: 1, tension: 170, friction: 26 }
   }
 }) => {
-  // Get camera for proper rotation calculation
+  // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
+  const prevCameraPosition = useRef(camera.position.clone());
+
+  // Check for camera movement on each frame
+  useFrame(() => {
+    // Calculate distance moved
+    const distanceMoved = camera.position.distanceTo(prevCameraPosition.current);
+
+    // If camera moved significantly
+    if (distanceMoved > 0.05) {
+      // Mark camera as moving
+      hoverDebounce.isCameraMoving = true;
+      hoverDebounce.lastCameraMoveTime = performance.now();
+
+      // If this card is hovered and camera is moving, clear hover state
+      if (isHovered.current && globalHoveredCardId.current === event.id) {
+        if (onHover) {
+          console.debug(`Clearing hover on ${event.id} due to camera movement`);
+          onHover(null);
+        }
+      }
+    } else {
+      // Check if camera cooldown period has passed
+      const now = performance.now();
+      if (hoverDebounce.isCameraMoving &&
+          (now - hoverDebounce.lastCameraMoveTime) > hoverDebounce.cameraCooldownTime) {
+        hoverDebounce.isCameraMoving = false;
+      }
+    }
+
+    // Update previous position
+    prevCameraPosition.current.copy(camera.position);
+  });
 
   // Refs for animation
   const groupRef = useRef<Group>(null);
@@ -346,6 +384,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
+
+    // If camera is moving, ignore hover events
+    if (hoverDebounce.isCameraMoving) {
+      console.debug(`Ignoring hover on ${event.id}, camera is moving`);
+      return;
+    }
 
     // Store current mouse position
     hoverDebounce.lastMousePosition = { x: e.clientX, y: e.clientY };

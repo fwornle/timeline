@@ -16,6 +16,8 @@ interface TimelineVisualizationProps {
   onDataLoaded?: (gitEvents: TimelineEvent[], specEvents: TimelineEvent[], isCached: boolean) => void;
   onPositionUpdate?: (position: number) => void;
   forceReload?: boolean;
+  viewAllMode?: boolean;
+  focusCurrentMode?: boolean;
 }
 
 // Loading component
@@ -85,6 +87,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   onDataLoaded,
   onPositionUpdate,
   forceReload = false,
+  viewAllMode: externalViewAllMode = false,
+  focusCurrentMode: externalFocusCurrentMode = false,
 }) => {
   // Always initialize hooks regardless of repoUrl to maintain hook order
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
@@ -116,11 +120,20 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     }
   }, [forceReload, repoUrl, purgeAndRefresh, logger]);
 
+  // Camera view modes - combine internal state with external props
+  const [internalViewAllMode, setViewAllMode] = useState(true); // Start with view all mode
+  const [internalFocusCurrentMode, setFocusCurrentMode] = useState(false);
+
+  // Combine internal state with external props
+  const viewAllMode = externalViewAllMode || internalViewAllMode;
+  const focusCurrentMode = externalFocusCurrentMode || internalFocusCurrentMode;
+
   // Animation state
   const {
     isAutoScrolling,
     selectedCardId,
     cameraTarget,
+    cardPositionsRef,
     getCardAnimationProps,
     updateCardPosition,
     selectCard,
@@ -215,8 +228,21 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     if (onPositionUpdate && cameraTarget) {
       // Use the z position as the timeline position
       onPositionUpdate(cameraTarget.z);
+      console.debug('Position updated:', cameraTarget.z);
     }
   }, [cameraTarget, onPositionUpdate]);
+
+  // Also update position when a card is selected
+  useEffect(() => {
+    if (onPositionUpdate && selectedCardId) {
+      // Access the card positions from the animation hook
+      if (cardPositionsRef && cardPositionsRef.current && cardPositionsRef.current.has(selectedCardId)) {
+        const position = cardPositionsRef.current.get(selectedCardId)!;
+        onPositionUpdate(position.z);
+        console.debug('Position updated from card selection:', position.z);
+      }
+    }
+  }, [selectedCardId, onPositionUpdate, cardPositionsRef]);
 
   // Log significant state changes and notify parent
   useEffect(() => {
@@ -232,6 +258,14 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     // Separate git and spec events
     const gitEvents = events.filter(e => e.type === 'git');
     const specEvents = events.filter(e => e.type === 'spec');
+
+    // Log the counts for debugging
+    console.debug('Event counts:', {
+      gitCount: gitEvents.length,
+      specCount: specEvents.length,
+      totalCount: events.length,
+      isMocked: usingMockedData
+    });
 
     // Notify parent component about data loading
     if (onDataLoaded) {
@@ -252,6 +286,9 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     e.preventDefault();
     refresh();
   }, [refresh]);
+
+  // Camera control handlers - these are now handled by the parent component
+  // but we keep them for reference and potential future use
 
   // Render the appropriate view
   if (showWelcome) {
@@ -340,6 +377,9 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           onCardHover={setHoveredCard}
           onCardPositionUpdate={updateCardPosition}
           getCardAnimationProps={getCardAnimationProps}
+          viewAllMode={viewAllMode}
+          focusCurrentMode={focusCurrentMode}
+          currentPosition={cameraTarget.z}
         />
       </div>
 

@@ -21,6 +21,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isCached, setIsCached] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [forceReloadFlag, setForceReloadFlag] = useState(false);
+  const [viewAllMode, setViewAllMode] = useState(false);
+  const [focusCurrentMode, setFocusCurrentMode] = useState(false);
 
   // Update preferences when state changes
   useEffect(() => {
@@ -54,6 +56,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setGitCount(gitEvents);
     setSpecCount(specEvents);
     logger.info('Event counts updated', { gitEvents, specEvents });
+
+    // Debug log to verify counts are being updated
+    console.debug('MainLayout received event counts:', { gitEvents, specEvents });
   };
 
   // These will be updated by the TimelineVisualization component
@@ -89,6 +94,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     // which will be passed through the cloneElement below
   };
 
+  // Handle camera view mode changes
+  const handleViewAllClick = () => {
+    setViewAllMode(true);
+    // Reset after a short delay
+    setTimeout(() => setViewAllMode(false), 1000);
+    logger.info('Setting camera to view all mode');
+  };
+
+  const handleFocusCurrentClick = () => {
+    setFocusCurrentMode(true);
+    // Reset after a short delay
+    setTimeout(() => setFocusCurrentMode(false), 1000);
+    logger.info('Setting camera to focus on current position');
+  };
+
   // Create a modified version of children with additional props
   const childrenWithProps = React.Children.map(children, child => {
     // Check if the child is a valid React element
@@ -99,7 +119,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         onEventCountsChange: updateEventCounts,
         onCacheStatusChange: (cached: boolean) => setIsCached(cached),
         onPositionChange: (pos: number) => setCurrentPosition(pos),
-        forceReload: forceReloadFlag // Use the forceReloadFlag to trigger reload
+        forceReload: forceReloadFlag, // Use the forceReloadFlag to trigger reload
+        viewAllMode: viewAllMode,
+        focusCurrentMode: focusCurrentMode
       });
     }
     return child;
@@ -125,6 +147,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         autoDrift={autoDrift}
         onAnimationSpeedChange={setAnimationSpeed}
         onAutoDriftChange={setAutoDrift}
+        onViewAllClick={handleViewAllClick}
+        onFocusCurrentClick={handleFocusCurrentClick}
       />
     </div>
   );

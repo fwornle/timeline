@@ -161,6 +161,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     selectedCardId: state.selectedCardId,
     hoveredCardId: state.hoveredCardId,
     cameraTarget: state.cameraTarget,
+    cardPositionsRef, // Expose the card positions ref for external use
     getCardAnimationProps,
     updateCardPosition,
     selectCard,
