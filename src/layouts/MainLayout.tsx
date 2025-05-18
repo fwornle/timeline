@@ -9,17 +9,6 @@ interface MainLayoutProps {
   children: ReactNode;
 }
 
-type TimelinePageProps = {
-  onLoadingChange?: (loading: boolean) => void;
-  onEventCountsChange?: (gitEvents: number, specEvents: number) => void;
-  onCacheStatusChange?: (mocked: boolean) => void;
-  onPositionChange?: (pos: number) => void;
-  forceReload?: boolean;
-  viewAllMode?: boolean;
-  focusCurrentMode?: boolean;
-  debugMode?: boolean;
-};
-
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const logger = useLogger({ component: 'MainLayout', topic: 'ui' });
   const { preferences, setPreferences } = usePreferences();
@@ -68,37 +57,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setIsLoading(loading);
     logger.info('Loading state changed', { loading });
   };
-
-  // Update event counts when data is loaded
-  const updateEventCounts = (gitEvents: number, specEvents: number) => {
-    // Log the update for debugging with stack trace
-    console.debug('MainLayout received event counts:', {
-      gitEvents,
-      specEvents,
-      currentGitCount: gitCount,
-      currentSpecCount: specCount,
-      stack: new Error().stack
-    });
-
-    // Force immediate state update using function form
-    setGitCount(gitEvents);
-    setSpecCount(specEvents);
-
-    // Log after the update
-    setTimeout(() => {
-      console.debug('MainLayout AFTER state update:', {
-        gitCount,
-        specCount,
-        newGitCount: gitEvents,
-        newSpecCount: specEvents
-      });
-    }, 0);
-
-    logger.info('Event counts updated', { gitEvents, specEvents });
-  };
-
-  // These will be updated by the TimelineVisualization component
-  // through the BottomBar props
 
   // Handle timeline refresh (reset position)
   const handleRefreshTimeline = () => {
@@ -170,37 +128,73 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   // Create a modified version of children with additional props
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      const typeName = typeof child.type === 'function' ? child.type.name : '';
-      if (["Home", "MainPage", "TimelineVisualization"].includes(typeName)) {
-        return React.cloneElement(child as React.ReactElement<TimelinePageProps>, {
-          onLoadingChange: handleLoadingChange,
-          onEventCountsChange: updateEventCounts,
-          onCacheStatusChange: (mocked: boolean) => {
-            console.debug('MainLayout received isMocked:', {
-              mocked,
-              currentIsMocked: isMocked,
-              stack: new Error().stack
-            });
-            setIsMocked(mocked);
-            setTimeout(() => {
-              console.debug('MainLayout AFTER isMocked update:', {
-                isMocked,
-                newIsMocked: mocked
-              });
-            }, 0);
-            logger.info('Cache status updated', { isMocked: mocked });
-          },
-          onPositionChange: (pos: number) => setCurrentPosition(pos),
-          forceReload: forceReloadFlag,
-          viewAllMode: viewAllMode,
-          focusCurrentMode: focusCurrentMode,
-          debugMode: debugMode
-        });
+      // Get child type name in a simpler way
+      const childType = child.type.toString();
+      console.debug('MainLayout processing child:', { 
+        childType,
+        childProps: Object.keys(child.props || {})
+      });
+
+      // Define type for route props
+      interface RouteProps {
+        routeProps?: {
+          onLoadingChange?: (loading: boolean) => void;
+          onEventCountsChange?: (gitCount: number, specCount: number) => void;
+          onCacheStatusChange?: (mocked: boolean) => void;
+          onPositionChange?: (position: number) => void;
+          forceReload?: boolean;
+          viewAllMode?: boolean;
+          focusCurrentMode?: boolean;
+          debugMode?: boolean;
+        }
       }
+
+      // Detect AppRoutes (from React Router) - this is likely what we have
+      if (childType.includes('AppRoutes') || childType.includes('Routes')) {
+        console.debug('Found Routes component, need to pass props to its children');
+        
+        // For Routes, pass a routeProps object with all callbacks
+        try {
+          return React.cloneElement(child as React.ReactElement<RouteProps>, {
+            routeProps: {
+              onLoadingChange: handleLoadingChange,
+              onEventCountsChange: (gitCount: number, specCount: number) => {
+                console.debug('MainLayout.setGitCount/setSpecCount via routeProps:', { gitCount, specCount });
+                setGitCount(gitCount);
+                setSpecCount(specCount);
+              },
+              onCacheStatusChange: (mocked: boolean) => {
+                console.debug('MainLayout.setIsMocked via routeProps:', { mocked });
+                setIsMocked(mocked);
+              },
+              onPositionChange: (pos: number) => setCurrentPosition(pos),
+              forceReload: forceReloadFlag,
+              viewAllMode: viewAllMode,
+              focusCurrentMode: focusCurrentMode,
+              debugMode: debugMode
+            }
+          });
+        } catch (e) {
+          console.error('Error cloning Routes element:', e);
+          return child;
+        }
+      }
+      
+      // For direct components, pass props directly
       return child;
     }
     return child;
   });
+
+  // Debug output to track state and props
+  useEffect(() => {
+    console.debug('MainLayout state:', {
+      gitCount,
+      specCount,
+      isMocked,
+      isLoading
+    });
+  }, [gitCount, specCount, isMocked, isLoading]);
 
   return (
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">

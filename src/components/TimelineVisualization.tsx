@@ -254,53 +254,27 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Log significant state changes and notify parent
   useEffect(() => {
-    // Always update the parent component with the current event counts and mocked status
-    // even if there are no events
-    logger.info('Timeline data state updated', {
-      eventCount: events.length,
-      periodStart: period?.start,
-      periodEnd: period?.end,
+    console.debug('TimelineVisualization - events or period changed:', {
+      eventsCount: events.length,
+      gitCount: events.filter(e => e.type === 'git').length,
+      specCount: events.filter(e => e.type === 'spec').length,
+      hasDataLoadedCallback: !!onDataLoaded,
       usingMockedData
     });
 
-    // Separate git and spec events
-    const gitEvents = events.filter(e => e.type === 'git');
-    const specEvents = events.filter(e => e.type === 'spec');
-
-    // Log the counts for debugging
-    console.debug('Event counts:', {
-      gitCount: gitEvents.length,
-      specCount: specEvents.length,
-      totalCount: events.length,
-      isMocked: usingMockedData
-    });
-
-    // Notify parent component about data loading
-    if (onDataLoaded) {
-      // Force a console log to debug the values being passed
-      console.debug('SENDING TO PARENT:', {
-        gitCount: gitEvents.length,
-        specCount: specEvents.length,
-        isMocked: usingMockedData
-      });
-
-      // Pass the mocked status to the parent component
+    // Call onDataLoaded callback when we have events
+    if (onDataLoaded && events.length > 0) {
+      const gitEvents = events.filter(e => e.type === 'git');
+      const specEvents = events.filter(e => e.type === 'spec');
       console.debug('TimelineVisualization calling onDataLoaded with:', {
-        gitCount: gitEvents.length,
-        specCount: specEvents.length,
+        gitEventsCount: gitEvents.length,
+        specEventsCount: specEvents.length,
         isMocked: usingMockedData,
-        stack: new Error().stack
+        callbackName: onDataLoaded.name || 'anonymous function'
       });
       onDataLoaded(gitEvents, specEvents, usingMockedData);
-
-      // Log the counts being sent to the parent
-      logger.info('Updating parent with event counts', {
-        gitCount: gitEvents.length,
-        specCount: specEvents.length,
-        isMocked: usingMockedData
-      });
     }
-  }, [events, period, logger, onDataLoaded, usingMockedData]);
+  }, [events, period, onDataLoaded, usingMockedData]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {

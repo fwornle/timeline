@@ -159,61 +159,87 @@ export function useTimelineData(baseUrl: string) {
   }, [baseUrl, saveRepoData, setHasAttemptedFetch]);
 
   const fetchSource = async (
-    source: 'git' | 'spec',
-    fetchFn: () => Promise<{ events: TimelineEvent[], cached: boolean }>
-  ): Promise<{ events: TimelineEvent[], cached: boolean }> => {
+    sourceType: 'git' | 'spec',
+    fetchFn: () => Promise<{ events: TimelineEvent[]; cached: boolean; mocked?: boolean }>
+  ): Promise<{ events: TimelineEvent[]; cached: boolean; mocked: boolean }> => {
+    // Update source state to loading
     setState(prev => ({
       ...prev,
       sources: {
         ...prev.sources,
-        [source]: {
-          ...prev.sources[source],
+        [sourceType]: {
+          ...prev.sources[sourceType],
           isLoading: true,
+          error: null,
           lastAttempt: Date.now(),
-        },
-      },
+        }
+      }
     }));
 
+    logger.info('data', `Fetching ${sourceType} data`);
+    console.debug(`[useTimelineData] Fetching ${sourceType} data from server`);
+
     try {
-      const result = await fetchFn();
-      const { events, cached } = result;
-
-      setState(prev => ({
-        ...prev,
-        sources: {
-          ...prev.sources,
-          [source]: {
-            ...prev.sources[source],
-            isLoading: false,
-            error: null,
-            retryCount: 0,
-          },
-        },
-      }));
-
-      logger.info('data', `Successfully fetched ${source} data`, {
-        eventCount: events.length,
-        cached
+      // Call the service function to fetch data
+      const response = await fetchFn();
+      
+      console.debug(`[useTimelineData] ${sourceType} data response:`, {
+        eventCount: response.events.length,
+        cached: response.cached,
+        mocked: response.mocked,
+        dataSnippet: response.events.slice(0, 2),
+        response
       });
 
-      return result;
-    } catch (error) {
-      logger.error('data', `Failed to fetch ${source} data`, { error });
+      // Check if the response indicates mocked data
+      if (response.mocked) {
+        console.debug(`[useTimelineData] Received MOCKED ${sourceType} data with ${response.events.length} events`);
+        setUsingMockedData(true);
+      }
 
+      // Update loading state for this source
       setState(prev => ({
         ...prev,
         sources: {
           ...prev.sources,
-          [source]: {
-            ...prev.sources[source],
+          [sourceType]: {
+            ...prev.sources[sourceType],
             isLoading: false,
-            error: error instanceof Error ? error : new Error('Unknown error occurred'),
-            retryCount: prev.sources[source].retryCount + 1,
-          },
-        },
+            error: null,
+          }
+        }
       }));
 
-      return { events: [], cached: false };
+      // Handle empty results
+      if (response.events.length === 0) {
+        logger.warn('data', `No ${sourceType} events found in response`);
+      } else {
+        logger.info('data', `Received ${response.events.length} ${sourceType} events`);
+      }
+
+      return {
+        events: response.events,
+        cached: response.cached,
+        mocked: Boolean(response.mocked)
+      };
+    } catch (error) {
+      console.error(`[useTimelineData] Error fetching ${sourceType} data:`, error);
+      // Update error state for this source
+      setState(prev => ({
+        ...prev,
+        sources: {
+          ...prev.sources,
+          [sourceType]: {
+            ...prev.sources[sourceType],
+            isLoading: false,
+            error: error instanceof Error ? error : new Error(`Failed to fetch ${sourceType} data`),
+            retryCount: prev.sources[sourceType].retryCount + 1,
+          }
+        }
+      }));
+
+      // Return empty result on error
+      return { events: [], cached: false, mocked: false };
     }
   };
 
