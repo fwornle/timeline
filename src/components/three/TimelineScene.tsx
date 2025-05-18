@@ -5,7 +5,8 @@ import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { Vector3 } from 'three';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
+import { clearAllCardHovers } from './TimelineCard';
 
 interface TimelineSceneProps {
   events: TimelineEvent[];
@@ -62,30 +63,28 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   const { startDate, endDate } = getDateRange();
 
   // Background click handler component
-  const BackgroundClickHandler = useCallback(() => {
+  const BackgroundClickHandler: React.FC<{ onCardSelect: (id: string | null) => void }> = ({ onCardSelect }) => {
     const { gl } = useThree();
 
-    // Add a click handler to the canvas
     useEffect(() => {
       const handleCanvasClick = (event: MouseEvent) => {
         // Only handle direct clicks on the canvas (not on cards)
         if (event.target === gl.domElement) {
           // Deselect any selected card
           onCardSelect(null);
+          // Also clear all card hovers
+          clearAllCardHovers();
         }
       };
 
-      // Add event listener to the canvas
       gl.domElement.addEventListener('click', handleCanvasClick);
-
-      // Clean up
       return () => {
         gl.domElement.removeEventListener('click', handleCanvasClick);
       };
     }, [gl, onCardSelect]);
 
     return null;
-  }, [onCardSelect]);
+  };
 
   return (
     <div className="w-full h-full" style={{ height: '100%' }}>
@@ -95,7 +94,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
       >
         {/* Background click handler */}
-        <BackgroundClickHandler />
+        <BackgroundClickHandler onCardSelect={onCardSelect} />
 
         {/* Lighting */}
         <ambientLight intensity={0.7} />

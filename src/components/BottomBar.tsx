@@ -49,34 +49,42 @@ const BottomBar: React.FC<BottomBarProps> = ({
       return `Position: ${currentPosition.toFixed(2)}`;
     }
     
-    // This logic should match TimelineAxis.tsx's positionToDate function
-    // For now, we use a simpler approach that estimates the date based on the relative position
-    
     try {
-      // Normalize the position value to a 0-1 range based on the total timeline
-      // This is an approximation - would need to know the actual timeline length from the scene
-      
-      // Get full time range
+      // Get the full time range of the timeline
       const startTimestamp = startDate.getTime();
       const endTimestamp = endDate.getTime();
       const timeRange = endTimestamp - startTimestamp;
       
-      // Approximate the current timestamp based on current position
-      // Assume the position correlates to the normalized position in the time range
-      // We'll use a linear map from the current z-position to the timestamp
+      // We need to map the timeline's Z position to a date
+      // Since we don't have direct access to the visual timeline's start/end positions,
+      // we'll use an approximation based on the number of events and typical spacing
       
-      // Normalize the position based on the estimated timeline length
-      // Simply use the timestamp at the position proportional to the time range
-      const currentTimestamp = startTimestamp + 
-        (currentPosition / (gitCount + specCount) * timeRange);
+      // Get approximate timeline length in Three.js units
+      // Calculate from TimelineEvents.tsx's getEventPosition calculation
+      const totalEvents = gitCount + specCount;
+      const timelineLength = Math.max(totalEvents * 5, 100);
       
+      // Estimate the position range of the timeline in the scene
+      const estimatedTimelineStartZ = 0; // Assuming the timeline is centered at origin
+      const estimatedTimelineEndZ = timelineLength;
+      
+      // Calculate the position's normalized location on the timeline (0 to 1)
+      // Clamp value between 0 and 1 to handle edge cases
+      const normalizedPosition = Math.max(0, Math.min(1, 
+        (currentPosition - estimatedTimelineStartZ) / (estimatedTimelineEndZ - estimatedTimelineStartZ)
+      ));
+      
+      // Map the normalized position to a timestamp
+      const currentTimestamp = startTimestamp + (normalizedPosition * timeRange);
       const currentDate = new Date(currentTimestamp);
       
       // Format the date
       return currentDate.toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
-        year: 'numeric'
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } catch (e) {
       console.error('Error calculating date from position:', e);

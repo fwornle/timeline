@@ -60,14 +60,16 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     const normalizedTime = (event.timestamp.getTime() - minTime) / timeRange;
     
     // Map to Z position - newer events (higher timestamp) should be further along (higher Z)
-    // Length of timeline based on number of events with some padding
-    const timelineLength = allEvents.length * 5;
+    const timelineLength = Math.max(allEvents.length * 5, 100); // Ensure reasonable length
     const zPos = normalizedTime * timelineLength;
     
-    // Alternate x positions for better visibility
-    // We can use the event ID to ensure consistent x positions
+    // Find the index of this event in the sorted events array
+    // This ensures consistent alternating patterns
+    const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
+    
+    // Alternate x positions for better visibility based on sorted index
     const xOffset = 4;
-    const xPos = event.id.charCodeAt(0) % 2 === 0 ? -xOffset : xOffset;
+    const xPos = eventIndex % 2 === 0 ? -xOffset : xOffset;
     
     // Y position is 0 by default, will be animated
     const yPos = 0;

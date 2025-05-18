@@ -69,7 +69,7 @@ const hoverDebounce = {
   // Track the last time a hover state changed
   lastHoverChangeTime: 0,
   // Minimum time (ms) between hover state changes
-  debounceTime: 300, // Reduced debounce time for better responsiveness
+  debounceTime: 200, // Reduced debounce time for better responsiveness
   // Track if we're in a hover animation
   isInHoverAnimation: false,
   // Track the last mouse position
@@ -79,7 +79,7 @@ const hoverDebounce = {
   // Last time camera moved
   lastCameraMoveTime: 0,
   // Camera movement cooldown (ms)
-  cameraCooldownTime: 300,
+  cameraCooldownTime: 200,
 };
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -475,11 +475,19 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // If we're already hovering this card, do nothing
     if (globalHoveredCardId.current === event.id) {
+      // Refresh the hover state to prevent it from being cleared by document clicks
+      isHovered.current = true;
       return;
     }
 
+    // Clear any existing hover state first
+    if (globalHoveredCardId.current !== null && onHover) {
+      console.debug(`Clearing previous hover on ${globalHoveredCardId.current} before setting new hover`);
+      onHover(null);
+    }
+
     // Less restrictive debouncing: allow hover changes after a shorter time
-    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime / 2) {
+    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime / 3) {
       console.debug(`Ignoring hover on ${event.id}, animation in progress`);
       return;
     }
@@ -487,6 +495,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     // Update hover state
     hoverDebounce.lastHoverChangeTime = now;
     hoverDebounce.isInHoverAnimation = true;
+    isHovered.current = true;
 
     if (onHover) {
       console.debug(`Setting hover on ${event.id}`);
@@ -503,22 +512,17 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // Calculate distance moved from last hover position
-    const distanceMoved = Math.sqrt(
-      Math.pow(e.clientX - hoverDebounce.lastMousePosition.x, 2) +
-      Math.pow(e.clientY - hoverDebounce.lastMousePosition.y, 2)
-    );
+    // Set local hover state to false
+    isHovered.current = false;
 
-    // More responsive unhover: clear hover state more easily when pointer moves away
-    if (distanceMoved > 30) { // Smaller threshold (was 50)
-      hoverDebounce.lastHoverChangeTime = performance.now();
-      hoverDebounce.isInHoverAnimation = false;
+    // Always clear hover state on pointer out
+    hoverDebounce.lastHoverChangeTime = performance.now();
+    hoverDebounce.isInHoverAnimation = false;
 
-      if (onHover) {
-        console.debug(`Clearing hover on ${event.id}`);
-        globalHoveredCardId.current = null;
-        onHover(null);
-      }
+    if (onHover) {
+      console.debug(`Clearing hover on ${event.id} due to pointer out`);
+      globalHoveredCardId.current = null;
+      onHover(null);
     }
   };
 
@@ -604,3 +608,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     </group>
   );
 };
+
+// Exportable function to clear all card hovers (for use in TimelineScene)
+export function clearAllCardHovers() {
+  if (globalHoveredCardId.current) {
+    for (const callback of globalClickHandlers.clearHoverCallbacks) {
+      callback(null);
+    }
+    globalHoveredCardId.current = null;
+  }
+}
