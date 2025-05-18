@@ -201,7 +201,7 @@ export class SpecStoryService {
   /**
    * Fetches spec history from the API
    */
-  async fetchSpecHistory(startDate?: Date, endDate?: Date): Promise<{ events: SpecTimelineEvent[], cached: boolean }> {
+  async fetchSpecHistory(startDate?: Date, endDate?: Date): Promise<{ events: SpecTimelineEvent[], cached: boolean, mocked?: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
       const specDir = this.resolveSpecDirectory(this.repository);

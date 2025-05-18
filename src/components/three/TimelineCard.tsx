@@ -66,7 +66,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     const scaleDiff = targetScale.current - currentScale;
     const scaleVelocity = scaleDiff * tension / mass;
     const scaleDamping = friction / mass;
-    const newScale = currentScale + scaleVelocity * (1 - scaleDamping) * 0.016;
+    // Ensure scale never goes below a minimum value to prevent disappearing
+    const newScale = Math.max(0.5, currentScale + scaleVelocity * (1 - scaleDamping) * 0.016);
 
     // Rotation spring
     const rotYDiff = targetRotationY.current - currentRotationY;
@@ -74,8 +75,9 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     const rotYDamping = friction / mass;
     const newRotationY = currentRotationY + rotYVelocity * (1 - rotYDamping) * 0.016;
 
-    // Apply new values
-    groupRef.current.position.y = newPositionY;
+    // Apply new values - ensure position.y never goes below a minimum value
+    // This prevents the card from disappearing below the view
+    groupRef.current.position.y = Math.max(-5, newPositionY); // Prevent going too far down
     groupRef.current.scale.set(newScale, newScale, newScale);
     groupRef.current.rotation.y = newRotationY;
   });

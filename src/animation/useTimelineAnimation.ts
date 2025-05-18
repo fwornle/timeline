@@ -122,8 +122,9 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     const scrollSpeed = state.scrollSpeed;
 
     if (isAutoScrolling) {
-      // Apply scroll movement
-      const scrollDelta = scrollSpeed * deltaTime;
+      // Apply scroll movement - always move forward (positive Z direction)
+      // This ensures we're always looking at the front of the cards
+      const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
       setState(prev => ({
         ...prev,
         cameraTarget: prev.cameraTarget.clone().add(new THREE.Vector3(0, 0, scrollDelta)),

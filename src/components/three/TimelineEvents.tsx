@@ -30,11 +30,14 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   getAnimationProps,
 }) => {
   // Calculate positions for events
-  const getEventPosition = (index: number): [number, number, number] => {
+  const getEventPosition = (index: number, totalEvents: number): [number, number, number] => {
     // Position events along the z-axis (timeline)
     // Spread them out with some spacing
     const spacing = 5;
-    const zPos = index * spacing;
+
+    // Reverse the order so that newer events (higher indices) are further away (higher z)
+    // This makes the timeline go from present (near) to future (far)
+    const zPos = (totalEvents - 1 - index) * spacing;
 
     // Alternate x positions for better visibility
     const xOffset = 4;
@@ -49,7 +52,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   // Update position cache when events change
   useEffect(() => {
     events.forEach((event, index) => {
-      const position = getEventPosition(index);
+      const position = getEventPosition(index, events.length);
       onPositionUpdate(
         event.id,
         new Vector3(position[0], position[1], position[2])
@@ -60,8 +63,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   return (
     <group>
       {events.map((event, index) => {
-        const position = getEventPosition(index);
-        
+        const position = getEventPosition(index, events.length);
+
         return (
           <TimelineCard
             key={event.id}

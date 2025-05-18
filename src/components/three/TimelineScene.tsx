@@ -34,12 +34,30 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   onCardPositionUpdate,
   getCardAnimationProps
 }) => {
+  // Calculate the date range from events
+  const getDateRange = (): { startDate: Date | undefined, endDate: Date | undefined } => {
+    if (events.length === 0) {
+      return { startDate: undefined, endDate: undefined };
+    }
+
+    // Sort events by timestamp
+    const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    // Get the earliest and latest dates
+    const startDate = sortedEvents[0].timestamp;
+    const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
+
+    return { startDate, endDate };
+  };
+
+  const { startDate, endDate } = getDateRange();
+
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" style={{ height: '100%' }}>
       <Canvas
         shadows
         camera={{ position: [10, 10, 10], fov: 45 }}
-        style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)' }}
+        style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
       >
         {/* Lighting */}
         <ambientLight intensity={0.7} />
@@ -54,7 +72,12 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
 
         {/* Core Components */}
         <TimelineCamera target={cameraTarget} />
-        <TimelineAxis />
+        <TimelineAxis
+          startDate={startDate}
+          endDate={endDate}
+          tickInterval={5}
+          color="#aaaaaa"
+        />
         <TimelineEvents
           events={events}
           selectedCardId={selectedCardId}

@@ -20,6 +20,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
+  const [forceReloadFlag, setForceReloadFlag] = useState(false);
 
   // Update preferences when state changes
   useEffect(() => {
@@ -62,6 +63,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const handleRefreshTimeline = () => {
     // Reset the position to 0
     setCurrentPosition(0);
+
+    // Create a reset flag to pass to children
+    const resetEvent = new CustomEvent('timeline-reset');
+    window.dispatchEvent(resetEvent);
+
     logger.info('Timeline position reset');
   };
 
@@ -75,6 +81,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     // Force a refresh of the data
     logger.info('Forcing data reload from upstream repository');
+
+    // Toggle the flag to trigger a re-render with forceReload=true
+    setForceReloadFlag(prev => !prev);
 
     // The Home component will handle the reload based on the forceReload prop
     // which will be passed through the cloneElement below
@@ -90,7 +99,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         onEventCountsChange: updateEventCounts,
         onCacheStatusChange: (cached: boolean) => setIsCached(cached),
         onPositionChange: (pos: number) => setCurrentPosition(pos),
-        forceReload: repoUrl && handleReloadData !== undefined
+        forceReload: forceReloadFlag // Use the forceReloadFlag to trigger reload
       });
     }
     return child;

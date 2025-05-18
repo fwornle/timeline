@@ -41,7 +41,8 @@ export function useTimelineData(baseUrl: string) {
   const {
     hasValidRepoData,
     loadRepoData,
-    saveRepoData
+    saveRepoData,
+    purgeRepoData
   } = useRepositoryStorage();
 
   // Track if we're using mocked data
@@ -115,14 +116,25 @@ export function useTimelineData(baseUrl: string) {
     // Reset fetch attempt flag to prevent further automatic fetches
     setHasAttemptedFetch(true);
 
+    // If we have a baseUrl, save the mock data to the cache with the isMocked flag
+    if (baseUrl) {
+      logger.info('data', 'Saving mock data to cache', { baseUrl });
+      saveRepoData(baseUrl, gitEvents, specEvents, true);
+    }
+
+    // Log that we're using mocked data
     logger.info('data', 'Mock data loaded', {
       gitCount: gitEvents.length,
       specCount: specEvents.length,
-      totalCount: allEvents.length
+      totalCount: allEvents.length,
+      isMocked: true
     });
 
+    // Ensure the mocked data flag is set
+    setUsingMockedData(true);
+
     return { gitEvents, specEvents, allEvents, period };
-  }, [setHasAttemptedFetch]);
+  }, [baseUrl, saveRepoData, setHasAttemptedFetch]);
 
   const [filter, setFilter] = useState<TimelineFilter>({
     types: ['git', 'spec'],
@@ -141,8 +153,24 @@ export function useTimelineData(baseUrl: string) {
         logger.info('data', 'Using cached repository data', {
           baseUrl,
           gitEventsCount: cachedData.gitEvents.length,
-          specEventsCount: cachedData.specEvents.length
+          specEventsCount: cachedData.specEvents.length,
+          isMocked: !!cachedData.isMocked
         });
+
+        // Check if the data is mocked
+        if (cachedData.isMocked) {
+          logger.info('data', 'Using mocked data from cache');
+          setUsingMockedData(true);
+
+          // If it's mocked but has no events, load mock data
+          if (cachedData.gitEvents.length === 0 && cachedData.specEvents.length === 0) {
+            loadMockData();
+            return;
+          }
+        } else {
+          // Ensure the mocked flag is reset if the data is not mocked
+          setUsingMockedData(false);
+        }
 
         // Convert dates from strings back to Date objects
         const gitEvents = cachedData.gitEvents.map(event => ({
@@ -172,7 +200,7 @@ export function useTimelineData(baseUrl: string) {
         }));
       }
     }
-  }, [baseUrl, hasValidRepoData, loadRepoData]);
+  }, [baseUrl, hasValidRepoData, loadRepoData, loadMockData]);
 
   // Initialize services
   const gitService = new GitService(API_BASE_URL, baseUrl || '', {
@@ -309,11 +337,23 @@ export function useTimelineData(baseUrl: string) {
       const results = await Promise.allSettled([gitPromise, specPromise]);
 
       // Extract successful results
-      const gitResult = results[0].status === 'fulfilled' ? results[0].value : { events: [], cached: false };
-      const specResult = results[1].status === 'fulfilled' ? results[1].value : { events: [], cached: false };
+      const gitResult = results[0].status === 'fulfilled' ? results[0].value : { events: [], cached: false, mocked: false };
+      const specResult = results[1].status === 'fulfilled' ? results[1].value : { events: [], cached: false, mocked: false };
 
       const gitEvents = gitResult.events;
       const specEvents = specResult.events;
+
+      // Check if either result is marked as mocked
+      const isMocked = gitResult.mocked || specResult.mocked;
+      // Set the mocked data flag if either source is mocked
+      if (isMocked) {
+        setUsingMockedData(true);
+        logger.info('data', 'Using mocked data from server', {
+          gitMocked: gitResult.mocked,
+          specMocked: specResult.mocked
+        });
+      }
+
       const isCached = gitResult.cached && specResult.cached;
 
       // Log any rejected promises
@@ -354,14 +394,16 @@ export function useTimelineData(baseUrl: string) {
 
       // Save to cache if we have data
       if (gitEvents.length > 0 || specEvents.length > 0) {
-        saveRepoData(baseUrl, gitEvents, specEvents);
+        // Pass the mocked flag to the storage
+        saveRepoData(baseUrl, gitEvents, specEvents, isMocked);
       }
 
       logger.info('data', 'Timeline data updated', {
         gitCount: gitEvents.length,
         specCount: specEvents.length,
         totalCount: filteredEvents.length,
-        isCached: isCached
+        isCached: isCached,
+        isMocked: isMocked
       });
     } catch (error) {
       logger.error('data', 'Failed to update timeline data', { error });
@@ -435,6 +477,48 @@ export function useTimelineData(baseUrl: string) {
     return fetchTimelineData(undefined, true);
   }, [fetchTimelineData, setHasAttemptedFetch]);
 
+  // Create a purge function that clears the cache for the current repo and forces a refresh
+  const purgeAndRefresh = useCallback(() => {
+    if (!baseUrl) {
+      logger.warn('data', 'Empty repository URL, skipping purge');
+      return;
+    }
+
+    logger.info('data', 'Purging repository data and forcing refresh', { baseUrl });
+
+    // Purge the repository data
+    purgeRepoData(baseUrl);
+
+    // Reset the fetch attempt flag to allow a new fetch
+    setHasAttemptedFetch(false);
+
+    // Reset the state to clear any existing data
+    setState(prev => ({
+      ...prev,
+      events: [],
+      period: null,
+      sources: {
+        git: {
+          ...prev.sources.git,
+          isLoading: true,
+          error: null,
+          retryCount: 0,
+          lastAttempt: null,
+        },
+        spec: {
+          ...prev.sources.spec,
+          isLoading: true,
+          error: null,
+          retryCount: 0,
+          lastAttempt: null,
+        }
+      }
+    }));
+
+    // Force a refresh
+    return fetchTimelineData(undefined, true);
+  }, [baseUrl, purgeRepoData, fetchTimelineData, setHasAttemptedFetch]);
+
   return {
     events: state.events,
     period: state.period,
@@ -445,6 +529,7 @@ export function useTimelineData(baseUrl: string) {
     filter,
     updateFilter,
     refresh,
+    purgeAndRefresh,
     retry: retrySource,
     usingMockedData,
   };

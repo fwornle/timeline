@@ -169,7 +169,7 @@ export class GitService {
   /**
    * Fetches git history from the API
    */
-  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], cached: boolean }> {
+  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], cached: boolean, mocked?: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
 

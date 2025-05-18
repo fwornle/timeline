@@ -103,16 +103,18 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     sources,
     period,
     refresh,
+    purgeAndRefresh,
     usingMockedData,
   } = useTimelineData(repoUrl);
 
   // Handle force reload when the prop changes
   useEffect(() => {
     if (forceReload && repoUrl) {
-      logger.info('Forcing data reload', { repoUrl });
-      refresh();
+      logger.info('Forcing data reload with cache purge', { repoUrl });
+      // Use purgeAndRefresh to clear the cache first, then reload
+      purgeAndRefresh();
     }
-  }, [forceReload, repoUrl, refresh, logger]);
+  }, [forceReload, repoUrl, purgeAndRefresh, logger]);
 
   // Animation state
   const {
@@ -178,6 +180,36 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     }
   }, [autoDrift, isAutoScrolling, toggleAutoScroll]);
 
+  // Listen for reset events
+  useEffect(() => {
+    const handleReset = () => {
+      logger.info('Resetting timeline view');
+
+      // Reset camera to the beginning of the timeline
+      if (events.length > 0) {
+        // Sort events by timestamp to find the earliest
+        const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        const firstEventId = sortedEvents[0].id;
+
+        // Select the first event to focus the camera on it
+        selectCard(firstEventId);
+      } else {
+        // If no events, reset to origin
+        selectCard(null);
+      }
+
+      // Ensure auto-scrolling is stopped
+      if (isAutoScrolling) {
+        toggleAutoScroll();
+      }
+    };
+
+    window.addEventListener('timeline-reset', handleReset);
+    return () => {
+      window.removeEventListener('timeline-reset', handleReset);
+    };
+  }, [events, selectCard, toggleAutoScroll, isAutoScrolling, logger]);
+
   // Update position for parent component
   useEffect(() => {
     if (onPositionUpdate && cameraTarget) {
@@ -188,25 +220,32 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Log significant state changes and notify parent
   useEffect(() => {
-    if (events.length > 0) {
-      logger.info('Timeline data loaded', {
-        eventCount: events.length,
-        periodStart: period?.start,
-        periodEnd: period?.end,
-        usingMockedData
+    // Always update the parent component with the current event counts and mocked status
+    // even if there are no events
+    logger.info('Timeline data state updated', {
+      eventCount: events.length,
+      periodStart: period?.start,
+      periodEnd: period?.end,
+      usingMockedData
+    });
+
+    // Separate git and spec events
+    const gitEvents = events.filter(e => e.type === 'git');
+    const specEvents = events.filter(e => e.type === 'spec');
+
+    // Notify parent component about data loading
+    if (onDataLoaded) {
+      // Pass the mocked status to the parent component
+      onDataLoaded(gitEvents, specEvents, usingMockedData);
+
+      // Log the counts being sent to the parent
+      logger.info('Updating parent with event counts', {
+        gitCount: gitEvents.length,
+        specCount: specEvents.length,
+        isMocked: usingMockedData
       });
-
-      // Separate git and spec events
-      const gitEvents = events.filter(e => e.type === 'git');
-      const specEvents = events.filter(e => e.type === 'spec');
-
-      // Notify parent component about data loading
-      if (onDataLoaded) {
-        // Pass the mocked status to the parent component
-        onDataLoaded(gitEvents, specEvents, usingMockedData);
-      }
     }
-  }, [events, period, logger, onDataLoaded, isLoading, usingMockedData]);
+  }, [events, period, logger, onDataLoaded, usingMockedData]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {
@@ -251,25 +290,34 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         onRetryAll={handleRefresh}
         onUseMockData={() => {
           // Load mock data and clear error state
+          const mockGitEvents = mockGitHistory();
+          const mockSpecEvents = mockSpecHistory();
+
+          // Clear error state to show the timeline
+          setShowError(false);
+
+          // Update local state with mock data
+          const allMockEvents = [...mockGitEvents, ...mockSpecEvents];
+          allMockEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+          // Update the parent component with mock data
           if (onDataLoaded) {
-            const mockGitEvents = mockGitHistory();
-            const mockSpecEvents = mockSpecHistory();
-
-            // Update the parent component with mock data
             onDataLoaded(mockGitEvents, mockSpecEvents, true);
-
-            // Clear error state to show the timeline
-            setShowError(false);
-
-            // Update local state with mock data
-            const allMockEvents = [...mockGitEvents, ...mockSpecEvents];
-            allMockEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-            // If there's an onError handler, clear the error
-            if (onError) {
-              onError(null);
-            }
           }
+
+          // If there's an onError handler, clear the error
+          if (onError) {
+            onError(null);
+          }
+
+          // Log that we're using mock data
+          logger.info('Using mock data after error', {
+            gitCount: mockGitEvents.length,
+            specCount: mockSpecEvents.length
+          });
+
+          // Force a refresh with mock data
+          refresh();
         }}
       />
     );
@@ -282,7 +330,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   const showStatusOverlay = (isPartialLoading || (hasError && events.length > 0));
 
   return (
-    <div className="position-relative w-100 h-100">
+    <div className="position-relative w-100 h-100" style={{ height: '100vh' }}>
       <div className="w-100 h-100">
         <TimelineScene
           events={events}
@@ -354,23 +402,38 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      // Force loading mock data
-                      if (onDataLoaded) {
-                        const mockGitEvents = mockGitHistory();
-                        const mockSpecEvents = mockSpecHistory();
-                        onDataLoaded(mockGitEvents, mockSpecEvents, true);
+                      // Load mock data and clear error state
+                      const mockGitEvents = mockGitHistory();
+                      const mockSpecEvents = mockSpecHistory();
 
-                        // Clear error state
-                        if (onError) {
-                          onError(null);
-                        }
+                      // Update the parent component with mock data
+                      if (onDataLoaded) {
+                        onDataLoaded(mockGitEvents, mockSpecEvents, true);
                       }
+
+                      // Clear error state
+                      if (onError) {
+                        onError(null);
+                      }
+
+                      // Force a refresh with mock data
+                      refresh();
                     }}
                     className="btn btn-sm btn-warning text-dark"
                   >
                     Use Mocked Data
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Mocked data indicator */}
+            {usingMockedData && !hasError && (
+              <div className="text-sm text-white">
+                <p className="mb-2">
+                  <i className="bi bi-database me-1"></i>
+                  Using mocked data
+                </p>
               </div>
             )}
           </div>

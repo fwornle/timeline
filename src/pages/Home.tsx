@@ -38,6 +38,9 @@ const Home: React.FC<HomeProps> = ({
     if (onLoadingChange) {
       onLoadingChange(loading);
     }
+
+    // Log the loading state change
+    logger.info('Loading state changed', { loading });
   };
 
   // Handle errors
@@ -101,7 +104,7 @@ const Home: React.FC<HomeProps> = ({
           </div>
         </div>
       ) : (
-        <div className="w-100 h-100 position-absolute top-0 start-0 bottom-0 end-0" style={{ paddingTop: '56px', paddingBottom: '56px' }}>
+        <div className="w-100 h-100 position-absolute top-0 start-0 bottom-0 end-0">
           <TimelineVisualization
             repoUrl={repoUrl}
             animationSpeed={animationSpeed}
@@ -109,14 +112,25 @@ const Home: React.FC<HomeProps> = ({
             onLoadingChange={handleLoadingChange}
             onError={handleError}
             forceReload={forceReload}
-            onDataLoaded={(gitEvents, specEvents, cached) => {
+            onDataLoaded={(gitEvents, specEvents, isMocked) => {
               setGitCount(gitEvents.length);
               setSpecCount(specEvents.length);
-              setIsCached(cached);
+              setIsCached(isMocked);
+
+              // Update parent component with the counts
+              if (onEventCountsChange) {
+                onEventCountsChange(gitEvents.length, specEvents.length);
+              }
+
+              // Update parent component with the cache status
+              if (onCacheStatusChange) {
+                onCacheStatusChange(isMocked);
+              }
+
               logger.info('Timeline data loaded', {
                 gitCount: gitEvents.length,
                 specCount: specEvents.length,
-                isCached: cached
+                isMocked: isMocked
               });
             }}
             onPositionUpdate={(pos) => {

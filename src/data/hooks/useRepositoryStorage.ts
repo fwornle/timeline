@@ -12,6 +12,7 @@ interface RepositoryData {
   gitEvents: any[];
   specEvents: any[];
   timestamp: number;
+  isMocked?: boolean;
 }
 
 export function useRepositoryStorage() {
@@ -37,21 +38,38 @@ export function useRepositoryStorage() {
   }, []);
 
   // Save repository data to localStorage
-  const saveRepoData = useCallback((url: string, gitEvents: any[], specEvents: any[]) => {
+  const saveRepoData = useCallback((url: string, gitEvents: any[], specEvents: any[], isMocked: boolean = false) => {
     if (!url) return;
 
     try {
+      // Check if there's existing data to preserve metadata
+      let existingData: Partial<RepositoryData> = {};
+      try {
+        const dataStr = localStorage.getItem(`${REPO_DATA_PREFIX}${url}`);
+        if (dataStr) {
+          const parsed = JSON.parse(dataStr) as RepositoryData;
+          // Only preserve the isMocked flag if it exists
+          if (parsed.isMocked !== undefined) {
+            existingData.isMocked = parsed.isMocked;
+          }
+        }
+      } catch (e) {
+        // Ignore errors reading existing data
+      }
+
       const data: RepositoryData = {
         gitEvents,
         specEvents,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        isMocked: isMocked || existingData.isMocked
       };
 
       localStorage.setItem(`${REPO_DATA_PREFIX}${url}`, JSON.stringify(data));
       logger.info('storage', 'Saved repository data', {
         url,
         gitEventsCount: gitEvents.length,
-        specEventsCount: specEvents.length
+        specEventsCount: specEvents.length,
+        isMocked: data.isMocked
       });
     } catch (error) {
       logger.error('storage', 'Failed to save repository data', { error, url });
@@ -59,7 +77,7 @@ export function useRepositoryStorage() {
   }, []);
 
   // Load repository data from localStorage
-  const loadRepoData = useCallback((url: string): { gitEvents: any[], specEvents: any[] } | null => {
+  const loadRepoData = useCallback((url: string): { gitEvents: any[], specEvents: any[], isMocked?: boolean } | null => {
     if (!url) return null;
 
     try {
@@ -79,12 +97,14 @@ export function useRepositoryStorage() {
         url,
         gitEventsCount: data.gitEvents.length,
         specEventsCount: data.specEvents.length,
+        isMocked: !!data.isMocked,
         age: Math.round((Date.now() - data.timestamp) / 1000 / 60) + ' minutes'
       });
 
       return {
         gitEvents: data.gitEvents,
-        specEvents: data.specEvents
+        specEvents: data.specEvents,
+        isMocked: data.isMocked
       };
     } catch (error) {
       logger.error('storage', 'Failed to load repository data', { error, url });
@@ -92,7 +112,7 @@ export function useRepositoryStorage() {
     }
   }, []);
 
-  // Clear repository data
+  // Clear repository data for a specific URL
   const clearRepoData = useCallback((url: string) => {
     if (!url) return;
 
@@ -103,6 +123,40 @@ export function useRepositoryStorage() {
       logger.error('storage', 'Failed to clear repository data', { error, url });
     }
   }, []);
+
+  // Purge repository data for a specific URL and mark it as mocked
+  const purgeRepoData = useCallback((url: string) => {
+    if (!url) return;
+
+    try {
+      // Get the existing data
+      const dataStr = localStorage.getItem(`${REPO_DATA_PREFIX}${url}`);
+      if (!dataStr) {
+        logger.info('storage', 'No data to purge for repository', { url });
+        return;
+      }
+
+      // Parse the data
+      const data = JSON.parse(dataStr) as RepositoryData;
+
+      // Mark the data as mocked by setting a flag
+      const mockedData: RepositoryData = {
+        ...data,
+        gitEvents: [],
+        specEvents: [],
+        timestamp: Date.now(),
+        isMocked: true
+      };
+
+      // Save the updated data
+      localStorage.setItem(`${REPO_DATA_PREFIX}${url}`, JSON.stringify(mockedData));
+      logger.info('storage', 'Purged repository data and marked as mocked', { url });
+    } catch (error) {
+      logger.error('storage', 'Failed to purge repository data', { error, url });
+      // If there's an error, just remove the data completely
+      clearRepoData(url);
+    }
+  }, [clearRepoData]);
 
   // Check if repository data exists and is valid
   const hasValidRepoData = useCallback((url: string): boolean => {
@@ -115,16 +169,19 @@ export function useRepositoryStorage() {
       const data = JSON.parse(dataStr) as RepositoryData;
       const isValid = Date.now() - data.timestamp <= CACHE_EXPIRATION;
       const hasEvents = data.gitEvents?.length > 0 || data.specEvents?.length > 0;
+      const isMocked = !!data.isMocked;
 
       logger.info('storage', 'Repository data cache status', {
         url,
         isValid,
         hasEvents,
-        isCached: isValid && hasEvents,
+        isMocked,
+        isCached: isValid && (hasEvents || isMocked),
         age: Math.round((Date.now() - data.timestamp) / (60 * 60 * 1000)) + ' hours'
       });
 
-      return isValid && hasEvents;
+      // Data is valid if it's within expiration time AND either has events OR is marked as mocked
+      return isValid && (hasEvents || isMocked);
     } catch (error) {
       logger.error('storage', 'Error checking repository data validity', { error, url });
       return false;
@@ -137,6 +194,7 @@ export function useRepositoryStorage() {
     saveRepoData,
     loadRepoData,
     clearRepoData,
+    purgeRepoData,
     hasValidRepoData
   };
 }
