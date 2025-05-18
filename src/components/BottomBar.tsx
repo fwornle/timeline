@@ -122,7 +122,6 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     title="View all events"
                   >
                     <i className="bi bi-arrows-fullscreen"></i>
-                    <span className="ms-1 d-none d-md-inline">View All</span>
                   </button>
                   <button
                     className="btn btn-sm btn-outline-secondary"
@@ -130,7 +129,6 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     title="Focus on current position"
                   >
                     <i className="bi bi-bullseye"></i>
-                    <span className="ms-1 d-none d-md-inline">Focus</span>
                   </button>
                   {/* Reset Timeline Position Button */}
                   <button
@@ -162,9 +160,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 <button
                   className={`btn btn-sm ${autoDrift ? 'btn-primary' : 'btn-outline-primary'}`}
                   onClick={handleAutoDriftChange}
+                  title={autoDrift ? 'Pause auto-drift' : 'Play auto-drift'}
                 >
                   <i className={`bi ${autoDrift ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
-                  {autoDrift ? ' Auto' : ' Play'}
                 </button>
 
                 {/* Debug mode toggle */}
@@ -174,7 +172,6 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   title="Toggle camera debug mode"
                 >
                   <i className="bi bi-camera"></i>
-                  {debugMode ? ' Debug On' : ' Debug'}
                 </button>
               </div>
             </Col>
