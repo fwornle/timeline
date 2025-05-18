@@ -82,9 +82,9 @@ const hoverDebounce = {
   cameraCooldownTime: 200,
   // New values for improved hover stability
   hoverStartPosition: { x: 0, y: 0 },
-  significantMoveThreshold: 50, // pixels
-  isHoverLocked: false, // Prevents interruption during initial animation
-  hoverLockDuration: 400, // ms - duration to lock hover state during animation
+  significantMoveThreshold: 20, // Reduced threshold for more responsive unhover
+  isHoverLocked: false,
+  hoverLockDuration: 300, // Reduced lock duration for more responsive unhover
 };
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -505,50 +505,56 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
-    // If we're not hovering this card or hover is locked, ignore
-    if (globalHoveredCardId.current !== event.id || hoverDebounce.isHoverLocked) {
+    // If we're not hovering this card, ignore
+    if (globalHoveredCardId.current !== event.id) {
       return;
     }
 
-    // Calculate distance from hover start position
-    const distanceFromStart = Math.sqrt(
-      Math.pow(e.clientX - hoverDebounce.hoverStartPosition.x, 2) +
-      Math.pow(e.clientY - hoverDebounce.hoverStartPosition.y, 2)
-    );
+    // If we're in the initial hover animation lock period, check for significant movement
+    if (hoverDebounce.isHoverLocked) {
+      const distanceFromStart = Math.sqrt(
+        Math.pow(e.clientX - hoverDebounce.hoverStartPosition.x, 2) +
+        Math.pow(e.clientY - hoverDebounce.hoverStartPosition.y, 2)
+      );
 
-    // Only unhover if mouse has moved significantly from the start position
-    if (distanceFromStart > hoverDebounce.significantMoveThreshold) {
-      isHovered.current = false;
-      hoverDebounce.lastHoverChangeTime = performance.now();
-      hoverDebounce.isInHoverAnimation = true;
-
-      // Start unhover animation
-      if (groupRef.current) {
-        const currentRotationY = groupRef.current.rotation.y;
-        const currentPositionY = groupRef.current.position.y;
-        const currentPositionZ = groupRef.current.position.z;
-        const currentScale = groupRef.current.scale.x;
-
-        setAnimState({
-          targetRotationY: 0,
-          targetPositionY: position[1],
-          targetPositionZ: position[2],
-          targetScale: 1,
-          animationStartTime: performance.now(),
-          isAnimating: true,
-          animationDuration: 250,
-          startRotationY: currentRotationY,
-          startPositionY: currentPositionY,
-          startPositionZ: currentPositionZ,
-          startScale: currentScale,
-        });
+      // Only allow unhover during lock if mouse has moved significantly
+      if (distanceFromStart <= hoverDebounce.significantMoveThreshold) {
+        return;
       }
+    }
 
-      if (onHover) {
-        console.debug(`Clearing hover on ${event.id} due to significant pointer movement`);
-        globalHoveredCardId.current = null;
-        onHover(null);
-      }
+    // Set local hover state to false
+    isHovered.current = false;
+    hoverDebounce.lastHoverChangeTime = performance.now();
+    hoverDebounce.isInHoverAnimation = true;
+    hoverDebounce.isHoverLocked = false; // Clear hover lock
+
+    // Start unhover animation
+    if (groupRef.current) {
+      const currentRotationY = groupRef.current.rotation.y;
+      const currentPositionY = groupRef.current.position.y;
+      const currentPositionZ = groupRef.current.position.z;
+      const currentScale = groupRef.current.scale.x;
+
+      setAnimState({
+        targetRotationY: 0,
+        targetPositionY: position[1],
+        targetPositionZ: position[2],
+        targetScale: 1,
+        animationStartTime: performance.now(),
+        isAnimating: true,
+        animationDuration: 250,
+        startRotationY: currentRotationY,
+        startPositionY: currentPositionY,
+        startPositionZ: currentPositionZ,
+        startScale: currentScale,
+      });
+    }
+
+    if (onHover) {
+      console.debug(`Clearing hover on ${event.id} due to pointer out`);
+      globalHoveredCardId.current = null;
+      onHover(null);
     }
   };
 

@@ -46,7 +46,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     if (timeRange === 0) {
       const index = allEvents.findIndex(e => e.id === event.id);
       const spacing = 5;
-      const zPos = index * spacing;
+      const zPos = index * spacing - (allEvents.length * spacing) / 2;
       
       // Alternate x positions for better visibility
       const xOffset = 4;
@@ -59,12 +59,19 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     // Normalize event time to a value between 0 and 1
     const normalizedTime = (event.timestamp.getTime() - minTime) / timeRange;
     
-    // Map to Z position - newer events (higher timestamp) should be further along (higher Z)
-    const timelineLength = Math.max(allEvents.length * 5, 100); // Ensure reasonable length
-    const zPos = normalizedTime * timelineLength;
+    // Calculate timeline length based on the number of events and time range
+    // Use a minimum spacing between events
+    const minSpacing = 5; // Minimum units between events
+    const timelineLength = Math.max(
+      allEvents.length * minSpacing,
+      100 // Minimum timeline length
+    );
     
-    // Find the index of this event in the sorted events array
-    // This ensures consistent alternating patterns
+    // Calculate Z position
+    // Center the timeline around z=0 by subtracting half the length
+    const zPos = (normalizedTime * timelineLength) - (timelineLength / 2);
+    
+    // Find the index of this event in the sorted events array for alternating sides
     const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
     
     // Alternate x positions for better visibility based on sorted index
