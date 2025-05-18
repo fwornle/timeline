@@ -46,7 +46,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     if (timeRange === 0) {
       const index = allEvents.findIndex(e => e.id === event.id);
       const spacing = 5;
-      const zPos = index * spacing - (allEvents.length * spacing) / 2;
+      // Start from Z=0 and move forward
+      const zPos = index * spacing;
       
       // Alternate x positions for better visibility
       const xOffset = 4;
@@ -67,9 +68,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       100 // Minimum timeline length
     );
     
-    // Calculate Z position
-    // Center the timeline around z=0 by subtracting half the length
-    const zPos = (normalizedTime * timelineLength) - (timelineLength / 2);
+    // Calculate Z position - start from 0 and move forward in time
+    const zPos = normalizedTime * timelineLength;
     
     // Find the index of this event in the sorted events array for alternating sides
     const eventIndex = sortedEvents.findIndex(e => e.id === event.id);

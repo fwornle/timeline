@@ -206,14 +206,16 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     const handleReset = () => {
       logger.info('Resetting timeline view');
 
-      // Reset camera to the beginning of the timeline
+      // Reset camera to the beginning of the timeline (Z=0)
       if (events.length > 0) {
         // Sort events by timestamp to find the earliest
         const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-        const firstEventId = sortedEvents[0].id;
-
-        // Select the first event to focus the camera on it
-        selectCard(firstEventId);
+        const firstEvent = sortedEvents[0];
+        
+        // Select the first event (which should be at Z=0)
+        if (cardPositionsRef.current.has(firstEvent.id)) {
+          selectCard(firstEvent.id);
+        }
       } else {
         // If no events, reset to origin
         selectCard(null);
@@ -229,7 +231,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     return () => {
       window.removeEventListener('timeline-reset', handleReset);
     };
-  }, [events, selectCard, toggleAutoScroll, isAutoScrolling, logger]);
+  }, [events, cardPositionsRef, selectCard, toggleAutoScroll, isAutoScrolling, logger]);
 
   // Update position for parent component
   useEffect(() => {

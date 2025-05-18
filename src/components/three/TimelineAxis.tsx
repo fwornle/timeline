@@ -20,10 +20,10 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   endDate,
   currentPosition = 0,
 }) => {
-  // Generate axis points
+  // Generate axis points - now from 0 to length instead of -length/2 to length/2
   const axisPoints = [
-    [0, 0, -length / 2] as [number, number, number],
-    [0, 0, length / 2] as [number, number, number],
+    [0, 0, 0] as [number, number, number],
+    [0, 0, length] as [number, number, number],
   ];
 
   // Generate tick marks
@@ -44,8 +44,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     if (!startDate || !endDate) return null;
 
     // Calculate the percentage of the position along the axis
-    const axisLength = length;
-    const normalizedPosition = (position + axisLength / 2) / axisLength;
+    const normalizedPosition = position / length;
 
     // Calculate the timestamp at this position
     const startTime = startDate.getTime();
@@ -56,10 +55,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     return new Date(timestamp);
   };
 
-  for (let i = -length / 2; i <= length / 2; i += tickInterval) {
-    // Skip the center point (0)
-    if (Math.abs(i) < 0.001) continue;
-
+  // Generate tick marks along the axis
+  for (let i = 0; i <= length; i += tickInterval) {
     // Add tick mark
     ticks.push(
       <Line
@@ -77,7 +74,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     if (showLabels) {
       // Get date for this position if possible
       const date = positionToDate(i);
-      const label = date ? formatDate(date) : (i > 0 ? `+${i}` : `${i}`);
+      const label = date ? formatDate(date) : `${i}`;
 
       ticks.push(
         <Text
