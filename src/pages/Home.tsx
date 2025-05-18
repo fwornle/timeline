@@ -9,6 +9,7 @@ interface HomeProps {
   onCacheStatusChange?: (isMocked: boolean) => void;
   onPositionChange?: (position: number) => void;
   onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
+  onTimelineLengthChange?: (timelineLength: number) => void;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
@@ -21,6 +22,7 @@ const Home: React.FC<HomeProps> = ({
   onCacheStatusChange,
   onPositionChange,
   onTimelineDatesChange,
+  onTimelineLengthChange,
   forceReload = false,
   viewAllMode = false,
   focusCurrentMode = false,
@@ -38,6 +40,7 @@ const Home: React.FC<HomeProps> = ({
       hasOnCacheStatusChange: !!onCacheStatusChange,
       hasOnPositionChange: !!onPositionChange,
       hasOnTimelineDatesChange: !!onTimelineDatesChange,
+      hasOnTimelineLengthChange: !!onTimelineLengthChange,
       forceReload,
       viewAllMode,
       focusCurrentMode,
@@ -46,7 +49,7 @@ const Home: React.FC<HomeProps> = ({
     });
   }, [
     onLoadingChange, onEventCountsChange, onCacheStatusChange, 
-    onPositionChange, onTimelineDatesChange, forceReload, viewAllMode, 
+    onPositionChange, onTimelineDatesChange, onTimelineLengthChange, forceReload, viewAllMode, 
     focusCurrentMode, debugMode
   ]);
 
@@ -123,7 +126,7 @@ const Home: React.FC<HomeProps> = ({
           }
           
           // If there are events with timestamps, determine start and end dates
-          if ((gitEvents.length > 0 || specEvents.length > 0) && onTimelineDatesChange) {
+          if ((gitEvents.length > 0 || specEvents.length > 0)) {
             const allEvents = [...gitEvents, ...specEvents];
             if (allEvents.length > 0) {
               // Sort events by timestamp
@@ -131,15 +134,16 @@ const Home: React.FC<HomeProps> = ({
               const startDate = sortedEvents[0].timestamp;
               const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
               
-              console.debug('Home calling onTimelineDatesChange with:', {
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString()
-              });
-              onTimelineDatesChange(startDate, endDate);
-              logger.info('Timeline date range updated', { 
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString()
-              });
+              if (onTimelineDatesChange) {
+                onTimelineDatesChange(startDate, endDate);
+              }
+
+              // Calculate and pass timelineLength
+              if (onTimelineLengthChange) {
+                const minSpacing = 5;
+                const timelineLength = Math.max(allEvents.length * minSpacing, 100);
+                onTimelineLengthChange(timelineLength);
+              }
             }
           }
         }}

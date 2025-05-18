@@ -26,6 +26,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [debugMode, setDebugMode] = useState(false);
   const [timelineStartDate, setTimelineStartDate] = useState<Date | undefined>(undefined);
   const [timelineEndDate, setTimelineEndDate] = useState<Date | undefined>(undefined);
+  const [timelineLength, setTimelineLength] = useState(100);
 
   // Log debug mode changes
   useEffect(() => {
@@ -145,6 +146,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onCacheStatusChange?: (mocked: boolean) => void;
           onPositionChange?: (position: number) => void;
           onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
+          onTimelineLengthChange?: (timelineLength: number) => void;
           forceReload?: boolean;
           viewAllMode?: boolean;
           focusCurrentMode?: boolean;
@@ -179,6 +181,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setTimelineStartDate(startDate);
                 setTimelineEndDate(endDate);
               },
+              onTimelineLengthChange: (length: number) => {
+                console.debug('MainLayout received timeline length:', { length });
+                setTimelineLength(length);
+              },
               forceReload: forceReloadFlag,
               viewAllMode: viewAllMode,
               focusCurrentMode: focusCurrentMode,
@@ -200,12 +206,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   // Debug output to track state and props
   useEffect(() => {
     console.debug('MainLayout state:', {
+      repoUrl,
+      animationSpeed,
+      autoDrift,
       gitCount,
       specCount,
+      isLoading,
       isMocked,
-      isLoading
+      currentPosition,
+      timelineStartDate,
+      timelineEndDate,
+      timelineLength,
+      forceReloadFlag,
+      viewAllMode,
+      focusCurrentMode,
+      debugMode,
     });
-  }, [gitCount, specCount, isMocked, isLoading]);
+  }, [
+    repoUrl, animationSpeed, autoDrift, gitCount, specCount, 
+    isLoading, isMocked, currentPosition, timelineStartDate, 
+    timelineEndDate, timelineLength, forceReloadFlag, viewAllMode, focusCurrentMode, debugMode
+  ]);
 
   return (
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">
@@ -227,6 +248,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         debugMode={debugMode}
         startDate={timelineStartDate}
         endDate={timelineEndDate}
+        timelineLength={timelineLength}
         onAnimationSpeedChange={setAnimationSpeed}
         onAutoDriftChange={setAutoDrift}
         onViewAllClick={handleViewAllClick}

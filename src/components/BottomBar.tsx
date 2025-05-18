@@ -13,6 +13,7 @@ interface BottomBarProps {
   debugMode?: boolean;
   startDate?: Date;
   endDate?: Date;
+  timelineLength?: number;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
   onViewAllClick?: () => void;
@@ -32,6 +33,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   debugMode = false,
   startDate,
   endDate,
+  timelineLength = 100,
   onAnimationSpeedChange,
   onAutoDriftChange,
   onViewAllClick,
@@ -55,18 +57,13 @@ const BottomBar: React.FC<BottomBarProps> = ({
       const endTimestamp = endDate.getTime();
       const timeRange = endTimestamp - startTimestamp;
       
-      // We need to map the timeline's Z position to a date
-      // Since we don't have direct access to the visual timeline's start/end positions,
-      // we'll use an approximation based on the number of events and typical spacing
-      
-      // Get approximate timeline length in Three.js units
-      // Calculate from TimelineEvents.tsx's getEventPosition calculation
-      const totalEvents = gitCount + specCount;
-      const timelineLength = Math.max(totalEvents * 5, 100);
+      // Use the actual timelineLength passed as a prop
+      const actualTimelineLength = timelineLength;
       
       // Estimate the position range of the timeline in the scene
-      const estimatedTimelineStartZ = 0; // Assuming the timeline is centered at origin
-      const estimatedTimelineEndZ = timelineLength;
+      // Timeline runs from -length/2 to +length/2
+      const estimatedTimelineStartZ = -actualTimelineLength / 2;
+      const estimatedTimelineEndZ = actualTimelineLength / 2;
       
       // Calculate the position's normalized location on the timeline (0 to 1)
       // Clamp value between 0 and 1 to handle edge cases

@@ -11,6 +11,7 @@ interface AppRoutesProps {
     onCacheStatusChange?: (isMocked: boolean) => void;
     onPositionChange?: (pos: number) => void;
     onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
+    onTimelineLengthChange?: (timelineLength: number) => void;
     forceReload?: boolean;
     viewAllMode?: boolean;
     focusCurrentMode?: boolean;

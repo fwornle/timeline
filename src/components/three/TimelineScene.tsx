@@ -5,7 +5,7 @@ import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { Vector3 } from 'three';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { clearAllCardHovers } from './TimelineCard';
 
 interface TimelineSceneProps {
@@ -61,6 +61,13 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   };
 
   const { startDate, endDate } = getDateRange();
+  
+  // Calculate timelineLength based on events (consistent with TimelineEvents.tsx)
+  const timelineLength = useMemo(() => {
+    if (events.length === 0) return 100; // Default length if no events
+    const minSpacing = 5;
+    return Math.max(events.length * minSpacing, 100);
+  }, [events]);
 
   // Background click handler component
   const BackgroundClickHandler: React.FC<{ onCardSelect: (id: string | null) => void }> = ({ onCardSelect }) => {
@@ -118,7 +125,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         <TimelineAxis
           startDate={startDate}
           endDate={endDate}
-          tickInterval={5}
+          length={timelineLength}
+          tickInterval={Math.max(5, timelineLength / 20)}
           color="#aaaaaa"
           currentPosition={currentPosition}
         />
