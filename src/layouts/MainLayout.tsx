@@ -9,6 +9,17 @@ interface MainLayoutProps {
   children: ReactNode;
 }
 
+type TimelinePageProps = {
+  onLoadingChange?: (loading: boolean) => void;
+  onEventCountsChange?: (gitEvents: number, specEvents: number) => void;
+  onCacheStatusChange?: (mocked: boolean) => void;
+  onPositionChange?: (pos: number) => void;
+  forceReload?: boolean;
+  viewAllMode?: boolean;
+  focusCurrentMode?: boolean;
+  debugMode?: boolean;
+};
+
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const logger = useLogger({ component: 'MainLayout', topic: 'ui' });
   const { preferences, setPreferences } = usePreferences();
@@ -158,38 +169,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Create a modified version of children with additional props
   const childrenWithProps = React.Children.map(children, child => {
-    // Check if the child is a valid React element
     if (React.isValidElement(child)) {
-      // Pass additional props to the child
-      return React.cloneElement(child, {
-        onLoadingChange: handleLoadingChange,
-        onEventCountsChange: updateEventCounts,
-        onCacheStatusChange: (mocked: boolean) => {
-          console.debug('MainLayout received isMocked:', {
-            mocked,
-            currentIsMocked: isMocked,
-            stack: new Error().stack
-          });
-
-          // Force immediate state update using function form
-          setIsMocked(mocked);
-
-          // Log after the update
-          setTimeout(() => {
-            console.debug('MainLayout AFTER isMocked update:', {
-              isMocked,
-              newIsMocked: mocked
+      const typeName = typeof child.type === 'function' ? child.type.name : '';
+      if (["Home", "MainPage", "TimelineVisualization"].includes(typeName)) {
+        return React.cloneElement(child as React.ReactElement<TimelinePageProps>, {
+          onLoadingChange: handleLoadingChange,
+          onEventCountsChange: updateEventCounts,
+          onCacheStatusChange: (mocked: boolean) => {
+            console.debug('MainLayout received isMocked:', {
+              mocked,
+              currentIsMocked: isMocked,
+              stack: new Error().stack
             });
-          }, 0);
-
-          logger.info('Cache status updated', { isMocked: mocked });
-        },
-        onPositionChange: (pos: number) => setCurrentPosition(pos),
-        forceReload: forceReloadFlag, // Use the forceReloadFlag to trigger reload
-        viewAllMode: viewAllMode,
-        focusCurrentMode: focusCurrentMode,
-        debugMode: debugMode
-      });
+            setIsMocked(mocked);
+            setTimeout(() => {
+              console.debug('MainLayout AFTER isMocked update:', {
+                isMocked,
+                newIsMocked: mocked
+              });
+            }, 0);
+            logger.info('Cache status updated', { isMocked: mocked });
+          },
+          onPositionChange: (pos: number) => setCurrentPosition(pos),
+          forceReload: forceReloadFlag,
+          viewAllMode: viewAllMode,
+          focusCurrentMode: focusCurrentMode,
+          debugMode: debugMode
+        });
+      }
+      return child;
     }
     return child;
   });
@@ -198,7 +206,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">
       <TopBar
         onRepoUrlChange={handleRepoUrlChange}
-        onRefreshTimeline={handleRefreshTimeline}
         onReloadData={handleReloadData}
       />
       <main className="flex-grow-1 position-relative p-0 m-0 overflow-hidden">
@@ -221,6 +228,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           console.debug('MainLayout received debug mode change:', enabled);
           setDebugMode(enabled);
         }}
+        onResetTimeline={handleRefreshTimeline}
       />
     </div>
   );

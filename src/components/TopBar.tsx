@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from 'react-bootstrap';
 import PreferencesModal from './PreferencesModal';
 import { usePreferences } from '../context/PreferencesContext';
 
 interface TopBarProps {
   onRepoUrlChange?: (url: string) => void;
-  onRefreshTimeline?: () => void;
   onReloadData?: () => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
   onRepoUrlChange,
-  onRefreshTimeline,
   onReloadData
 }) => {
-  const location = useLocation();
   const navigate = useNavigate();
   const [showPrefs, setShowPrefs] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -30,6 +27,8 @@ const TopBar: React.FC<TopBarProps> = ({
   const handleLogoClick = () => {
     navigate('/about');
   };
+
+  const collapseClassName = `collapse navbar-collapse justify-content-between${expanded ? ' show' : ''}`;
 
   return (
     <>
@@ -56,7 +55,7 @@ const TopBar: React.FC<TopBarProps> = ({
             <span className="navbar-toggler-icon" />
           </button>
 
-          <div className={`collapse navbar-collapse justify-content-between${expanded ? ' show' : ''}`} id="navbarNav">
+          <div className={collapseClassName} id="navbarNav">
             {/* Center area - Display repo URL */}
             <div className="navbar-nav mx-lg-auto text-center">
               {preferences.repoUrl && (
@@ -70,17 +69,6 @@ const TopBar: React.FC<TopBarProps> = ({
             <div className="d-flex align-items-center gap-2 justify-content-end mt-2 mt-lg-0">
               {preferences.repoUrl && (
                 <>
-                  {/* Reset Timeline Position Button */}
-                  <Button
-                    variant="outline-light"
-                    size="sm"
-                    title="Reset Timeline Position"
-                    aria-label="Reset Timeline Position"
-                    onClick={onRefreshTimeline}
-                  >
-                    <i className="bi bi-arrow-counterclockwise" />
-                  </Button>
-
                   {/* Reload Data Button */}
                   <Button
                     variant="outline-light"

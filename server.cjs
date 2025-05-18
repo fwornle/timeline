@@ -20,22 +20,35 @@ function readMockCache(repository, type) {
   const filePath = getCacheFilePath(repository, type);
   if (fs.existsSync(filePath)) {
     try {
-      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      console.log(`[${localTime()}] [MOCKCACHE] Read ${type} cache for repo ${repository}: ${data.data?.length || 0} items`);
+      return data;
     } catch (e) {
+      console.log(`[${localTime()}] [MOCKCACHE] Failed to read ${type} cache for repo ${repository}:`, e);
       return null;
     }
   }
+  console.log(`[${localTime()}] [MOCKCACHE] No ${type} cache for repo ${repository}`);
   return null;
 }
 function writeMockCache(repository, type, data) {
   const filePath = getCacheFilePath(repository, type);
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  console.log(`[${localTime()}] [MOCKCACHE] Wrote ${type} cache for repo ${repository}: ${data.data?.length || 0} items`);
 }
 function purgeMockCache(repository) {
   ['git', 'spec'].forEach(type => {
     const filePath = getCacheFilePath(repository, type);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`[${localTime()}] [MOCKCACHE] Purged ${type} cache for repo ${repository}`);
+    }
   });
+}
+
+// Helper for local time logging
+function localTime() {
+  return new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
 }
 
 // Create HTTP server
@@ -58,10 +71,10 @@ const server = http.createServer((req, res) => {
   const query = parsedUrl.query;
 
   // Log the request with more details
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log(`[${new Date().toISOString()}] Headers:`, req.headers);
+  console.log(`[${localTime()}] ${req.method} ${req.url}`);
+  console.log(`[${localTime()}] Headers:`, req.headers);
   if (Object.keys(query).length > 0) {
-    console.log(`[${new Date().toISOString()}] Query params:`, query);
+    console.log(`[${localTime()}] Query params:`, query);
   }
 
   // Log the request body if it's a POST request
@@ -71,7 +84,7 @@ const server = http.createServer((req, res) => {
       body += chunk.toString();
     });
     req.on('end', () => {
-      console.log(`[${new Date().toISOString()}] Request body:`, body);
+      console.log(`[${localTime()}] Request body:`, body);
     });
   }
 
@@ -88,7 +101,7 @@ const server = http.createServer((req, res) => {
         uptime: process.uptime(),
         env: process.env.NODE_ENV || 'development'
       },
-      timestamp: new Date().toISOString()
+      timestamp: localTime()
     }));
     return;
   }
@@ -120,6 +133,7 @@ const server = http.createServer((req, res) => {
       // Persistent cache check
       const cached = readMockCache(repository, 'git');
       if (cached) {
+        console.log(`[${localTime()}] [API] Returning cached git data for repo ${repository}: ${cached.data?.length || 0} items`);
         res.writeHead(200);
         res.end(JSON.stringify(cached));
         return;
@@ -160,11 +174,12 @@ const server = http.createServer((req, res) => {
       const response = {
         success: true,
         data: mockCommits,
-        timestamp: new Date().toISOString(),
+        timestamp: localTime(),
         cached: true, // Keep for backward compatibility
         mocked: true  // New flag to indicate this is mock data
       };
       writeMockCache(repository, 'git', response);
+      console.log(`[${localTime()}] [API] Returning NEW git data for repo ${repository}: ${mockCommits.length} items`);
       res.writeHead(200);
       res.end(JSON.stringify(response));
     } catch (error) {
@@ -182,7 +197,7 @@ const server = http.createServer((req, res) => {
           type: error.name,
           status
         },
-        timestamp: new Date().toISOString()
+        timestamp: localTime()
       }));
     }
     return;
@@ -201,6 +216,7 @@ const server = http.createServer((req, res) => {
       // Persistent cache check
       const cached = readMockCache(repository, 'spec');
       if (cached) {
+        console.log(`[${localTime()}] [API] Returning cached spec data for repo ${repository}: ${cached.data?.length || 0} items`);
         res.writeHead(200);
         res.end(JSON.stringify(cached));
         return;
@@ -244,11 +260,12 @@ const server = http.createServer((req, res) => {
       const response = {
         success: true,
         data: mockSpecs,
-        timestamp: new Date().toISOString(),
+        timestamp: localTime(),
         cached: true, // Keep for backward compatibility
         mocked: true  // New flag to indicate this is mock data
       };
       writeMockCache(repository, 'spec', response);
+      console.log(`[${localTime()}] [API] Returning NEW spec data for repo ${repository}: ${mockSpecs.length} items`);
       res.writeHead(200);
       res.end(JSON.stringify(response));
     } catch (error) {
@@ -266,7 +283,7 @@ const server = http.createServer((req, res) => {
           type: error.name,
           status
         },
-        timestamp: new Date().toISOString()
+        timestamp: localTime()
       }));
     }
     return;
@@ -292,7 +309,7 @@ const server = http.createServer((req, res) => {
       type: 'NotFoundError',
       status: 404
     },
-    timestamp: new Date().toISOString()
+    timestamp: localTime()
   }));
 });
 

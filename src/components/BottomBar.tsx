@@ -16,6 +16,7 @@ interface BottomBarProps {
   onViewAllClick?: () => void;
   onFocusCurrentClick?: () => void;
   onDebugModeChange?: (enabled: boolean) => void;
+  onResetTimeline?: () => void;
 }
 
 const BottomBar: React.FC<BottomBarProps> = ({
@@ -31,7 +32,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
   onAutoDriftChange,
   onViewAllClick,
   onFocusCurrentClick,
-  onDebugModeChange
+  onDebugModeChange,
+  onResetTimeline
 }) => {
   const { preferences } = usePreferences();
   const repoUrl = preferences.repoUrl || '';
@@ -129,6 +131,15 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   >
                     <i className="bi bi-bullseye"></i>
                     <span className="ms-1 d-none d-md-inline">Focus</span>
+                  </button>
+                  {/* Reset Timeline Position Button */}
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={onResetTimeline}
+                    title="Reset Timeline Position"
+                    aria-label="Reset Timeline Position"
+                  >
+                    <i className="bi bi-arrow-counterclockwise" />
                   </button>
                 </div>
 
