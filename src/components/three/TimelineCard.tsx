@@ -515,9 +515,32 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     // Set local hover state to false
     isHovered.current = false;
 
-    // Always clear hover state on pointer out
+    // Clear hover state
     hoverDebounce.lastHoverChangeTime = performance.now();
-    hoverDebounce.isInHoverAnimation = false;
+    hoverDebounce.isInHoverAnimation = true; // Keep true during unhover animation
+
+    // Start unhover animation
+    if (groupRef.current) {
+      const currentRotationY = groupRef.current.rotation.y;
+      const currentPositionY = groupRef.current.position.y;
+      const currentPositionZ = groupRef.current.position.z;
+      const currentScale = groupRef.current.scale.x;
+
+      // Set animation state to return to original position
+      setAnimState({
+        targetRotationY: 0,
+        targetPositionY: position[1],
+        targetPositionZ: position[2],
+        targetScale: 1,
+        animationStartTime: performance.now(),
+        isAnimating: true,
+        animationDuration: 250, // Fast animation for unhover
+        startRotationY: currentRotationY,
+        startPositionY: currentPositionY,
+        startPositionZ: currentPositionZ,
+        startScale: currentScale,
+      });
+    }
 
     if (onHover) {
       console.debug(`Clearing hover on ${event.id} due to pointer out`);
