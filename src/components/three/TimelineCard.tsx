@@ -23,12 +23,53 @@ interface TimelineCardProps {
 // Global state to ensure only one card can be hovered at a time
 const globalHoveredCardId = { current: null as string | null };
 
+// Global state for tracking click outside cards
+const globalClickHandlers = {
+  // Track all active TimelineCard instances
+  activeCards: new Set<string>(),
+  // Flag if we've added the document click listener
+  documentListenerAdded: false,
+  // Function to check if a click is outside all cards
+  handleDocumentClick: (e: MouseEvent) => {
+    // Since we can't use className in Three.js, we need a different approach
+    // We'll use the event to log click details for debugging
+    if (globalHoveredCardId.current) {
+      console.debug(`Document click at (${e.clientX},${e.clientY}): clearing hover on ${globalHoveredCardId.current}`);
+      // Find and clear the hover callback for the currently hovered card
+      for (const callback of globalClickHandlers.clearHoverCallbacks) {
+        callback(null); // This will call onHover(null) for the active cards
+      }
+      globalHoveredCardId.current = null;
+    }
+  },
+  // Store all the clear hover callbacks (one per card)
+  clearHoverCallbacks: new Set<(id: string | null) => void>(),
+  // Setup the document listener if not already done
+  setupDocumentListener: () => {
+    if (!globalClickHandlers.documentListenerAdded) {
+      document.addEventListener('click', globalClickHandlers.handleDocumentClick);
+      document.addEventListener('pointerdown', globalClickHandlers.handleDocumentClick);
+      globalClickHandlers.documentListenerAdded = true;
+      console.debug('Added document click/pointer listener for timeline cards');
+    }
+  },
+  // Cleanup the document listener when no cards are active
+  cleanupDocumentListener: () => {
+    if (globalClickHandlers.activeCards.size === 0 && globalClickHandlers.documentListenerAdded) {
+      document.removeEventListener('click', globalClickHandlers.handleDocumentClick);
+      document.removeEventListener('pointerdown', globalClickHandlers.handleDocumentClick);
+      globalClickHandlers.documentListenerAdded = false;
+      console.debug('Removed document click/pointer listener for timeline cards');
+    }
+  }
+};
+
 // Global state for debouncing hover events
 const hoverDebounce = {
   // Track the last time a hover state changed
   lastHoverChangeTime: 0,
   // Minimum time (ms) between hover state changes
-  debounceTime: 500,
+  debounceTime: 300, // Reduced debounce time for better responsiveness
   // Track if we're in a hover animation
   isInHoverAnimation: false,
   // Track the last mouse position
@@ -112,6 +153,40 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     startPositionZ: position[2],
     startScale: 1,
   });
+
+  // Register/unregister this card with the global click handler
+  useEffect(() => {
+    // Register this card
+    globalClickHandlers.activeCards.add(event.id);
+    
+    // Create a clear hover callback specific to this card
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const clearHover = (_: string | null) => {
+      if (onHover) {
+        onHover(null);
+      }
+    };
+    
+    // Store the clear hover callback
+    globalClickHandlers.clearHoverCallbacks.add(clearHover);
+    
+    // Set up document listener if needed
+    globalClickHandlers.setupDocumentListener();
+    
+    // Cleanup on unmount
+    return () => {
+      globalClickHandlers.activeCards.delete(event.id);
+      globalClickHandlers.clearHoverCallbacks.delete(clearHover);
+      
+      // If this was the hovered card, clear the global state
+      if (globalHoveredCardId.current === event.id) {
+        globalHoveredCardId.current = null;
+      }
+      
+      // Clean up document listener if no more cards
+      globalClickHandlers.cleanupDocumentListener();
+    };
+  }, [event.id, onHover]);
 
   // Calculate camera-related values for animation
   const calculateCameraValues = () => {
@@ -403,8 +478,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // If we're in a hover animation or not enough time has passed, ignore this hover
-    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime) {
+    // Less restrictive debouncing: allow hover changes after a shorter time
+    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime / 2) {
       console.debug(`Ignoring hover on ${event.id}, animation in progress`);
       return;
     }
@@ -415,6 +490,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     if (onHover) {
       console.debug(`Setting hover on ${event.id}`);
+      globalHoveredCardId.current = event.id;
       onHover(event.id);
     }
   };
@@ -422,9 +498,10 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
-    // If we're in a hover animation and not enough time has passed, ignore this hover-out
-    const now = performance.now();
-    const timeSinceLastChange = now - hoverDebounce.lastHoverChangeTime;
+    // If we're not hovering this card, ignore
+    if (globalHoveredCardId.current !== event.id) {
+      return;
+    }
 
     // Calculate distance moved from last hover position
     const distanceMoved = Math.sqrt(
@@ -432,24 +509,14 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       Math.pow(e.clientY - hoverDebounce.lastMousePosition.y, 2)
     );
 
-    // If the mouse hasn't moved much and we're still in animation, ignore this hover-out
-    // This prevents the card from unhovering when it moves under the mouse
-    if (
-      hoverDebounce.isInHoverAnimation &&
-      timeSinceLastChange < hoverDebounce.debounceTime &&
-      distanceMoved < 50 // Threshold for mouse movement (in pixels)
-    ) {
-      console.debug(`Ignoring hover-out on ${event.id}, animation in progress`);
-      return;
-    }
-
-    // Update hover state
-    if (globalHoveredCardId.current === event.id) {
-      hoverDebounce.lastHoverChangeTime = now;
+    // More responsive unhover: clear hover state more easily when pointer moves away
+    if (distanceMoved > 30) { // Smaller threshold (was 50)
+      hoverDebounce.lastHoverChangeTime = performance.now();
       hoverDebounce.isInHoverAnimation = false;
 
       if (onHover) {
         console.debug(`Clearing hover on ${event.id}`);
+        globalHoveredCardId.current = null;
         onHover(null);
       }
     }

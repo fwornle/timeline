@@ -29,30 +29,56 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   onPositionUpdate,
   getAnimationProps,
 }) => {
-  // Calculate positions for events
-  const getEventPosition = (index: number, totalEvents: number): [number, number, number] => {
-    // Position events along the z-axis (timeline)
-    // Spread them out with some spacing
-    const spacing = 5;
-
-    // Reverse the order so that newer events (higher indices) are further away (higher z)
-    // This makes the timeline go from present (near) to future (far)
-    const zPos = (totalEvents - 1 - index) * spacing;
-
+  // Calculate positions for events based on their timestamps
+  const getEventPosition = (event: TimelineEvent, allEvents: TimelineEvent[]): [number, number, number] => {
+    // If no events, return default position
+    if (allEvents.length === 0) return [0, 0, 0];
+    
+    // Sort all events by timestamp to find min and max dates
+    const sortedEvents = [...allEvents].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const minTime = sortedEvents[0].timestamp.getTime();
+    const maxTime = sortedEvents[sortedEvents.length - 1].timestamp.getTime();
+    
+    // Calculate the time range
+    const timeRange = maxTime - minTime;
+    
+    // If all events have the same timestamp, spread them evenly
+    if (timeRange === 0) {
+      const index = allEvents.findIndex(e => e.id === event.id);
+      const spacing = 5;
+      const zPos = index * spacing;
+      
+      // Alternate x positions for better visibility
+      const xOffset = 4;
+      const xPos = index % 2 === 0 ? -xOffset : xOffset;
+      
+      return [xPos, 0, zPos];
+    }
+    
+    // Map the event time to a position on the Z axis
+    // Normalize event time to a value between 0 and 1
+    const normalizedTime = (event.timestamp.getTime() - minTime) / timeRange;
+    
+    // Map to Z position - newer events (higher timestamp) should be further along (higher Z)
+    // Length of timeline based on number of events with some padding
+    const timelineLength = allEvents.length * 5;
+    const zPos = normalizedTime * timelineLength;
+    
     // Alternate x positions for better visibility
+    // We can use the event ID to ensure consistent x positions
     const xOffset = 4;
-    const xPos = index % 2 === 0 ? -xOffset : xOffset;
-
+    const xPos = event.id.charCodeAt(0) % 2 === 0 ? -xOffset : xOffset;
+    
     // Y position is 0 by default, will be animated
     const yPos = 0;
-
+    
     return [xPos, yPos, zPos];
   };
 
   // Update position cache when events change
   useEffect(() => {
-    events.forEach((event, index) => {
-      const position = getEventPosition(index, events.length);
+    events.forEach((event) => {
+      const position = getEventPosition(event, events);
       onPositionUpdate(
         event.id,
         new Vector3(position[0], position[1], position[2])
@@ -62,8 +88,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   return (
     <group>
-      {events.map((event, index) => {
-        const position = getEventPosition(index, events.length);
+      {events.map((event) => {
+        const position = getEventPosition(event, events);
 
         return (
           <TimelineCard

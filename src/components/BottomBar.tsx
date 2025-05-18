@@ -11,6 +11,8 @@ interface BottomBarProps {
   animationSpeed?: number;
   autoDrift?: boolean;
   debugMode?: boolean;
+  startDate?: Date;
+  endDate?: Date;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
   onViewAllClick?: () => void;
@@ -28,6 +30,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
   animationSpeed = 1,
   autoDrift = false,
   debugMode = false,
+  startDate,
+  endDate,
   onAnimationSpeedChange,
   onAutoDriftChange,
   onViewAllClick,
@@ -39,6 +43,47 @@ const BottomBar: React.FC<BottomBarProps> = ({
   const repoUrl = preferences.repoUrl || '';
   const showControls = !!repoUrl;
 
+  // Helper function to convert position to a date
+  const positionToDate = (): string => {
+    if (!startDate || !endDate) {
+      return `Position: ${currentPosition.toFixed(2)}`;
+    }
+    
+    // This logic should match TimelineAxis.tsx's positionToDate function
+    // For now, we use a simpler approach that estimates the date based on the relative position
+    
+    try {
+      // Normalize the position value to a 0-1 range based on the total timeline
+      // This is an approximation - would need to know the actual timeline length from the scene
+      
+      // Get full time range
+      const startTimestamp = startDate.getTime();
+      const endTimestamp = endDate.getTime();
+      const timeRange = endTimestamp - startTimestamp;
+      
+      // Approximate the current timestamp based on current position
+      // Assume the position correlates to the normalized position in the time range
+      // We'll use a linear map from the current z-position to the timestamp
+      
+      // Normalize the position based on the estimated timeline length
+      // Simply use the timestamp at the position proportional to the time range
+      const currentTimestamp = startTimestamp + 
+        (currentPosition / (gitCount + specCount) * timeRange);
+      
+      const currentDate = new Date(currentTimestamp);
+      
+      // Format the date
+      return currentDate.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (e) {
+      console.error('Error calculating date from position:', e);
+      return `Position: ${currentPosition.toFixed(2)}`;
+    }
+  };
+
   // Log when props change
   useEffect(() => {
     console.debug('BottomBar props updated:', {
@@ -46,9 +91,11 @@ const BottomBar: React.FC<BottomBarProps> = ({
       specCount,
       isMocked,
       debugMode,
-      showControls
+      showControls,
+      currentPosition,
+      currentPositionAsDate: positionToDate()
     });
-  }, [gitCount, specCount, isMocked, debugMode, showControls]);
+  }, [gitCount, specCount, isMocked, debugMode, showControls, currentPosition, startDate, endDate]);
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onAnimationSpeedChange) {
@@ -102,7 +149,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 )}
                 <span className="badge bg-primary">
                   <i className="bi bi-clock-history me-1"></i>
-                  Position: {currentPosition.toFixed(2)}
+                  {positionToDate()}
                 </span>
               </div>
             ) : (

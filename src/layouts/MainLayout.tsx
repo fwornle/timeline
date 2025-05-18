@@ -24,6 +24,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [viewAllMode, setViewAllMode] = useState(false);
   const [focusCurrentMode, setFocusCurrentMode] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [timelineStartDate, setTimelineStartDate] = useState<Date | undefined>(undefined);
+  const [timelineEndDate, setTimelineEndDate] = useState<Date | undefined>(undefined);
 
   // Log debug mode changes
   useEffect(() => {
@@ -142,6 +144,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onEventCountsChange?: (gitCount: number, specCount: number) => void;
           onCacheStatusChange?: (mocked: boolean) => void;
           onPositionChange?: (position: number) => void;
+          onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
           forceReload?: boolean;
           viewAllMode?: boolean;
           focusCurrentMode?: boolean;
@@ -168,6 +171,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setIsMocked(mocked);
               },
               onPositionChange: (pos: number) => setCurrentPosition(pos),
+              onTimelineDatesChange: (startDate: Date, endDate: Date) => {
+                console.debug('MainLayout received timeline dates:', { 
+                  startDate: startDate.toISOString(), 
+                  endDate: endDate.toISOString() 
+                });
+                setTimelineStartDate(startDate);
+                setTimelineEndDate(endDate);
+              },
               forceReload: forceReloadFlag,
               viewAllMode: viewAllMode,
               focusCurrentMode: focusCurrentMode,
@@ -214,6 +225,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         animationSpeed={animationSpeed}
         autoDrift={autoDrift}
         debugMode={debugMode}
+        startDate={timelineStartDate}
+        endDate={timelineEndDate}
         onAnimationSpeedChange={setAnimationSpeed}
         onAutoDriftChange={setAutoDrift}
         onViewAllClick={handleViewAllClick}

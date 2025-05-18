@@ -8,6 +8,7 @@ interface HomeProps {
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
   onCacheStatusChange?: (isMocked: boolean) => void;
   onPositionChange?: (position: number) => void;
+  onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
@@ -19,6 +20,7 @@ const Home: React.FC<HomeProps> = ({
   onEventCountsChange,
   onCacheStatusChange,
   onPositionChange,
+  onTimelineDatesChange,
   forceReload = false,
   viewAllMode = false,
   focusCurrentMode = false,
@@ -35,6 +37,7 @@ const Home: React.FC<HomeProps> = ({
       hasOnEventCountsChange: !!onEventCountsChange,
       hasOnCacheStatusChange: !!onCacheStatusChange,
       hasOnPositionChange: !!onPositionChange,
+      hasOnTimelineDatesChange: !!onTimelineDatesChange,
       forceReload,
       viewAllMode,
       focusCurrentMode,
@@ -43,7 +46,8 @@ const Home: React.FC<HomeProps> = ({
     });
   }, [
     onLoadingChange, onEventCountsChange, onCacheStatusChange, 
-    onPositionChange, forceReload, viewAllMode, focusCurrentMode, debugMode
+    onPositionChange, onTimelineDatesChange, forceReload, viewAllMode, 
+    focusCurrentMode, debugMode
   ]);
 
   // Log error state changes
@@ -116,6 +120,27 @@ const Home: React.FC<HomeProps> = ({
             logger.info('Cache status updated', { isMocked });
           } else {
             console.warn('Home cannot update mocked status: onCacheStatusChange is not defined');
+          }
+          
+          // If there are events with timestamps, determine start and end dates
+          if ((gitEvents.length > 0 || specEvents.length > 0) && onTimelineDatesChange) {
+            const allEvents = [...gitEvents, ...specEvents];
+            if (allEvents.length > 0) {
+              // Sort events by timestamp
+              const sortedEvents = [...allEvents].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+              const startDate = sortedEvents[0].timestamp;
+              const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
+              
+              console.debug('Home calling onTimelineDatesChange with:', {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString()
+              });
+              onTimelineDatesChange(startDate, endDate);
+              logger.info('Timeline date range updated', { 
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString()
+              });
+            }
           }
         }}
         onPositionUpdate={(position) => {
