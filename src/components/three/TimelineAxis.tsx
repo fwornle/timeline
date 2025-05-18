@@ -20,10 +20,10 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   endDate,
   currentPosition = 0,
 }) => {
-  // Generate axis points - now from 0 to length instead of -length/2 to length/2
+  // Generate axis points - centered around z=0
   const axisPoints = [
-    [0, 2, 0] as [number, number, number],  // Raised Y position to 2
-    [0, 2, length] as [number, number, number],  // Raised Y position to 2
+    [0, 2, -length / 2] as [number, number, number],
+    [0, 2, length / 2] as [number, number, number],
   ];
 
   // Generate tick marks
@@ -44,7 +44,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     if (!startDate || !endDate) return null;
 
     // Calculate the percentage of the position along the axis
-    const normalizedPosition = position / length;
+    // Map from [-length/2, length/2] to [0, 1]
+    const normalizedPosition = (position + length / 2) / length;
 
     // Calculate the timestamp at this position
     const startTime = startDate.getTime();
@@ -56,14 +57,14 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   };
 
   // Generate tick marks along the axis
-  for (let i = 0; i <= length; i += tickInterval) {
+  for (let i = -length / 2; i <= length / 2; i += tickInterval) {
     // Add tick mark
     ticks.push(
       <Line
         key={`tick-${i}`}
         points={[
-          [0, 2 - tickSize, i] as [number, number, number],  // Adjusted for new Y position
-          [0, 2 + tickSize, i] as [number, number, number],  // Adjusted for new Y position
+          [0, 2 - tickSize, i] as [number, number, number],
+          [0, 2 + tickSize, i] as [number, number, number],
         ]}
         color={color}
         lineWidth={1}
@@ -79,7 +80,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       ticks.push(
         <Text
           key={`label-${i}`}
-          position={[0, 2 + tickSize * 2, i]}  // Adjusted for new Y position
+          position={[0, 2 + tickSize * 2, i]}
           color={color}
           fontSize={0.4}
           anchorX="center"
@@ -100,7 +101,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
     // Create a vertical marker at the current position
     return (
-      <group position={[0, 2, currentPosition]}>  {/* Adjusted Y position */}
+      <group position={[0, 2, currentPosition]}>
         {/* Vertical line */}
         <Line
           points={[

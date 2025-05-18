@@ -32,7 +32,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   // Calculate positions for events based on their timestamps
   const getEventPosition = (event: TimelineEvent, allEvents: TimelineEvent[]): [number, number, number] => {
     // If no events, return default position
-    if (allEvents.length === 0) return [0, 0, 0];
+    if (allEvents.length === 0) return [0, 2, 0];
     
     // Sort all events by timestamp to find min and max dates
     const sortedEvents = [...allEvents].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -42,22 +42,19 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     // Calculate the time range
     const timeRange = maxTime - minTime;
     
-    // If all events have the same timestamp, spread them evenly
+    // If all events have the same timestamp, spread them evenly around center
     if (timeRange === 0) {
       const index = allEvents.findIndex(e => e.id === event.id);
       const spacing = 5;
-      const zPos = index * spacing;
+      // Center events around z=0
+      const zPos = (index - (allEvents.length - 1) / 2) * spacing;
       
       // Alternate x positions for better visibility
       const xOffset = 3; // Reduced offset to save horizontal space
       const xPos = index % 2 === 0 ? -xOffset : xOffset;
       
-      return [xPos, 2, zPos]; // Raised Y position to move everything up
+      return [xPos, 2, zPos];
     }
-    
-    // Map the event time to a position on the Z axis
-    // Normalize event time to a value between 0 and 1
-    const normalizedTime = (event.timestamp.getTime() - minTime) / timeRange;
     
     // Calculate timeline length based on the number of events and time range
     // Use a minimum spacing between events
@@ -67,7 +64,11 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       100 // Minimum timeline length
     );
     
-    // Calculate Z position - start from 0 and move forward in time
+    // Map the event time to a position on the Z axis
+    // Normalize event time to a value between -0.5 and 0.5
+    const normalizedTime = (event.timestamp.getTime() - minTime) / timeRange - 0.5;
+    
+    // Map to Z position - centered around z=0
     const zPos = normalizedTime * timelineLength;
     
     // Find the index of this event in the sorted events array for alternating sides

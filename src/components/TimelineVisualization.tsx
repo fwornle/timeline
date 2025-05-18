@@ -206,13 +206,13 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     const handleReset = () => {
       logger.info('Resetting timeline view');
 
-      // Reset camera to the beginning of the timeline (Z=0)
+      // Reset camera to the beginning of the timeline (-length/2)
       if (events.length > 0) {
         // Sort events by timestamp to find the earliest
         const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         const firstEvent = sortedEvents[0];
         
-        // Select the first event (which should be at Z=0)
+        // Select the first event (which should be at -length/2)
         if (cardPositionsRef.current.has(firstEvent.id)) {
           selectCard(firstEvent.id);
         }
