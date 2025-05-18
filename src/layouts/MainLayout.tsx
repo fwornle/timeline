@@ -69,14 +69,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       stack: new Error().stack
     });
 
-    // Force immediate state update using function form to ensure we get the latest state
-    if (gitEvents !== gitCount) {
-      setGitCount(gitEvents);
-    }
-
-    if (specEvents !== specCount) {
-      setSpecCount(specEvents);
-    }
+    // Force immediate state update using function form
+    setGitCount(gitEvents);
+    setSpecCount(specEvents);
 
     // Log after the update
     setTimeout(() => {
@@ -139,7 +134,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       setTimeout(() => {
         setViewAllMode(false);
         logger.info('View All mode reset');
-      }, 2000);
+      }, 3000);
     }, 50);
   };
 
@@ -157,7 +152,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       setTimeout(() => {
         setFocusCurrentMode(false);
         logger.info('Focus mode reset');
-      }, 2000);
+      }, 3000);
     }, 50);
   };
 
@@ -166,7 +161,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     // Check if the child is a valid React element
     if (React.isValidElement(child)) {
       // Pass additional props to the child
-      return React.cloneElement(child as React.ReactElement<any>, {
+      return React.cloneElement(child, {
         onLoadingChange: handleLoadingChange,
         onEventCountsChange: updateEventCounts,
         onCacheStatusChange: (mocked: boolean) => {
@@ -177,9 +172,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           });
 
           // Force immediate state update using function form
-          if (mocked !== isMocked) {
-            setIsMocked(mocked);
-          }
+          setIsMocked(mocked);
 
           // Log after the update
           setTimeout(() => {

@@ -39,7 +39,7 @@ const API_BASE_URL = 'http://localhost:3030/api/v1';
 export function useTimelineData(baseUrl: string) {
   // Repository storage for caching
   const {
-    hasValidRepoData,
+    // We don't use hasValidRepoData anymore as we always go through the server
     loadRepoData,
     saveRepoData,
     purgeRepoData
@@ -75,6 +75,25 @@ export function useTimelineData(baseUrl: string) {
         autoRetryEnabled: false, // Auto retry disabled
       },
     },
+  });
+
+  const [filter, setFilter] = useState<TimelineFilter>({
+    types: ['git', 'spec'],
+  });
+
+  // Initialize services
+  const gitService = new GitService(API_BASE_URL, baseUrl || '', {
+    maxAttempts: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    timeout: 15000,
+  });
+
+  const specService = new SpecStoryService(API_BASE_URL, baseUrl || '', {
+    maxAttempts: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    timeout: 15000,
   });
 
   // Function to load mock data when no repository is provided or when explicitly requested
@@ -139,87 +158,6 @@ export function useTimelineData(baseUrl: string) {
     return { gitEvents, specEvents, allEvents, period };
   }, [baseUrl, saveRepoData, setHasAttemptedFetch]);
 
-  const [filter, setFilter] = useState<TimelineFilter>({
-    types: ['git', 'spec'],
-  });
-
-  // Check for cached data on initial load
-  useEffect(() => {
-    if (!baseUrl) {
-      logger.warn('data', 'Empty repository URL, skipping fetch');
-      return;
-    }
-
-    if (hasValidRepoData(baseUrl)) {
-      const cachedData = loadRepoData(baseUrl);
-      if (cachedData) {
-        logger.info('data', 'Using cached repository data', {
-          baseUrl,
-          gitEventsCount: cachedData.gitEvents.length,
-          specEventsCount: cachedData.specEvents.length,
-          isMocked: !!cachedData.isMocked
-        });
-
-        // Check if the data is mocked
-        if (cachedData.isMocked) {
-          logger.info('data', 'Using mocked data from cache');
-          setUsingMockedData(true);
-
-          // If it's mocked but has no events, load mock data
-          if (cachedData.gitEvents.length === 0 && cachedData.specEvents.length === 0) {
-            loadMockData();
-            return;
-          }
-        } else {
-          // Ensure the mocked flag is reset if the data is not mocked
-          setUsingMockedData(false);
-        }
-
-        // Convert dates from strings back to Date objects
-        const gitEvents = cachedData.gitEvents.map(event => ({
-          ...event,
-          timestamp: new Date(event.timestamp)
-        }));
-
-        const specEvents = cachedData.specEvents.map(event => ({
-          ...event,
-          timestamp: new Date(event.timestamp)
-        }));
-
-        // Calculate period
-        const allEvents = [...gitEvents, ...specEvents];
-        allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-        const period = allEvents.length > 0 ? {
-          start: allEvents[0].timestamp,
-          end: allEvents[allEvents.length - 1].timestamp,
-          events: allEvents,
-        } : null;
-
-        setState(prev => ({
-          ...prev,
-          events: allEvents,
-          period,
-        }));
-      }
-    }
-  }, [baseUrl, hasValidRepoData, loadRepoData, loadMockData]);
-
-  // Initialize services
-  const gitService = new GitService(API_BASE_URL, baseUrl || '', {
-    maxAttempts: 3,
-    initialDelay: 1000,
-    maxDelay: 10000,
-    timeout: 15000,
-  });
-
-  const specService = new SpecStoryService(API_BASE_URL, baseUrl || '', {
-    maxAttempts: 3,
-    initialDelay: 1000,
-    maxDelay: 10000,
-    timeout: 15000,
-  });
-
   const fetchSource = async (
     source: 'git' | 'spec',
     fetchFn: () => Promise<{ events: TimelineEvent[], cached: boolean }>
@@ -281,7 +219,9 @@ export function useTimelineData(baseUrl: string) {
 
   const fetchTimelineData = useCallback(async (
     sourceToRetry?: 'git' | 'spec',
-    forceRefresh = false
+    // We always fetch from server, but keep param for API compatibility
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _: boolean = false
   ) => {
     // Prevent duplicate requests
     if (isFetching) {
@@ -300,13 +240,6 @@ export function useTimelineData(baseUrl: string) {
       logger.warn('data', 'Empty repository URL, skipping fetch');
       // Load mock data when no repo URL is provided
       loadMockData();
-      setIsFetching(false);
-      return;
-    }
-
-    // Check cache first unless force refresh is requested
-    if (!forceRefresh && hasValidRepoData(baseUrl)) {
-      logger.info('data', 'Using cached repository data', { baseUrl });
       setIsFetching(false);
       return;
     }
@@ -463,18 +396,20 @@ export function useTimelineData(baseUrl: string) {
   }, [filter, gitService, specService, state.events, state.sources.git.retryCount, state.sources.spec.retryCount,
       state.sources.git.autoRetryEnabled, state.sources.spec.autoRetryEnabled,
       state.sources.git.maxAutoRetries, state.sources.spec.maxAutoRetries,
-      baseUrl, hasValidRepoData, loadRepoData, saveRepoData, isFetching, loadMockData, setIsFetching]);
+      baseUrl, loadRepoData, saveRepoData, isFetching, loadMockData, setIsFetching]);
 
   // Only fetch data when baseUrl changes or on explicit refresh
-
   useEffect(() => {
-    if (baseUrl && !hasAttemptedFetch) {
-      logger.info('data', 'Base URL changed, fetching timeline data', { baseUrl });
-      // Always force refresh when the repository URL changes
-      fetchTimelineData(undefined, true);
-      setHasAttemptedFetch(true);
+    if (!baseUrl) {
+      logger.warn('data', 'Empty repository URL, skipping fetch');
+      return;
     }
-  }, [baseUrl, fetchTimelineData, hasAttemptedFetch]);
+    if (!hasAttemptedFetch) {
+      logger.info('data', 'Base URL changed or initial mount, fetching timeline data', { baseUrl });
+      setHasAttemptedFetch(true); // Set BEFORE fetch to prevent loops
+      fetchTimelineData(undefined, true);
+    }
+  }, [baseUrl, hasAttemptedFetch, fetchTimelineData]);
 
   const updateFilter = useCallback((newFilter: Partial<TimelineFilter>) => {
     setFilter(prev => ({ ...prev, ...newFilter }));

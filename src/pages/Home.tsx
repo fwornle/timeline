@@ -67,7 +67,7 @@ const Home: React.FC<HomeProps> = ({
       onEventCountsChange(gitCount, specCount);
       logger.info('Event counts updated', { gitCount, specCount });
     }
-  }, [gitCount, specCount, onEventCountsChange]);
+  }, [gitCount, specCount, onEventCountsChange, logger]);
 
   // Update mocked status
   useEffect(() => {
@@ -137,16 +137,16 @@ const Home: React.FC<HomeProps> = ({
                 isMocked: isMocked
               });
 
-              // Update local state immediately using function form
+              // Update local state immediately
               console.debug('Home updating local state with:', {
                 gitCount: gitEvents.length,
                 specCount: specEvents.length,
                 isMocked: isMocked,
                 stack: new Error().stack
               });
-              setGitCount(() => gitEvents.length);
-              setSpecCount(() => specEvents.length);
-              setIsMocked(() => isMocked);
+              setGitCount(gitEvents.length);
+              setSpecCount(specEvents.length);
+              setIsMocked(isMocked);
 
               // Update parent component with the counts - force immediate update
               if (onEventCountsChange) {

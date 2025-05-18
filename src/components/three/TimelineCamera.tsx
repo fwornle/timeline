@@ -3,6 +3,7 @@ import { OrbitControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
+import type { TimelineEvent } from '../../data/types/TimelineEvent';
 
 // Debug camera positions
 const DEBUG_POSITIONS = [
@@ -17,12 +18,12 @@ interface TimelineCameraProps {
   target: Vector3;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
-  events?: any[]; // For calculating the bounds of all events
+  events?: TimelineEvent[]; // For calculating the bounds of all events
   debugMode?: boolean; // Enable camera position cycling for debugging
 }
 
 // Calculate a position that shows the timeline from bottom left with newest data at bottom left
-const calculateViewAllPosition = (target: Vector3, events: any[] = []): Vector3 => {
+const calculateViewAllPosition = (target: Vector3, events: TimelineEvent[] = []): Vector3 => {
   // If we have events, calculate a position that shows all of them
   if (events && events.length > 0) {
     // For the timeline visualization, we know events are positioned along the Z-axis
@@ -66,6 +67,12 @@ const calculateFocusPosition = (target: Vector3): Vector3 => {
   );
 };
 
+interface OrbitControlsRef {
+  target: Vector3;
+  addEventListener: (event: string, handler: () => void) => void;
+  removeEventListener: (event: string, handler: () => void) => void;
+}
+
 export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
   viewAllMode = false,
@@ -73,7 +80,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   events = [],
   debugMode = false
 }) => {
-  const controlsRef = useRef(null);
+  const controlsRef = useRef<OrbitControlsRef | null>(null);
   const { camera } = useThree();
   const [initialPositionSet, setInitialPositionSet] = useState(false);
   const logger = useLogger({ component: 'TimelineCamera', topic: 'ui' });
@@ -86,7 +93,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (!controlsRef.current) return;
 
-    const controls = controlsRef.current as any;
+    const controls = controlsRef.current;
 
     // Mark as user-controlled when the user interacts with controls
     const handleChange = () => {
@@ -136,9 +143,74 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
   }, [target]);
 
+  // Debug mode - cycle through camera positions
+  useEffect(() => {
+    // Clean up previous interval if any (important for mode transitions)
+    let intervalId: number | null = null;
+    
+    if (debugMode && camera) {
+      // Start cycling through positions
+      logger.info('Debug mode activated - cycling through camera positions');
+
+      // Immediately move to the first position when debug mode is activated
+      const initialPosition = DEBUG_POSITIONS[debugPositionIndex].position;
+      const initialName = DEBUG_POSITIONS[debugPositionIndex].name;
+
+      // Update camera position
+      camera.position.copy(initialPosition);
+      camera.lookAt(target);
+
+      // Update controls target if available
+      if (controlsRef.current) {
+        const controls = controlsRef.current as { target: Vector3 };
+        controls.target.copy(target);
+      }
+
+      // Log the initial position change
+      logger.info(`Camera moved to debug position: ${initialName}`, {
+        position: { x: initialPosition.x, y: initialPosition.y, z: initialPosition.z }
+      });
+
+      intervalId = window.setInterval(() => {
+        // Calculate the next position index
+        const nextIndex = (debugPositionIndex + 1) % DEBUG_POSITIONS.length;
+
+        // Move to the next position
+        const position = DEBUG_POSITIONS[nextIndex].position;
+        const name = DEBUG_POSITIONS[nextIndex].name;
+
+        // Update camera position
+        camera.position.copy(position);
+        camera.lookAt(target);
+
+        // Update controls target if available
+        if (controlsRef.current) {
+          const controls = controlsRef.current as { target: Vector3 };
+          controls.target.copy(target);
+        }
+
+        // Log the position change
+        logger.info(`Camera moved to debug position: ${name}`, {
+          position: { x: position.x, y: position.y, z: position.z }
+        });
+
+        // Move to the next position index
+        setDebugPositionIndex(nextIndex);
+      }, 2000); // Change position every 2 seconds
+    }
+
+    // Clean up interval on unmount or when debug mode changes
+    return () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        logger.info('Debug mode deactivated or component unmounted');
+      }
+    };
+  }, [debugMode, camera, target, logger, debugPositionIndex]);
+
   // Handle view mode changes (viewAllMode or focusCurrentMode)
   useEffect(() => {
-    if (!controlsRef.current) return;
+    if (!controlsRef.current || !camera) return;
 
     // Check if view mode has changed from the previous state
     const viewModeChanged =
@@ -195,66 +267,6 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     // Update the last view mode
     lastViewModeRef.current = { viewAll: viewAllMode, focusCurrent: focusCurrentMode };
   }, [viewAllMode, focusCurrentMode, target, camera, logger, events]);
-
-  // Debug mode - cycle through camera positions
-  useEffect(() => {
-    if (!debugMode || !camera) return;
-
-    // Start cycling through positions
-    logger.info('Debug mode activated - cycling through camera positions');
-
-    // Immediately move to the first position when debug mode is activated
-    const initialPosition = DEBUG_POSITIONS[debugPositionIndex].position;
-    const initialName = DEBUG_POSITIONS[debugPositionIndex].name;
-
-    // Update camera position
-    camera.position.copy(initialPosition);
-    camera.lookAt(target);
-
-    // Update controls target if available
-    if (controlsRef.current) {
-      const controls = controlsRef.current as { target: Vector3 };
-      controls.target.copy(target);
-    }
-
-    // Log the initial position change
-    logger.info(`Camera moved to debug position: ${initialName}`, {
-      position: { x: initialPosition.x, y: initialPosition.y, z: initialPosition.z }
-    });
-
-    const intervalId = setInterval(() => {
-      // Calculate the next position index
-      const nextIndex = (debugPositionIndex + 1) % DEBUG_POSITIONS.length;
-
-      // Move to the next position
-      const position = DEBUG_POSITIONS[nextIndex].position;
-      const name = DEBUG_POSITIONS[nextIndex].name;
-
-      // Update camera position
-      camera.position.copy(position);
-      camera.lookAt(target);
-
-      // Update controls target if available
-      if (controlsRef.current) {
-        const controls = controlsRef.current as { target: Vector3 };
-        controls.target.copy(target);
-      }
-
-      // Log the position change
-      logger.info(`Camera moved to debug position: ${name}`, {
-        position: { x: position.x, y: position.y, z: position.z }
-      });
-
-      // Move to the next position index
-      setDebugPositionIndex(nextIndex);
-    }, 2000); // Change position every 2 seconds
-
-    // Clean up interval on unmount
-    return () => {
-      clearInterval(intervalId);
-      logger.info('Debug mode deactivated');
-    };
-  }, [debugMode, camera, target, logger, debugPositionIndex]);
 
   return (
     <OrbitControls
