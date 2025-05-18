@@ -92,34 +92,50 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
 
     // Calculate zoom factor based on distance
-    // The further away the camera, the more we need to zoom
-    // We want the card to fill roughly 1/3 of the screen regardless of distance
-    const baseZoomFactor = 1.5;
+    // Instead of scaling relative to initial size, we'll calculate an absolute target size
+    // This ensures all cards zoom to approximately the same final size regardless of initial distance
 
-    // More aggressive scaling based on distance
-    // This ensures cards are readable even when camera is very far away
-    const distanceScale = Math.max(1.0, Math.pow(distance / 15, 1.5));
+    // Target apparent size in the camera view (in world units)
+    // This is the size we want all cards to appear when hovered, regardless of distance
+    const targetApparentSize = 10; // Adjust this value to control final card size
 
-    // Cap the maximum zoom to prevent cards from becoming too large
-    const zoomFactor = Math.min(baseZoomFactor * distanceScale, 5.0);
+    // Calculate the scale needed to make the card appear at the target size
+    // The formula is: (target apparent size / actual size) * (distance / reference distance)
+    // Where reference distance is a constant that helps normalize the scale
+    const cardBaseSize = 3; // Width of the card in world units
+    const referenceDistance = 15; // A reference distance for normalization
+
+    // Calculate absolute scale factor needed to make the card appear at target size
+    // Further cards need more scaling to reach the same apparent size
+    const absoluteScaleFactor = (targetApparentSize / cardBaseSize) * (distance / referenceDistance);
+
+    // Apply a minimum scale factor to ensure cards don't get too small when close to camera
+    // and a maximum to prevent cards from becoming too large
+    const zoomFactor = Math.min(Math.max(absoluteScaleFactor, 1.5), 8.0);
 
     // Debug zoom factor when hovering
     if (isHovered.current) {
-      console.debug(`Zoom factor: ${zoomFactor.toFixed(2)}, Distance scale: ${distanceScale.toFixed(2)}`);
+      console.debug(`Distance: ${distance.toFixed(2)}, Absolute scale: ${absoluteScaleFactor.toFixed(2)}, Final zoom: ${zoomFactor.toFixed(2)}`);
     }
 
     // Calculate how far to move the card toward the camera
-    // Further camera = move card more
-    // We move the card proportionally to the distance to maintain perspective
-    const baseMoveDistance = 1.0;
-    const moveDistance = baseMoveDistance * distanceScale * 1.5; // More aggressive movement
+    // We want cards to move a consistent percentage of their distance to the camera
+    // This ensures cards at different distances all move a visually similar amount
+
+    // Move the card forward by a percentage of its distance to the camera
+    // This creates a consistent visual effect regardless of initial distance
+    const movePercentage = 0.3; // Move forward by 30% of the distance to camera
+    const moveDistance = distance * movePercentage;
+
+    // Apply minimum and maximum limits to prevent extreme movements
+    const finalMoveDistance = Math.min(Math.max(moveDistance, 2.0), 20.0);
 
     // Debug move distance when hovering
     if (isHovered.current) {
-      console.debug(`Move distance: ${moveDistance.toFixed(2)} units`);
+      console.debug(`Move distance: ${finalMoveDistance.toFixed(2)} units (${(movePercentage * 100).toFixed(0)}% of ${distance.toFixed(2)})`);
     }
 
-    return { angle, distance, zoomFactor, moveDistance };
+    return { angle, distance, zoomFactor, moveDistance: finalMoveDistance };
   };
 
   // Update hover state when animation props change
