@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Text } from '@react-three/drei';
 import { Group, MathUtils, Vector3 } from 'three';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
 import { DEFAULTS } from '../../animation/constants';
@@ -20,6 +20,9 @@ interface TimelineCardProps {
   };
 }
 
+// Global state to ensure only one card can be hovered at a time
+const globalHoveredCardId = { current: null as string | null };
+
 export const TimelineCard: React.FC<TimelineCardProps> = ({
   event,
   selected = false,
@@ -33,6 +36,9 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     springConfig: { mass: 1, tension: 170, friction: 26 }
   }
 }) => {
+  // Get camera for proper rotation calculation
+  const { camera } = useThree();
+
   // Refs for animation
   const groupRef = useRef<Group>(null);
   const isHovered = useRef(false);
@@ -41,7 +47,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const [animState, setAnimState] = useState({
     // Target values for animation
     targetRotationY: 0,
-    targetPositionZ: 0,
+    targetPositionY: position[1],
+    targetPositionZ: position[2],
     targetScale: 1,
 
     // Animation timing
@@ -50,9 +57,70 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // Starting values for smooth interpolation
     startRotationY: 0,
-    startPositionZ: 0,
+    startPositionY: position[1],
+    startPositionZ: position[2],
     startScale: 1,
   });
+
+  // Calculate camera-related values for animation
+  const calculateCameraValues = () => {
+    if (!groupRef.current) return { angle: 0, distance: 10, zoomFactor: 1.5, moveDistance: 1.0 };
+
+    // Get card position in world space
+    const cardPosition = new Vector3(position[0], position[1], position[2]);
+
+    // Get camera position
+    const cameraPosition = camera.position.clone();
+
+    // Calculate direction from card to camera (only in XZ plane for Y rotation)
+    const direction = new Vector3(
+      cameraPosition.x - cardPosition.x,
+      0,
+      cameraPosition.z - cardPosition.z
+    ).normalize();
+
+    // Calculate angle - we want the card to face the camera
+    // Math.atan2 gives us the angle in radians
+    const angle = Math.atan2(direction.x, direction.z);
+
+    // Calculate distance from camera to card
+    const distance = cardPosition.distanceTo(cameraPosition);
+
+    // Debug distance in console when hovering
+    if (isHovered.current) {
+      console.debug(`Camera distance to card: ${distance.toFixed(2)} units`);
+    }
+
+    // Calculate zoom factor based on distance
+    // The further away the camera, the more we need to zoom
+    // We want the card to fill roughly 1/3 of the screen regardless of distance
+    const baseZoomFactor = 1.5;
+
+    // More aggressive scaling based on distance
+    // This ensures cards are readable even when camera is very far away
+    const distanceScale = Math.max(1.0, Math.pow(distance / 15, 1.5));
+
+    // Cap the maximum zoom to prevent cards from becoming too large
+    const zoomFactor = Math.min(baseZoomFactor * distanceScale, 5.0);
+
+    // Debug zoom factor when hovering
+    if (isHovered.current) {
+      console.debug(`Zoom factor: ${zoomFactor.toFixed(2)}, Distance scale: ${distanceScale.toFixed(2)}`);
+    }
+
+    // Calculate how far to move the card toward the camera
+    // Further camera = move card more
+    // We move the card proportionally to the distance to maintain perspective
+    const baseMoveDistance = 1.0;
+    const moveDistance = baseMoveDistance * distanceScale * 1.5; // More aggressive movement
+
+    // Debug move distance when hovering
+    if (isHovered.current) {
+      console.debug(`Move distance: ${moveDistance.toFixed(2)} units`);
+    }
+
+    return { angle, distance, zoomFactor, moveDistance };
+  };
 
   // Update hover state when animation props change
   useEffect(() => {
@@ -62,38 +130,108 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     if (newIsHovered !== isHovered.current) {
       isHovered.current = newIsHovered;
 
+      // Update global hovered card tracking
+      if (newIsHovered) {
+        globalHoveredCardId.current = event.id;
+      } else if (globalHoveredCardId.current === event.id) {
+        globalHoveredCardId.current = null;
+      }
+
       // Store current values as starting point
       const currentRotationY = groupRef.current?.rotation.y || 0;
+      const currentPositionY = groupRef.current?.position.y || position[1];
       const currentPositionZ = groupRef.current?.position.z || position[2];
       const currentScale = groupRef.current?.scale.x || 1;
 
+      // Get camera-dependent values
+      const { angle, zoomFactor, moveDistance } = calculateCameraValues();
+
       // Set target values based on hover state
-      const targetRotationY = newIsHovered ? Math.PI / 3 : 0; // 60 degrees when hovered
-      const targetPositionZ = newIsHovered ? position[2] + 0.5 : position[2]; // Move slightly toward camera
-      const targetScale = newIsHovered ? 1.3 : 1; // Larger when hovered
+      const targetRotationY = newIsHovered ? angle : 0;
+      const targetPositionY = newIsHovered ? position[1] + 0.5 : position[1]; // Move up when hovered
+      const targetPositionZ = newIsHovered ? position[2] - moveDistance : position[2]; // Move toward camera (negative Z)
+      const targetScale = newIsHovered ? zoomFactor : 1; // Larger when hovered
 
       // Start animation
       setAnimState({
         targetRotationY,
+        targetPositionY,
         targetPositionZ,
         targetScale,
         animationStartTime: performance.now(),
         isAnimating: true,
         startRotationY: currentRotationY,
+        startPositionY: currentPositionY,
         startPositionZ: currentPositionZ,
         startScale: currentScale,
       });
     }
-  }, [animationProps, position]);
+  }, [animationProps, position, camera, event.id]);
 
   // Animation frame
   useFrame(() => {
     if (!groupRef.current) return;
 
+    // Force unhover if another card is hovered
+    if (isHovered.current && globalHoveredCardId.current !== event.id) {
+      isHovered.current = false;
+
+      // Start unhover animation
+      const currentRotationY = groupRef.current.rotation.y;
+      const currentPositionY = groupRef.current.position.y;
+      const currentPositionZ = groupRef.current.position.z;
+      const currentScale = groupRef.current.scale.x;
+
+      // We don't need camera values for unhover, just reset to original position
+      setAnimState({
+        targetRotationY: 0,
+        targetPositionY: position[1],
+        targetPositionZ: position[2],
+        targetScale: 1,
+        animationStartTime: performance.now(),
+        isAnimating: true,
+        startRotationY: currentRotationY,
+        startPositionY: currentPositionY,
+        startPositionZ: currentPositionZ,
+        startScale: currentScale,
+      });
+    }
+
+    // Recalculate camera values if card is hovered and not animating
+    // This ensures the card stays properly oriented even when camera moves
+    if (isHovered.current && !animState.isAnimating && globalHoveredCardId.current === event.id) {
+      const { angle, zoomFactor, moveDistance } = calculateCameraValues();
+
+      // Only start a new animation if values have changed significantly
+      const currentRotationY = groupRef.current.rotation.y;
+      const currentScale = groupRef.current.scale.x;
+      const currentPositionZ = groupRef.current.position.z;
+
+      const rotationDiff = Math.abs(currentRotationY - angle);
+      const scaleDiff = Math.abs(currentScale - zoomFactor);
+      const positionZDiff = Math.abs(currentPositionZ - (position[2] - moveDistance));
+
+      // If any value has changed significantly, update the animation
+      if (rotationDiff > 0.1 || scaleDiff > 0.1 || positionZDiff > 0.1) {
+        setAnimState({
+          targetRotationY: angle,
+          targetPositionY: position[1] + 0.5,
+          targetPositionZ: position[2] - moveDistance,
+          targetScale: zoomFactor,
+          animationStartTime: performance.now(),
+          isAnimating: true,
+          startRotationY: currentRotationY,
+          startPositionY: groupRef.current.position.y,
+          startPositionZ: currentPositionZ,
+          startScale: currentScale,
+        });
+      }
+    }
+
     if (animState.isAnimating) {
       // Calculate animation progress
       const elapsedTime = performance.now() - animState.animationStartTime;
-      const duration = 300; // Animation duration in ms (faster for better responsiveness)
+      const duration = 250; // Animation duration in ms (faster for better responsiveness)
       const progress = Math.min(elapsedTime / duration, 1);
 
       // Easing function (ease-in-out)
@@ -105,6 +243,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       const newRotationY = MathUtils.lerp(
         animState.startRotationY,
         animState.targetRotationY,
+        easedProgress
+      );
+
+      const newPositionY = MathUtils.lerp(
+        animState.startPositionY,
+        animState.targetPositionY,
         easedProgress
       );
 
@@ -122,6 +266,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
       // Apply values
       groupRef.current.rotation.y = newRotationY;
+      groupRef.current.position.y = newPositionY;
       groupRef.current.position.z = newPositionZ;
       groupRef.current.scale.set(newScale, newScale, newScale);
 
