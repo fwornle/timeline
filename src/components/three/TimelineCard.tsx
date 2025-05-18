@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Text } from '@react-three/drei';
-import { Group, MathUtils, Vector3 } from 'three';
+import { Group, MathUtils, Vector3, PerspectiveCamera } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
@@ -80,6 +80,11 @@ const hoverDebounce = {
   lastCameraMoveTime: 0,
   // Camera movement cooldown (ms)
   cameraCooldownTime: 200,
+  // New values for improved hover stability
+  hoverStartPosition: { x: 0, y: 0 },
+  significantMoveThreshold: 50, // pixels
+  isHoverLocked: false, // Prevents interruption during initial animation
+  hoverLockDuration: 400, // ms - duration to lock hover state during animation
 };
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -206,62 +211,50 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     ).normalize();
 
     // Calculate angle - we want the card to face the camera
-    // Math.atan2 gives us the angle in radians
     const angle = Math.atan2(direction.x, direction.z);
 
     // Calculate distance from camera to card
     const distance = cardPosition.distanceTo(cameraPosition);
 
-    // Debug distance in console when hovering
-    if (isHovered.current) {
-      console.debug(`Camera distance to card: ${distance.toFixed(2)} units`);
-    }
-
-    // Calculate zoom factor based on distance
-    // Instead of scaling relative to initial size, we'll calculate an absolute target size
-    // This ensures all cards zoom to approximately the same final size regardless of initial distance
-
-    // Target apparent size in the camera view (in world units)
-    // This is the size we want all cards to appear when hovered, regardless of distance
-    const targetApparentSize = 10; // Adjust this value to control final card size
-
-    // Calculate the scale needed to make the card appear at the target size
-    // The formula is: (target apparent size / actual size) * (distance / reference distance)
-    // Where reference distance is a constant that helps normalize the scale
-    const cardBaseSize = 3; // Width of the card in world units
-    const referenceDistance = 15; // A reference distance for normalization
-
-    // Calculate absolute scale factor needed to make the card appear at target size
-    // Further cards need more scaling to reach the same apparent size
-    const absoluteScaleFactor = (targetApparentSize / cardBaseSize) * (distance / referenceDistance);
-
-    // Apply a minimum scale factor to ensure cards don't get too small when close to camera
-    // and a maximum to prevent cards from becoming too large
-    const zoomFactor = Math.min(Math.max(absoluteScaleFactor, 1.5), 8.0);
-
-    // Debug zoom factor when hovering
-    if (isHovered.current) {
-      console.debug(`Distance: ${distance.toFixed(2)}, Absolute scale: ${absoluteScaleFactor.toFixed(2)}, Final zoom: ${zoomFactor.toFixed(2)}`);
-    }
+    // Calculate the camera's field of view in radians
+    // Default to 45 degrees if not a perspective camera
+    const fovRadians = (camera instanceof PerspectiveCamera) 
+      ? (camera.fov * Math.PI) / 180 
+      : (45 * Math.PI) / 180;
+    
+    // Calculate the visible height at the card's distance
+    // This is the height of the visible area at the card's distance from camera
+    const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
+    
+    // We want the card to take up approximately 1/3 of the visible height
+    const targetCardHeight = visibleHeight / 3;
+    
+    // Calculate zoom factor needed to achieve this size
+    // The card's base height is cardHeight (2.0 units)
+    const cardBaseHeight = 2.0;
+    const zoomFactor = targetCardHeight / cardBaseHeight;
+    
+    // Apply min/max limits to keep the zoom reasonable
+    const minZoom = 1.2;
+    const maxZoom = 12.0;
+    const finalZoomFactor = Math.min(Math.max(zoomFactor, minZoom), maxZoom);
 
     // Calculate how far to move the card toward the camera
-    // We want cards to move a consistent percentage of their distance to the camera
-    // This ensures cards at different distances all move a visually similar amount
+    // We want to move it forward enough to be clearly visible but not too close
+    const idealViewingDistance = visibleHeight * 1.5; // Keep it at a comfortable viewing distance
+    const currentViewingDistance = distance;
+    const moveDistance = Math.max(0, currentViewingDistance - idealViewingDistance);
 
-    // Move the card forward by a percentage of its distance to the camera
-    // This creates a consistent visual effect regardless of initial distance
-    const movePercentage = 0.3; // Move forward by 30% of the distance to camera
-    const moveDistance = distance * movePercentage;
+    // Clamp move distance to reasonable limits
+    const maxMoveDistance = distance * 0.7; // Don't move more than 70% closer
+    const finalMoveDistance = Math.min(moveDistance, maxMoveDistance);
 
-    // Apply minimum and maximum limits to prevent extreme movements
-    const finalMoveDistance = Math.min(Math.max(moveDistance, 2.0), 20.0);
-
-    // Debug move distance when hovering
-    if (isHovered.current) {
-      console.debug(`Move distance: ${finalMoveDistance.toFixed(2)} units (${(movePercentage * 100).toFixed(0)}% of ${distance.toFixed(2)})`);
-    }
-
-    return { angle, distance, zoomFactor, moveDistance: finalMoveDistance };
+    return { 
+      angle, 
+      distance, 
+      zoomFactor: finalZoomFactor, 
+      moveDistance: finalMoveDistance 
+    };
   };
 
   // Update hover state when animation props change
@@ -466,16 +459,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // Store current mouse position
+    // Store hover start position
+    hoverDebounce.hoverStartPosition = { x: e.clientX, y: e.clientY };
     hoverDebounce.lastMousePosition = { x: e.clientX, y: e.clientY };
 
-    // Check if we're already in a hover animation or if enough time has passed since last hover change
-    const now = performance.now();
-    const timeSinceLastChange = now - hoverDebounce.lastHoverChangeTime;
-
-    // If we're already hovering this card, do nothing
+    // If we're already hovering this card, just update the position
     if (globalHoveredCardId.current === event.id) {
-      // Refresh the hover state to prevent it from being cleared by document clicks
       isHovered.current = true;
       return;
     }
@@ -486,8 +475,11 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       onHover(null);
     }
 
-    // Less restrictive debouncing: allow hover changes after a shorter time
-    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime / 3) {
+    // Check debounce conditions
+    const now = performance.now();
+    const timeSinceLastChange = now - hoverDebounce.lastHoverChangeTime;
+
+    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime) {
       console.debug(`Ignoring hover on ${event.id}, animation in progress`);
       return;
     }
@@ -495,7 +487,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     // Update hover state
     hoverDebounce.lastHoverChangeTime = now;
     hoverDebounce.isInHoverAnimation = true;
+    hoverDebounce.isHoverLocked = true;
     isHovered.current = true;
+
+    // Set a timeout to unlock hover after the initial animation
+    setTimeout(() => {
+      hoverDebounce.isHoverLocked = false;
+    }, hoverDebounce.hoverLockDuration);
 
     if (onHover) {
       console.debug(`Setting hover on ${event.id}`);
@@ -507,45 +505,50 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
-    // If we're not hovering this card, ignore
-    if (globalHoveredCardId.current !== event.id) {
+    // If we're not hovering this card or hover is locked, ignore
+    if (globalHoveredCardId.current !== event.id || hoverDebounce.isHoverLocked) {
       return;
     }
 
-    // Set local hover state to false
-    isHovered.current = false;
+    // Calculate distance from hover start position
+    const distanceFromStart = Math.sqrt(
+      Math.pow(e.clientX - hoverDebounce.hoverStartPosition.x, 2) +
+      Math.pow(e.clientY - hoverDebounce.hoverStartPosition.y, 2)
+    );
 
-    // Clear hover state
-    hoverDebounce.lastHoverChangeTime = performance.now();
-    hoverDebounce.isInHoverAnimation = true; // Keep true during unhover animation
+    // Only unhover if mouse has moved significantly from the start position
+    if (distanceFromStart > hoverDebounce.significantMoveThreshold) {
+      isHovered.current = false;
+      hoverDebounce.lastHoverChangeTime = performance.now();
+      hoverDebounce.isInHoverAnimation = true;
 
-    // Start unhover animation
-    if (groupRef.current) {
-      const currentRotationY = groupRef.current.rotation.y;
-      const currentPositionY = groupRef.current.position.y;
-      const currentPositionZ = groupRef.current.position.z;
-      const currentScale = groupRef.current.scale.x;
+      // Start unhover animation
+      if (groupRef.current) {
+        const currentRotationY = groupRef.current.rotation.y;
+        const currentPositionY = groupRef.current.position.y;
+        const currentPositionZ = groupRef.current.position.z;
+        const currentScale = groupRef.current.scale.x;
 
-      // Set animation state to return to original position
-      setAnimState({
-        targetRotationY: 0,
-        targetPositionY: position[1],
-        targetPositionZ: position[2],
-        targetScale: 1,
-        animationStartTime: performance.now(),
-        isAnimating: true,
-        animationDuration: 250, // Fast animation for unhover
-        startRotationY: currentRotationY,
-        startPositionY: currentPositionY,
-        startPositionZ: currentPositionZ,
-        startScale: currentScale,
-      });
-    }
+        setAnimState({
+          targetRotationY: 0,
+          targetPositionY: position[1],
+          targetPositionZ: position[2],
+          targetScale: 1,
+          animationStartTime: performance.now(),
+          isAnimating: true,
+          animationDuration: 250,
+          startRotationY: currentRotationY,
+          startPositionY: currentPositionY,
+          startPositionZ: currentPositionZ,
+          startScale: currentScale,
+        });
+      }
 
-    if (onHover) {
-      console.debug(`Clearing hover on ${event.id} due to pointer out`);
-      globalHoveredCardId.current = null;
-      onHover(null);
+      if (onHover) {
+        console.debug(`Clearing hover on ${event.id} due to significant pointer movement`);
+        globalHoveredCardId.current = null;
+        onHover(null);
+      }
     }
   };
 
