@@ -1,8 +1,42 @@
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const pathModule = require('path');
 
 const PORT = 3030;
 const API_PREFIX = '/api/v1';
+
+// Persistent mock cache helpers
+const MOCK_CACHE_DIR = pathModule.join(__dirname, '.mockcache');
+if (!fs.existsSync(MOCK_CACHE_DIR)) {
+  fs.mkdirSync(MOCK_CACHE_DIR);
+}
+function getCacheFilePath(repository, type) {
+  // type: 'git' or 'spec'
+  const safeRepo = encodeURIComponent(repository);
+  return pathModule.join(MOCK_CACHE_DIR, `${safeRepo}.${type}.json`);
+}
+function readMockCache(repository, type) {
+  const filePath = getCacheFilePath(repository, type);
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+function writeMockCache(repository, type, data) {
+  const filePath = getCacheFilePath(repository, type);
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+}
+function purgeMockCache(repository) {
+  ['git', 'spec'].forEach(type => {
+    const filePath = getCacheFilePath(repository, type);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  });
+}
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
@@ -59,6 +93,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Purge endpoint
+  if (path === `${API_PREFIX}/purge`) {
+    const { repository } = query;
+    if (repository) {
+      purgeMockCache(repository);
+      res.writeHead(200);
+      res.end(JSON.stringify({ success: true, message: 'Cache purged' }));
+    } else {
+      res.writeHead(400);
+      res.end(JSON.stringify({ success: false, message: 'Repository required' }));
+    }
+    return;
+  }
+
   // Git history endpoint
   if (path === `${API_PREFIX}/git/history`) {
     console.log('Git history request received', { query });
@@ -69,9 +117,13 @@ const server = http.createServer((req, res) => {
         throw new Error('Repository path is required');
       }
 
-      // Check if we should use real repository data
-      // For now, we'll use mock data but log that we would fetch from the real repository
-      console.log(`Would fetch real git history from repository: ${repository}`);
+      // Persistent cache check
+      const cached = readMockCache(repository, 'git');
+      if (cached) {
+        res.writeHead(200);
+        res.end(JSON.stringify(cached));
+        return;
+      }
 
       // Generate mock data with multiple commits
       const mockCommits = [];
@@ -105,14 +157,16 @@ const server = http.createServer((req, res) => {
         lastCommitDate: mockCommits[mockCommits.length - 1]?.timestamp
       });
 
-      res.writeHead(200);
-      res.end(JSON.stringify({
+      const response = {
         success: true,
         data: mockCommits,
         timestamp: new Date().toISOString(),
         cached: true, // Keep for backward compatibility
         mocked: true  // New flag to indicate this is mock data
-      }));
+      };
+      writeMockCache(repository, 'git', response);
+      res.writeHead(200);
+      res.end(JSON.stringify(response));
     } catch (error) {
       console.error('Git history request failed', {
         query,
@@ -144,9 +198,13 @@ const server = http.createServer((req, res) => {
         throw new Error('Repository path is required');
       }
 
-      // Check if we should use real repository data
-      // For now, we'll use mock data but log that we would fetch from the real repository
-      console.log(`Would fetch real spec history from repository: ${repository}, path: .specstory/history`);
+      // Persistent cache check
+      const cached = readMockCache(repository, 'spec');
+      if (cached) {
+        res.writeHead(200);
+        res.end(JSON.stringify(cached));
+        return;
+      }
 
       // Generate mock data with multiple specs
       const mockSpecs = [];
@@ -183,14 +241,16 @@ const server = http.createServer((req, res) => {
         lastSpecDate: mockSpecs[mockSpecs.length - 1]?.timestamp
       });
 
-      res.writeHead(200);
-      res.end(JSON.stringify({
+      const response = {
         success: true,
         data: mockSpecs,
         timestamp: new Date().toISOString(),
         cached: true, // Keep for backward compatibility
         mocked: true  // New flag to indicate this is mock data
-      }));
+      };
+      writeMockCache(repository, 'spec', response);
+      res.writeHead(200);
+      res.end(JSON.stringify(response));
     } catch (error) {
       console.error('Spec history request failed', {
         query,
