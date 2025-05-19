@@ -20,9 +20,9 @@ export const DEFAULTS = {
     },
   },
   SCROLL: {
-    SPEED: 1,
-    MIN_SPEED: 0.1,
-    MAX_SPEED: 5,
+    SPEED: 2,
+    MIN_SPEED: 0.2,
+    MAX_SPEED: 10,
   },
   CAMERA: {
     POSITION: [10, 5, 10] as const,
