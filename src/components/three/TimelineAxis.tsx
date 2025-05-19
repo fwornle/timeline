@@ -105,15 +105,15 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         {/* Transparent vertical plane - stands up perpendicular to the time axis (Z) */}
         <mesh rotation={[0, 0, 0]} position={[0, 0, 0]}>
           {/* Plane is perpendicular to Z (time axis), covers the timeline height */}
-          <planeGeometry args={[8, 3]} />
+          <planeGeometry args={[4, 2]} />
           {/* Custom shader material for edge fade */}
           <shaderMaterial
             attach="material"
             transparent
             uniforms={{
               color: { value: [1.0, 0.4, 0.0] }, // more saturated orange
-              opacity: { value: 0.6 }, // much less transparent
-              fade: { value: 0.6 }, // much less fade, more solid
+              opacity: { value: 0.7 }, // much less transparent
+              fade: { value: 0.7 }, // much less fade, more solid
             }}
             vertexShader={`
               varying vec2 vUv;
