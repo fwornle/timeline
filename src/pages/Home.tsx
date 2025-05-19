@@ -6,7 +6,7 @@ import { useLogger } from '../utils/logging/hooks/useLogger';
 interface HomeProps {
   onLoadingChange?: (loading: boolean) => void;
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
-  onCacheStatusChange?: (isMocked: boolean) => void;
+  onMockStatusChange?: (isMocked: boolean) => void;
   onPositionChange?: (position: number) => void;
   onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
   onTimelineLengthChange?: (timelineLength: number) => void;
@@ -19,7 +19,7 @@ interface HomeProps {
 const Home: React.FC<HomeProps> = ({
   onLoadingChange,
   onEventCountsChange,
-  onCacheStatusChange,
+  onMockStatusChange,
   onPositionChange,
   onTimelineDatesChange,
   onTimelineLengthChange,
@@ -37,7 +37,7 @@ const Home: React.FC<HomeProps> = ({
     console.debug('Home component received props:', {
       hasOnLoadingChange: !!onLoadingChange,
       hasOnEventCountsChange: !!onEventCountsChange,
-      hasOnCacheStatusChange: !!onCacheStatusChange,
+      hasOnMockStatusChange: !!onMockStatusChange,
       hasOnPositionChange: !!onPositionChange,
       hasOnTimelineDatesChange: !!onTimelineDatesChange,
       hasOnTimelineLengthChange: !!onTimelineLengthChange,
@@ -48,7 +48,7 @@ const Home: React.FC<HomeProps> = ({
       stack: new Error().stack
     });
   }, [
-    onLoadingChange, onEventCountsChange, onCacheStatusChange, 
+    onLoadingChange, onEventCountsChange, onMockStatusChange, 
     onPositionChange, onTimelineDatesChange, onTimelineLengthChange, forceReload, viewAllMode, 
     focusCurrentMode, debugMode
   ]);
@@ -98,10 +98,10 @@ const Home: React.FC<HomeProps> = ({
             specEventsCount: specEvents.length,
             isMocked,
             hasOnEventCountsChange: !!onEventCountsChange,
-            hasOnCacheStatusChange: !!onCacheStatusChange,
+            hasOnMockStatusChange: !!onMockStatusChange,
             parentCallbacks: {
               onEventCountsChange: onEventCountsChange?.toString().substring(0, 100) + '...',
-              onCacheStatusChange: onCacheStatusChange?.toString().substring(0, 100) + '...'
+              onMockStatusChange: onMockStatusChange?.toString().substring(0, 100) + '...'
             },
             stack: new Error().stack
           });
@@ -117,12 +117,12 @@ const Home: React.FC<HomeProps> = ({
             console.warn('Home cannot update event counts: onEventCountsChange is not defined');
           }
           
-          if (onCacheStatusChange) {
-            console.debug('Home calling onCacheStatusChange with:', { isMocked });
-            onCacheStatusChange(isMocked);
-            logger.info('Cache status updated', { isMocked });
+          if (onMockStatusChange) {
+            console.debug('Home calling onMockStatusChange with:', { isMocked });
+            onMockStatusChange(isMocked);
+            logger.info('Mock status updated', { isMocked });
           } else {
-            console.warn('Home cannot update mocked status: onCacheStatusChange is not defined');
+            console.warn('Home cannot update mock status: onMockStatusChange is not defined');
           }
           
           // If there are events with timestamps, determine start and end dates

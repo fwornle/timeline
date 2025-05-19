@@ -81,6 +81,11 @@ export function useTimelineData(repoUrl: string) {
 
       // Check if either result is mocked
       setUsingMockedData(gitResult.mocked || specResult.mocked);
+      console.debug('useTimelineData fetchTimelineData:', {
+        gitMocked: gitResult.mocked,
+        specMocked: specResult.mocked,
+        usingMockedData: gitResult.mocked || specResult.mocked
+      });
 
       // Combine and sort events
       const allEvents = [...gitResult.events, ...specResult.events]
@@ -141,6 +146,11 @@ export function useTimelineData(repoUrl: string) {
         ]);
 
         setUsingMockedData(gitResult.mocked || specResult.mocked);
+        console.debug('useTimelineData initial fetch:', {
+          gitMocked: gitResult.mocked,
+          specMocked: specResult.mocked,
+          usingMockedData: gitResult.mocked || specResult.mocked
+        });
 
         const allEvents = [...gitResult.events, ...specResult.events]
           .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());

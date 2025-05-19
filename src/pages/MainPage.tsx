@@ -13,7 +13,7 @@ interface MainPageProps {
   focusCurrentMode?: boolean;
   forceReload?: boolean;
   onEventCountsChange?: (gitEvents: number, specEvents: number) => void;
-  onCacheStatusChange?: (cached: boolean) => void;
+  onMockStatusChange?: (mocked: boolean) => void;
   onPositionChange?: (pos: number) => void;
   debugMode?: boolean;
 }
@@ -28,7 +28,7 @@ const MainPage: React.FC<MainPageProps> = ({
   focusCurrentMode,
   forceReload,
   onEventCountsChange,
-  onCacheStatusChange,
+  onMockStatusChange,
   onPositionChange,
   debugMode = false,
 }) => {
@@ -127,12 +127,20 @@ const MainPage: React.FC<MainPageProps> = ({
               focusCurrentMode={focusCurrentMode}
               forceReload={forceReload}
               debugMode={debugMode}
-              onDataLoaded={(gitEvents, specEvents, isCached) => {
+              onDataLoaded={(gitEvents, specEvents, isMocked) => {
+                console.debug('MainPage onDataLoaded:', {
+                  gitEventsCount: gitEvents.length,
+                  specEventsCount: specEvents.length,
+                  isMocked,
+                  hasEventCountsChange: !!onEventCountsChange,
+                  hasMockStatusChange: !!onMockStatusChange
+                });
                 if (onEventCountsChange) {
                   onEventCountsChange(gitEvents.length, specEvents.length);
                 }
-                if (onCacheStatusChange) {
-                  onCacheStatusChange(isCached);
+                if (onMockStatusChange) {
+                  console.debug('MainPage calling onMockStatusChange:', { isMocked });
+                  onMockStatusChange(isMocked);
                 }
               }}
               onPositionUpdate={onPositionChange}

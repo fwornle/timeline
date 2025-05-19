@@ -19,7 +19,6 @@ interface GitHistoryResponse {
   success: boolean;
   data: GitCommitResponse[];
   timestamp: string;
-  cached: boolean;
   mocked: boolean;
 }
 
@@ -174,7 +173,7 @@ export class GitService {
   /**
    * Fetches git history from the API
    */
-  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], cached: boolean, mocked: boolean }> {
+  async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], mocked: boolean }> {
     try {
       this.validateDateParams(startDate, endDate);
 
@@ -194,16 +193,14 @@ export class GitService {
       );
 
       const events = this.parseGitHistory(response.data);
-      const cached = response.mocked || response.cached || false;
       const mocked = response.mocked || false;
 
       logger.info('data', 'Successfully fetched git history', {
         eventCount: events.length,
-        cached,
         mocked
       });
 
-      return { events, cached, mocked };
+      return { events, mocked };
     } catch (error) {
       logger.error('data', 'Failed to fetch git history', {
         error,

@@ -268,7 +268,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     if (onDataLoaded && events.length > 0) {
       const gitEvents = events.filter(e => e.type === 'git');
       const specEvents = events.filter(e => e.type === 'spec');
-      console.debug('TimelineVisualization calling onDataLoaded with:', {
+      console.debug('TimelineVisualization calling onDataLoaded:', {
         gitEventsCount: gitEvents.length,
         specEventsCount: specEvents.length,
         isMocked: usingMockedData,

@@ -375,7 +375,6 @@ const server = http.createServer(async (req, res) => {
           success: true,
           data: gitData,
           timestamp: new Date().toISOString(),
-          cached: false,
           mocked: isMocked
         };
 
@@ -442,7 +441,6 @@ const server = http.createServer(async (req, res) => {
           success: true,
           data: specData,
           timestamp: new Date().toISOString(),
-          cached: false,
           mocked: isMocked
         };
 

@@ -152,7 +152,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         routeProps?: {
           onLoadingChange?: (loading: boolean) => void;
           onEventCountsChange?: (gitCount: number, specCount: number) => void;
-          onCacheStatusChange?: (mocked: boolean) => void;
+          onMockStatusChange?: (mocked: boolean) => void;
           onPositionChange?: (position: number) => void;
           onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
           onTimelineLengthChange?: (timelineLength: number) => void;
@@ -177,7 +177,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setGitCount(gitCount);
                 setSpecCount(specCount);
               },
-              onCacheStatusChange: (mocked: boolean) => {
+              onMockStatusChange: (mocked: boolean) => {
                 console.debug('MainLayout.setIsMocked via routeProps:', { mocked });
                 setIsMocked(mocked);
               },
@@ -236,6 +236,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     isLoading, isMocked, currentPosition, timelineStartDate, 
     timelineEndDate, timelineLength, forceReloadFlag, viewAllMode, focusCurrentMode, debugMode
   ]);
+
+  useEffect(() => {
+    console.debug('MainLayout isMocked:', isMocked);
+  }, [isMocked]);
 
   return (
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">

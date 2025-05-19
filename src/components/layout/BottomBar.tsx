@@ -15,8 +15,8 @@ interface BottomBarProps {
   onRetry?: (source: 'git' | 'spec') => void;
   onRetryAll?: () => void;
   showControls?: boolean;
-  isCached?: boolean;
-  repoUrl?: string; // Kept for future use
+  isMocked?: boolean;
+  repoUrl?: string;
   animationSpeed: number;
   onAnimationSpeedChange: (speed: number) => void;
   autoDrift: boolean;
@@ -30,7 +30,7 @@ export function BottomBar({
   onRetry,
   onRetryAll,
   showControls = false,
-  isCached = false,
+  isMocked = false,
   animationSpeed,
   onAnimationSpeedChange,
   autoDrift,
@@ -88,13 +88,13 @@ export function BottomBar({
                 </span>
               </div>
 
-              {isCached && (
+              {isMocked && (
                 <div className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
                     <path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                   </svg>
                   <span className="text-xs text-gray-300 whitespace-nowrap">
-                    Using cached data
+                    Using mock data
                   </span>
                 </div>
               )}

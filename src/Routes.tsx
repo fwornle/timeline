@@ -8,7 +8,7 @@ interface AppRoutesProps {
   routeProps?: {
     onLoadingChange?: (loading: boolean) => void;
     onEventCountsChange?: (gitCount: number, specCount: number) => void;
-    onCacheStatusChange?: (isMocked: boolean) => void;
+    onMockStatusChange?: (isMocked: boolean) => void;
     onPositionChange?: (pos: number) => void;
     onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
     onTimelineLengthChange?: (timelineLength: number) => void;
