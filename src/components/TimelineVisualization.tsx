@@ -23,18 +23,18 @@ interface TimelineVisualizationProps {
 
 // Loading component
 const LoadingView: React.FC<{
-  sources: {
-    git: { isLoading: boolean };
-    spec: { isLoading: boolean };
+  sources?: {
+    git?: { isLoading?: boolean };
+    spec?: { isLoading?: boolean };
   };
-}> = ({ sources }) => (
+}> = ({ sources = { git: { isLoading: true }, spec: { isLoading: true } } }) => (
   <div className="h-full flex items-center justify-center bg-light">
     <div className="text-center space-y-4">
       <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       <p className="text-xl font-medium">Loading timeline data...</p>
       <div className="space-y-2 text-sm text-muted">
-        {sources.git.isLoading && <p>Fetching git history...</p>}
-        {sources.spec.isLoading && <p>Fetching spec history...</p>}
+        {(!sources.git || sources.git.isLoading) && <p>Fetching git history...</p>}
+        {(!sources.spec || sources.spec.isLoading) && <p>Fetching spec history...</p>}
       </div>
     </div>
   </div>
@@ -422,8 +422,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             {/* Loading details */}
             {isPartialLoading && !hasError && (
               <div className="text-sm text-white">
-                {sources.git.isLoading && <p className="mb-1">Fetching git history...</p>}
-                {sources.spec.isLoading && <p className="mb-0">Fetching spec history...</p>}
+                {(!sources.git || sources.git.isLoading) && <p className="mb-1">Fetching git history...</p>}
+                {(!sources.spec || sources.spec.isLoading) && <p className="mb-0">Fetching spec history...</p>}
               </div>
             )}
 

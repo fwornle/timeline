@@ -3,18 +3,10 @@ import type { TimelineEvent, TimelinePeriod } from '../types/TimelineEvent';
 import { GitService } from '../services/GitService';
 import { SpecStoryService } from '../services/SpecStoryService';
 import { logger } from '../../utils/logging/logger';
-import { TimelineAPIError } from '../../utils/api/errors';
-import { useRepositoryStorage } from './useRepositoryStorage';
-import { mockGitHistory } from '../mocks/mockGitHistory';
-import { mockSpecHistory } from '../mocks/mockSpecHistory';
 
 interface DataSourceState {
   isLoading: boolean;
   error: Error | null;
-  retryCount: number;
-  lastAttempt: number | null;
-  maxAutoRetries: number;
-  autoRetryEnabled: boolean;
 }
 
 interface TimelineDataState {
@@ -36,485 +28,262 @@ interface TimelineFilter {
 // API base URL
 const API_BASE_URL = 'http://localhost:3030/api/v1';
 
-export function useTimelineData(baseUrl: string) {
-  // Repository storage for caching
-  const {
-    // We don't use hasValidRepoData anymore as we always go through the server
-    loadRepoData,
-    saveRepoData,
-    purgeRepoData
-  } = useRepositoryStorage();
-
-  // Track if we're using mocked data
-  const [usingMockedData, setUsingMockedData] = useState(false);
-
-  // Track if we've already attempted to fetch for this URL
-  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
-
-  // Track if we're currently fetching to prevent duplicate requests
-  const [isFetching, setIsFetching] = useState(false);
-
+export function useTimelineData(repoUrl: string) {
+  // State
   const [state, setState] = useState<TimelineDataState>({
     events: [],
     period: null,
     sources: {
-      git: {
-        isLoading: false,
-        error: null,
-        retryCount: 0,
-        lastAttempt: null,
-        maxAutoRetries: 0, // No auto retries
-        autoRetryEnabled: false, // Auto retry disabled
-      },
-      spec: {
-        isLoading: false,
-        error: null,
-        retryCount: 0,
-        lastAttempt: null,
-        maxAutoRetries: 0, // No auto retries
-        autoRetryEnabled: false, // Auto retry disabled
-      },
-    },
+      git: { isLoading: false, error: null },
+      spec: { isLoading: false, error: null }
+    }
   });
 
   const [filter, setFilter] = useState<TimelineFilter>({
-    types: ['git', 'spec'],
+    types: ['git', 'spec']
   });
 
-  // Initialize services
-  const gitService = new GitService(API_BASE_URL, baseUrl || '', {
-    maxAttempts: 3,
-    initialDelay: 1000,
-    maxDelay: 10000,
-    timeout: 15000,
-  });
+  const [isFetching, setIsFetching] = useState(false);
+  const [usingMockedData, setUsingMockedData] = useState(false);
+  const [hasInitialFetch, setHasInitialFetch] = useState(false);
 
-  const specService = new SpecStoryService(API_BASE_URL, baseUrl || '', {
-    maxAttempts: 3,
-    initialDelay: 1000,
-    maxDelay: 10000,
-    timeout: 15000,
-  });
+  // Initialize services - memoize to prevent recreation
+  const gitService = useCallback(() => new GitService(API_BASE_URL, repoUrl), [repoUrl]);
+  const specService = useCallback(() => new SpecStoryService(API_BASE_URL, repoUrl), [repoUrl]);
 
-  // Function to load mock data when no repository is provided or when explicitly requested
-  const loadMockData = useCallback(() => {
-    logger.info('data', 'Loading mock data');
-    setUsingMockedData(true);
-
-    const gitEvents = mockGitHistory();
-    const specEvents = mockSpecHistory();
-
-    const allEvents = [...gitEvents, ...specEvents];
-    allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    const period = allEvents.length > 0 ? {
-      start: allEvents[0].timestamp,
-      end: allEvents[allEvents.length - 1].timestamp,
-      events: allEvents,
-    } : null;
-
-    setState(prev => ({
-      ...prev,
-      events: allEvents,
-      period,
-      sources: {
-        git: {
-          ...prev.sources.git,
-          isLoading: false,
-          error: null,
-          retryCount: 0,
-          lastAttempt: null,
-        },
-        spec: {
-          ...prev.sources.spec,
-          isLoading: false,
-          error: null,
-          retryCount: 0,
-          lastAttempt: null,
-        }
-      }
-    }));
-
-    // Reset fetch attempt flag to prevent further automatic fetches
-    setHasAttemptedFetch(true);
-
-    // If we have a baseUrl, save the mock data to the cache with the isMocked flag
-    if (baseUrl) {
-      logger.info('data', 'Saving mock data to cache', { baseUrl });
-      saveRepoData(baseUrl, gitEvents, specEvents, true);
-    }
-
-    // Log that we're using mocked data
-    logger.info('data', 'Mock data loaded', {
-      gitCount: gitEvents.length,
-      specCount: specEvents.length,
-      totalCount: allEvents.length,
-      isMocked: true
-    });
-
-    // Ensure the mocked data flag is set
-    setUsingMockedData(true);
-
-    return { gitEvents, specEvents, allEvents, period };
-  }, [baseUrl, saveRepoData, setHasAttemptedFetch]);
-
-  const fetchSource = async (
-    sourceType: 'git' | 'spec',
-    fetchFn: () => Promise<{ events: TimelineEvent[]; cached: boolean; mocked?: boolean }>
-  ): Promise<{ events: TimelineEvent[]; cached: boolean; mocked: boolean }> => {
-    // Update source state to loading
-    setState(prev => ({
-      ...prev,
-      sources: {
-        ...prev.sources,
-        [sourceType]: {
-          ...prev.sources[sourceType],
-          isLoading: true,
-          error: null,
-          lastAttempt: Date.now(),
-        }
-      }
-    }));
-
-    logger.info('data', `Fetching ${sourceType} data`);
-    console.debug(`[useTimelineData] Fetching ${sourceType} data from server`);
-
-    try {
-      // Call the service function to fetch data
-      const response = await fetchFn();
-      
-      console.debug(`[useTimelineData] ${sourceType} data response:`, {
-        eventCount: response.events.length,
-        cached: response.cached,
-        mocked: response.mocked,
-        dataSnippet: response.events.slice(0, 2),
-        response
-      });
-
-      // Check if the response indicates mocked data
-      if (response.mocked) {
-        console.debug(`[useTimelineData] Received MOCKED ${sourceType} data with ${response.events.length} events`);
-        setUsingMockedData(true);
-      }
-
-      // Update loading state for this source
-      setState(prev => ({
-        ...prev,
-        sources: {
-          ...prev.sources,
-          [sourceType]: {
-            ...prev.sources[sourceType],
-            isLoading: false,
-            error: null,
-          }
-        }
-      }));
-
-      // Handle empty results
-      if (response.events.length === 0) {
-        logger.warn('data', `No ${sourceType} events found in response`);
-      } else {
-        logger.info('data', `Received ${response.events.length} ${sourceType} events`);
-      }
-
-      return {
-        events: response.events,
-        cached: response.cached,
-        mocked: Boolean(response.mocked)
-      };
-    } catch (error) {
-      console.error(`[useTimelineData] Error fetching ${sourceType} data:`, error);
-      // Update error state for this source
-      setState(prev => ({
-        ...prev,
-        sources: {
-          ...prev.sources,
-          [sourceType]: {
-            ...prev.sources[sourceType],
-            isLoading: false,
-            error: error instanceof Error ? error : new Error(`Failed to fetch ${sourceType} data`),
-            retryCount: prev.sources[sourceType].retryCount + 1,
-          }
-        }
-      }));
-
-      // Return empty result on error
-      return { events: [], cached: false, mocked: false };
-    }
-  };
-
-  const fetchTimelineData = useCallback(async (
-    sourceToRetry?: 'git' | 'spec',
-    // We always fetch from server, but keep param for API compatibility
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _: boolean = false
-  ) => {
-    // Prevent duplicate requests
-    if (isFetching) {
-      logger.info('data', 'Already fetching data, skipping duplicate request');
+  // Fetch data from server
+  const fetchTimelineData = useCallback(async (force = false) => {
+    // Skip if already fetching or no repo URL
+    if (!repoUrl || (isFetching && !force)) {
       return;
     }
 
-    // Set fetching flag
+    // Skip if we already have data and this isn't a forced refresh
+    if (hasInitialFetch && !force) {
+      return;
+    }
+
     setIsFetching(true);
-
-    // Reset mocked data flag
-    setUsingMockedData(false);
-
-    // Skip if no repository URL is provided
-    if (!baseUrl) {
-      logger.warn('data', 'Empty repository URL, skipping fetch');
-      // Load mock data when no repo URL is provided
-      loadMockData();
-      setIsFetching(false);
-      return;
-    }
+    setState(prev => ({
+      ...prev,
+      sources: {
+        git: { isLoading: true, error: null },
+        spec: { isLoading: true, error: null }
+      }
+    }));
 
     try {
-      // Validate the repository URL format if provided
-      if (!baseUrl || baseUrl.trim() === '') {
-        logger.error('data', 'Empty repository URL', { baseUrl });
-        throw new TimelineAPIError('Repository URL is required. Please enter a valid URL.');
-      }
+      // Fetch both git and spec data in parallel
+      const [gitResult, specResult] = await Promise.all([
+        gitService().fetchGitHistory(),
+        specService().fetchSpecHistory()
+      ]);
 
-      // Log the repository URL being used
-      logger.info('data', 'Using repository URL for data fetch', { baseUrl });
+      // Check if either result is mocked
+      setUsingMockedData(gitResult.mocked || specResult.mocked);
 
-      const shouldFetchGit = sourceToRetry
-        ? sourceToRetry === 'git'
-        : filter.types?.includes('git');
-
-      const shouldFetchSpec = sourceToRetry
-        ? sourceToRetry === 'spec'
-        : filter.types?.includes('spec');
-
-      const gitPromise = shouldFetchGit
-        ? fetchSource('git', () =>
-            gitService.fetchGitHistory(filter.startDate, filter.endDate)
-          )
-        : Promise.resolve({
-            events: state.events.filter(e => e.type === 'git'),
-            cached: true
-          });
-
-      const specPromise = shouldFetchSpec
-        ? fetchSource('spec', () =>
-            specService.fetchSpecHistory(filter.startDate, filter.endDate)
-          )
-        : Promise.resolve({
-            events: state.events.filter(e => e.type === 'spec'),
-            cached: true
-          });
-
-      // Use Promise.allSettled to handle partial failures
-      const results = await Promise.allSettled([gitPromise, specPromise]);
-
-      // Extract successful results with proper type handling
-      const gitResult = results[0].status === 'fulfilled' ? results[0].value : { events: [], cached: false, mocked: false };
-      const specResult = results[1].status === 'fulfilled' ? results[1].value : { events: [], cached: false, mocked: false };
-
-      const gitEvents = gitResult.events;
-      const specEvents = specResult.events;
-
-      // Check if either result is marked as mocked
-      const gitMocked = 'mocked' in gitResult ? gitResult.mocked : false;
-      const specMocked = 'mocked' in specResult ? specResult.mocked : false;
-      const isMocked = gitMocked || specMocked;
-
-      // Set the mocked data flag if either source is mocked
-      if (isMocked) {
-        setUsingMockedData(true);
-        logger.info('data', 'Using mocked data from server', {
-          gitMocked,
-          specMocked
-        });
-      }
-
-      const isCached = gitResult.cached && specResult.cached;
-
-      // Log any rejected promises
-      if (results[0].status === 'rejected') {
-        logger.error('data', 'Git data fetch failed', { error: results[0].reason });
-      }
-      if (results[1].status === 'rejected') {
-        logger.error('data', 'Spec data fetch failed', { error: results[1].reason });
-      }
-
-      const allEvents = [...gitEvents, ...specEvents];
-
-      // Sort events by timestamp
-      allEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-      // Filter by search term if present
-      const filteredEvents = filter.searchTerm
-        ? allEvents.filter(event => {
-            const searchLower = filter.searchTerm!.toLowerCase();
-            return event.title.toLowerCase().includes(searchLower) ||
-                   event.description?.toLowerCase().includes(searchLower);
-          })
-        : allEvents;
+      // Combine and sort events
+      const allEvents = [...gitResult.events, ...specResult.events]
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
       // Calculate period
-      const period = filteredEvents.length > 0 ? {
-        start: filteredEvents[0].timestamp,
-        end: filteredEvents[filteredEvents.length - 1].timestamp,
-        events: filteredEvents,
+      const period = allEvents.length > 0 ? {
+        start: allEvents[0].timestamp,
+        end: allEvents[allEvents.length - 1].timestamp,
+        events: allEvents
       } : null;
 
-      // Update state with new data
-      setState(prev => ({
-        ...prev,
-        events: filteredEvents,
+      setState({
+        events: allEvents,
         period,
-      }));
-
-      // Save to cache if we have data
-      if (gitEvents.length > 0 || specEvents.length > 0) {
-        // Pass the mocked flag to the storage
-        saveRepoData(baseUrl, gitEvents, specEvents, isMocked);
-      }
-
-      logger.info('data', 'Timeline data updated', {
-        gitCount: gitEvents.length,
-        specCount: specEvents.length,
-        totalCount: filteredEvents.length,
-        isCached: isCached,
-        isMocked: isMocked
+        sources: {
+          git: { isLoading: false, error: null },
+          spec: { isLoading: false, error: null }
+        }
       });
 
-      // Reset fetching flag
-      setIsFetching(false);
+      setHasInitialFetch(true);
     } catch (error) {
-      logger.error('data', 'Failed to update timeline data', { error });
-
-      // Set both sources to error state if there's a global error
+      logger.error('data', 'Failed to fetch timeline data', { error });
       setState(prev => ({
         ...prev,
         sources: {
-          git: {
-            ...prev.sources.git,
-            isLoading: false,
-            error: error instanceof Error ? error : new Error('Unknown error occurred'),
-          },
-          spec: {
-            ...prev.sources.spec,
-            isLoading: false,
-            error: error instanceof Error ? error : new Error('Unknown error occurred'),
-          }
+          git: { isLoading: false, error: error as Error },
+          spec: { isLoading: false, error: error as Error }
         }
       }));
-
-      // No auto-retries - user must explicitly retry or use mocked data
-      logger.info('data', 'Network error occurred, waiting for user action', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-
-      // If we have no data at all, we could offer to load mock data
-      if (state.events.length === 0) {
-        logger.info('data', 'No data available, user can load mock data');
-      }
-
-      // Reset fetching flag even on error
+    } finally {
       setIsFetching(false);
-
-      // Don't throw here, let the UI handle the error state
     }
-  }, [filter, gitService, specService, state.events, state.sources.git.retryCount, state.sources.spec.retryCount,
-      state.sources.git.autoRetryEnabled, state.sources.spec.autoRetryEnabled,
-      state.sources.git.maxAutoRetries, state.sources.spec.maxAutoRetries,
-      baseUrl, loadRepoData, saveRepoData, isFetching, loadMockData, setIsFetching]);
+  }, [repoUrl, gitService, specService]);
 
-  // Only fetch data when baseUrl changes or on explicit refresh
+  // Initial data fetch - only once when repoUrl changes
   useEffect(() => {
-    if (!baseUrl) {
-      logger.warn('data', 'Empty repository URL, skipping fetch');
+    // Skip if no repo URL or already fetching
+    if (!repoUrl || isFetching) {
       return;
     }
-    if (!hasAttemptedFetch) {
-      logger.info('data', 'Base URL changed or initial mount, fetching timeline data', { baseUrl });
-      setHasAttemptedFetch(true); // Set BEFORE fetch to prevent loops
-      fetchTimelineData(undefined, true);
+
+    // Skip if we already have data
+    if (hasInitialFetch) {
+      return;
     }
-  }, [baseUrl, hasAttemptedFetch, fetchTimelineData]);
+
+    logger.info('data', 'Initial fetch for repository', { repoUrl });
+    
+    // Start the fetch process
+    const doFetch = async () => {
+      setIsFetching(true);
+      try {
+        const [gitResult, specResult] = await Promise.all([
+          gitService().fetchGitHistory(),
+          specService().fetchSpecHistory()
+        ]);
+
+        setUsingMockedData(gitResult.mocked || specResult.mocked);
+
+        const allEvents = [...gitResult.events, ...specResult.events]
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        const period = allEvents.length > 0 ? {
+          start: allEvents[0].timestamp,
+          end: allEvents[allEvents.length - 1].timestamp,
+          events: allEvents
+        } : null;
+
+        setState({
+          events: allEvents,
+          period,
+          sources: {
+            git: { isLoading: false, error: null },
+            spec: { isLoading: false, error: null }
+          }
+        });
+      } catch (error) {
+        logger.error('data', 'Failed to fetch timeline data', { error });
+        setState(prev => ({
+          ...prev,
+          sources: {
+            git: { isLoading: false, error: error as Error },
+            spec: { isLoading: false, error: error as Error }
+          }
+        }));
+      } finally {
+        setIsFetching(false);
+        setHasInitialFetch(true);
+      }
+    };
+
+    doFetch();
+  }, [repoUrl, isFetching, hasInitialFetch, gitService, specService]); // Include all dependencies
+
+  // Function to purge cache and reload data
+  const purgeAndRefresh = useCallback(async () => {
+    if (!repoUrl || isFetching) {
+      return;
+    }
+
+    setIsFetching(true);
+    setState(prev => ({
+      ...prev,
+      sources: {
+        git: { isLoading: true, error: null },
+        spec: { isLoading: true, error: null }
+      }
+    }));
+
+    try {
+      // Send POST request to purge cache
+      const response = await fetch(`${API_BASE_URL}/purge?repository=${encodeURIComponent(repoUrl)}`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to purge cache');
+      }
+
+      // Wait a bit to ensure the cache is cleared
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Reset hasInitialFetch to allow a new fetch
+      setHasInitialFetch(false);
+
+      // Fetch fresh data
+      try {
+        const [gitResult, specResult] = await Promise.all([
+          gitService().fetchGitHistory(),
+          specService().fetchSpecHistory()
+        ]);
+
+        setUsingMockedData(gitResult.mocked || specResult.mocked);
+
+        const allEvents = [...gitResult.events, ...specResult.events]
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        const period = allEvents.length > 0 ? {
+          start: allEvents[0].timestamp,
+          end: allEvents[allEvents.length - 1].timestamp,
+          events: allEvents
+        } : null;
+
+        setState({
+          events: allEvents,
+          period,
+          sources: {
+            git: { isLoading: false, error: null },
+            spec: { isLoading: false, error: null }
+          }
+        });
+
+        // Set hasInitialFetch back to true after successful fetch
+        setHasInitialFetch(true);
+      } catch (fetchError) {
+        logger.error('data', 'Failed to fetch data after purge', { error: fetchError });
+        setState(prev => ({
+          ...prev,
+          sources: {
+            git: { isLoading: false, error: fetchError as Error },
+            spec: { isLoading: false, error: fetchError as Error }
+          }
+        }));
+        // Set hasInitialFetch back to true even on error to prevent loops
+        setHasInitialFetch(true);
+      }
+    } catch (purgeError) {
+      logger.error('data', 'Failed to purge cache', { error: purgeError });
+      setState(prev => ({
+        ...prev,
+        sources: {
+          git: { isLoading: false, error: purgeError as Error },
+          spec: { isLoading: false, error: purgeError as Error }
+        }
+      }));
+      // Set hasInitialFetch back to true on error to prevent loops
+      setHasInitialFetch(true);
+    } finally {
+      setIsFetching(false);
+    }
+  }, [repoUrl, isFetching, gitService, specService]);
 
   const updateFilter = useCallback((newFilter: Partial<TimelineFilter>) => {
     setFilter(prev => ({ ...prev, ...newFilter }));
   }, []);
 
-  const retrySource = useCallback((source: 'git' | 'spec') => {
-    logger.info('data', `Retrying ${source} data fetch`);
-    return fetchTimelineData(source);
-  }, [fetchTimelineData]);
-
-  const isLoading = state.sources.git.isLoading || state.sources.spec.isLoading;
-  const hasError = state.sources.git.error || state.sources.spec.error;
-  const errors = {
-    git: state.sources.git.error,
-    spec: state.sources.spec.error,
-  };
-
-  // Create a refresh function that forces a refresh
-  const refresh = useCallback(() => {
-    logger.info('data', 'Forcing refresh of timeline data');
-    // Reset the fetch attempt flag to allow a new fetch
-    setHasAttemptedFetch(false);
-    return fetchTimelineData(undefined, true);
-  }, [fetchTimelineData, setHasAttemptedFetch]);
-
-  // Create a purge function that clears the cache for the current repo and forces a refresh
-  const purgeAndRefresh = useCallback(() => {
-    if (!baseUrl) {
-      logger.warn('data', 'Empty repository URL, skipping purge');
-      return;
-    }
-
-    logger.info('data', 'Purging repository data and forcing refresh', { baseUrl });
-
-    // Purge the repository data
-    purgeRepoData(baseUrl);
-
-    // Reset the fetch attempt flag to allow a new fetch
-    setHasAttemptedFetch(false);
-
-    // Reset the state to clear any existing data
-    setState(prev => ({
-      ...prev,
-      events: [],
-      period: null,
-      sources: {
-        git: {
-          ...prev.sources.git,
-          isLoading: true,
-          error: null,
-          retryCount: 0,
-          lastAttempt: null,
-        },
-        spec: {
-          ...prev.sources.spec,
-          isLoading: true,
-          error: null,
-          retryCount: 0,
-          lastAttempt: null,
-        }
-      }
-    }));
-
-    // Force a refresh
-    return fetchTimelineData(undefined, true);
-  }, [baseUrl, purgeRepoData, fetchTimelineData, setHasAttemptedFetch]);
-
+  // Return stable interface
   return {
     events: state.events,
     period: state.period,
-    isLoading,
-    hasError,
-    errors,
+    isLoading: isFetching,
+    hasError: Boolean(state.sources.git.error || state.sources.spec.error),
+    errors: {
+      git: state.sources.git.error,
+      spec: state.sources.spec.error
+    },
     sources: state.sources,
     filter,
     updateFilter,
-    refresh,
+    refresh: () => fetchTimelineData(true),
     purgeAndRefresh,
-    retry: retrySource,
-    usingMockedData,
+    usingMockedData
   };
 }

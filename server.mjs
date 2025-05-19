@@ -1,8 +1,12 @@
-const http = require('http');
-const url = require('url');
-const fs = require('fs');
-const pathModule = require('path');
-const { createGitRepositoryService, createSpecRepositoryService } = require('./src/data/services/serviceWrapper.cjs');
+import http from 'http';
+import url from 'url';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createGitRepositoryService, createSpecRepositoryService } from './src/data/services/serviceWrapper.cjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = 3030;
 const API_PREFIX = '/api/v1';
@@ -19,7 +23,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Persistent cache helpers
-const TIMELINE_CACHE_DIR = pathModule.join(__dirname, '.timeline-cache');
+const TIMELINE_CACHE_DIR = path.join(__dirname, '.timeline-cache');
 if (!fs.existsSync(TIMELINE_CACHE_DIR)) {
   fs.mkdirSync(TIMELINE_CACHE_DIR);
 }
@@ -33,7 +37,7 @@ function sanitizeRepoUrl(repository) {
 function getCacheFilePath(repository, type) {
   // type: 'git' or 'spec'
   const safeRepo = sanitizeRepoUrl(repository);
-  return pathModule.join(TIMELINE_CACHE_DIR, `${safeRepo}.${type}.json`);
+  return path.join(TIMELINE_CACHE_DIR, `${safeRepo}.${type}.json`);
 }
 
 function readCache(repository, type) {
@@ -75,61 +79,72 @@ function localTime() {
 
 // Helper function to generate mock git data
 function generateMockGitData() {
-  const mockCommits = [];
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 3);
+  try {
+    const mockCommits = [];
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 3);
 
-  for (let i = 0; i < 20; i++) {
-    const commitDate = new Date(startDate);
-    commitDate.setDate(commitDate.getDate() + (i * 3));
+    for (let i = 0; i < 20; i++) {
+      const commitDate = new Date(startDate);
+      commitDate.setDate(commitDate.getDate() + (i * 3));
 
-    mockCommits.push({
-      hash: `mock-hash-${i}`,
-      timestamp: commitDate.toISOString(),
-      author: {
-        name: 'Mock User',
-        email: 'mock@example.com'
-      },
-      message: `Mock commit #${i}: ${i % 3 === 0 ? 'Feature' : i % 3 === 1 ? 'Fix' : 'Refactor'} - ${Math.random().toString(36).substring(7)}`,
-      branch: 'main',
-      files: [
-        { path: `src/file${i % 5}.js`, status: 'M' },
-        { path: `docs/doc${i % 3}.md`, status: 'A' }
-      ]
-    });
+      mockCommits.push({
+        hash: `mock-hash-${i}`,
+        timestamp: commitDate.toISOString(),
+        author: {
+          name: 'Mock User',
+          email: 'mock@example.com'
+        },
+        message: `Mock commit #${i}: ${i % 3 === 0 ? 'Feature' : i % 3 === 1 ? 'Fix' : 'Refactor'} - ${Math.random().toString(36).substring(7)}`,
+        branch: 'main',
+        files: [
+          { path: `src/file${i % 5}.js`, status: 'M' },
+          { path: `docs/doc${i % 3}.md`, status: 'A' }
+        ]
+      });
+    }
+    return mockCommits;
+  } catch (error) {
+    console.error(`[${localTime()}] Error generating mock git data:`, error);
+    return [];
   }
-  return mockCommits;
 }
 
 // Helper function to generate mock spec data
 function generateMockSpecData() {
-  const mockSpecs = [];
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 3);
+  try {
+    const mockSpecs = [];
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 3);
 
-  const specTypes = ['API', 'UI', 'Database', 'Architecture', 'Security'];
-  const statuses = ['draft', 'review', 'approved', 'implemented', 'deprecated'];
+    const specTypes = ['API', 'UI', 'Database', 'Architecture', 'Security'];
+    const statuses = ['draft', 'review', 'approved', 'implemented', 'deprecated'];
 
-  for (let i = 0; i < 15; i++) {
-    const specDate = new Date(startDate);
-    specDate.setDate(specDate.getDate() + (i * 5));
+    for (let i = 0; i < 15; i++) {
+      const specDate = new Date(startDate);
+      specDate.setDate(specDate.getDate() + (i * 5));
 
-    const specType = specTypes[i % specTypes.length];
-    const status = statuses[Math.min(i % statuses.length, 4)];
-    const version = `0.${Math.floor(i / 3) + 1}.${i % 3}`;
+      const specType = specTypes[i % specTypes.length];
+      const status = statuses[Math.min(i % statuses.length, 4)];
+      const version = `0.${Math.floor(i / 3) + 1}.${i % 3}`;
+      const specId = `mock-spec-${i}`;
 
-    mockSpecs.push({
-      id: `mock-spec-${i}`,
-      timestamp: specDate.toISOString(),
-      author: 'Mock User',
-      title: `${specType} Specification ${i + 1}`,
-      description: `This is a mock ${specType.toLowerCase()} specification for testing purposes`,
-      status: status,
-      version: version,
-      tags: [specType.toLowerCase(), status, `v${version}`]
-    });
+      mockSpecs.push({
+        id: specId,
+        timestamp: specDate.toISOString(),
+        author: 'Mock User',
+        title: `${specType} Specification ${i + 1}`,
+        description: `This is a mock ${specType.toLowerCase()} specification for testing purposes`,
+        status: status,
+        version: version,
+        tags: [specType.toLowerCase(), status, `v${version}`]
+      });
+    }
+    return mockSpecs;
+  } catch (error) {
+    console.error(`[${localTime()}] Error generating mock spec data:`, error);
+    return [];
   }
-  return mockSpecs;
 }
 
 // Create HTTP server with error handling
@@ -189,7 +204,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Purge endpoint
-    if (path === `${API_PREFIX}/purge`) {
+    if (path === `${API_PREFIX}/purge` && req.method === 'POST') {
       const { repository } = query;
       if (repository) {
         purgeCache(repository);
@@ -203,7 +218,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Git history endpoint
-    if (path === `${API_PREFIX}/git/history`) {
+    if (path === `${API_PREFIX}/git/history` && req.method === 'GET') {
       console.log('Git history request received', { query });
 
       try {
@@ -229,7 +244,7 @@ const server = http.createServer(async (req, res) => {
           gitData = await gitService.getHistory();
           console.log(`[${localTime()}] [API] Retrieved real git data for repo ${repository}: ${gitData.length} items`);
         } catch (error) {
-          console.log(`[${localTime()}] [API] Failed to get real git data, falling back to mock data:`, error);
+          console.log(`[${localTime()}] [API] Failed to get real git data, generating mock data:`, error);
           gitData = generateMockGitData();
           isMocked = true;
         }
@@ -238,7 +253,7 @@ const server = http.createServer(async (req, res) => {
           success: true,
           data: gitData,
           timestamp: localTime(),
-          cached: true,
+          cached: false,
           mocked: isMocked
         };
 
@@ -267,7 +282,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Specs history endpoint
-    if (path === `${API_PREFIX}/specs/history`) {
+    if (path === `${API_PREFIX}/specs/history` && req.method === 'GET') {
       console.log('Spec history request received', { query });
 
       try {
@@ -293,7 +308,7 @@ const server = http.createServer(async (req, res) => {
           specData = await specService.getHistory();
           console.log(`[${localTime()}] [API] Retrieved real spec data for repo ${repository}: ${specData.length} items`);
         } catch (error) {
-          console.log(`[${localTime()}] [API] Failed to get real spec data, falling back to mock data:`, error);
+          console.log(`[${localTime()}] [API] Failed to get real spec data, generating mock data:`, error);
           specData = generateMockSpecData();
           isMocked = true;
         }
@@ -302,7 +317,7 @@ const server = http.createServer(async (req, res) => {
           success: true,
           data: specData,
           timestamp: localTime(),
-          cached: true,
+          cached: false,
           mocked: isMocked
         };
 
