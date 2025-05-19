@@ -102,6 +102,39 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     // Create a vertical marker at the current position
     return (
       <group position={[0, 2, currentPosition]}>
+        {/* Transparent vertical plane - stands up perpendicular to the time axis (Z) */}
+        <mesh rotation={[0, 0, 0]} position={[0, 0, 0]}>
+          {/* Plane is perpendicular to Z (time axis), covers the timeline height */}
+          <planeGeometry args={[8, 3]} />
+          {/* Custom shader material for edge fade */}
+          <shaderMaterial
+            attach="material"
+            transparent
+            uniforms={{
+              color: { value: [1.0, 0.4, 0.0] }, // more saturated orange
+              opacity: { value: 0.6 }, // much less transparent
+              fade: { value: 0.6 }, // much less fade, more solid
+            }}
+            vertexShader={`
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `}
+            fragmentShader={`
+              uniform vec3 color;
+              uniform float opacity;
+              uniform float fade;
+              varying vec2 vUv;
+              void main() {
+                float edgeFade = smoothstep(0.0, fade, vUv.x) * smoothstep(0.0, fade, 1.0 - vUv.x)
+                                * smoothstep(0.0, fade, vUv.y) * smoothstep(0.0, fade, 1.0 - vUv.y);
+                gl_FragColor = vec4(color, opacity * edgeFade);
+              }
+            `}
+          />
+        </mesh>
         {/* Vertical line */}
         <Line
           points={[

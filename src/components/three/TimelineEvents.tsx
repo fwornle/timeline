@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TimelineCard } from './TimelineCard';
 import { Vector3 } from 'three';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
@@ -19,6 +19,7 @@ interface TimelineEventsProps {
       friction: number;
     };
   };
+  currentPosition?: number;
 }
 
 export const TimelineEvents: React.FC<TimelineEventsProps> = ({
@@ -28,6 +29,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   onHover,
   onPositionUpdate,
   getAnimationProps,
+  currentPosition = 0
 }) => {
   // Calculate positions for events based on their timestamps
   const getEventPosition = (event: TimelineEvent, allEvents: TimelineEvent[]): [number, number, number] => {
@@ -84,6 +86,11 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     return [xPos, yPos, zPos];
   };
 
+  // Track previous 'now' position
+  const prevNowRef = useRef(currentPosition);
+  // Track which cards should wiggle
+  const [wiggleMap, setWiggleMap] = useState<{ [id: string]: boolean }>({});
+
   // Update position cache when events change
   useEffect(() => {
     events.forEach((event) => {
@@ -94,6 +101,24 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       );
     });
   }, [events, onPositionUpdate]);
+
+  useEffect(() => {
+    // For each event, check if the now plane crossed its Z position
+    events.forEach((event) => {
+      const position = getEventPosition(event, events);
+      const prevNow = prevNowRef.current;
+      const cardZ = position[2];
+      // If the now plane crossed the card (from either direction)
+      if ((prevNow < cardZ && currentPosition >= cardZ) || (prevNow > cardZ && currentPosition <= cardZ)) {
+        setWiggleMap((prev) => ({ ...prev, [event.id]: true }));
+        // Reset wiggle after short time
+        setTimeout(() => {
+          setWiggleMap((prev) => ({ ...prev, [event.id]: false }));
+        }, 300);
+      }
+    });
+    prevNowRef.current = currentPosition;
+  }, [currentPosition, events]);
 
   return (
     <group>
@@ -112,6 +137,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
               ...getAnimationProps(event.id),
               rotation: getAnimationProps(event.id).rotation as [number, number, number]
             }}
+            wiggle={!!wiggleMap[event.id]}
           />
         );
       })}

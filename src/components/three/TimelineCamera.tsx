@@ -88,18 +88,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (initialPositionSet) return;
 
-    // Position camera to show the start of the timeline
-    // We want to be closer to the timeline and higher up for a better view
-    const initialDistance = 25;
-    const initialPosition = new Vector3(
-      -initialDistance * 0.5,  // Closer to the timeline horizontally
-      initialDistance * 0.8,   // Higher up for better overview
-      -initialDistance * 0.3   // Slightly behind the start for better perspective
-    );
-
+    // Set initial camera position to look at the timeline from the front/right
+    const initialPosition = new Vector3(-25, 20, 20);
     camera.position.copy(initialPosition);
-    // Look at a point slightly ahead of the start to show the direction
-    camera.lookAt(new Vector3(0, 0, 10));
+    camera.lookAt(new Vector3(0, 2, 0));
 
     setInitialPositionSet(true);
     logger.info('Initial camera position set', {

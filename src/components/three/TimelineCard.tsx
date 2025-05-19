@@ -18,6 +18,7 @@ interface TimelineCardProps {
     positionY: number;
     springConfig: SpringConfig;
   };
+  wiggle?: boolean;
 }
 
 // Global state to ensure only one card can be hovered at a time
@@ -98,7 +99,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     rotation: [0, 0, 0],
     positionY: 0,
     springConfig: { mass: 1, tension: 170, friction: 26 }
-  }
+  },
+  wiggle = false
 }) => {
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
@@ -159,6 +161,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     startScale: 1,
   });
 
+  // Wiggle animation state
+  const [wiggleState, setWiggleState] = useState({
+    isWiggling: false,
+    startTime: 0,
+    wiggleAngle: 0,
+  });
+
   // Register/unregister this card with the global click handler
   useEffect(() => {
     // Register this card
@@ -192,6 +201,30 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       globalClickHandlers.cleanupDocumentListener();
     };
   }, [event.id, onHover]);
+
+  // Trigger wiggle animation when 'wiggle' prop changes to true
+  useEffect(() => {
+    if (wiggle) {
+      setWiggleState({ isWiggling: true, startTime: performance.now(), wiggleAngle: 0 });
+    }
+  }, [wiggle]);
+
+  // Wiggle animation frame
+  useFrame(() => {
+    if (!groupRef.current) return;
+    if (wiggleState.isWiggling) {
+      const elapsed = performance.now() - wiggleState.startTime;
+      const duration = 250; // short wiggle
+      if (elapsed < duration) {
+        // Wiggle: quick left-right rotation (Y axis)
+        const wiggleAngle = Math.sin((elapsed / duration) * Math.PI * 4) * 0.18; // 2 full wiggles
+        setWiggleState((prev) => ({ ...prev, wiggleAngle }));
+      } else {
+        // End wiggle
+        setWiggleState({ isWiggling: false, startTime: 0, wiggleAngle: 0 });
+      }
+    }
+  });
 
   // Calculate camera-related values for animation
   const calculateCameraValues = () => {
@@ -570,6 +603,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       onClick={handleClick}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
+      rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
     >
       {/* Card background */}
       <mesh castShadow receiveShadow>

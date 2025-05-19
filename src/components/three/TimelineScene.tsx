@@ -4,14 +4,13 @@ import { TimelineCamera } from './TimelineCamera';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
-import type { Vector3 } from 'three';
+import { Vector3 } from 'three';
 import { useEffect, useMemo } from 'react';
 import { clearAllCardHovers } from './TimelineCard';
 
 interface TimelineSceneProps {
   events: TimelineEvent[];
   selectedCardId: string | null;
-  cameraTarget: Vector3;
   onCardSelect: (id: string | null) => void;
   onCardHover: (id: string | null) => void;
   onCardPositionUpdate: (id: string, position: Vector3) => void;
@@ -34,7 +33,6 @@ interface TimelineSceneProps {
 export const TimelineScene: React.FC<TimelineSceneProps> = ({
   events,
   selectedCardId,
-  cameraTarget,
   onCardSelect,
   onCardHover,
   onCardPositionUpdate,
@@ -97,7 +95,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     <div className="w-full h-full" style={{ height: '100%' }}>
       <Canvas
         shadows
-        camera={{ position: [10, 10, 10], fov: 45 }}
+        camera={{ position: [12, 8, 0], fov: 45 }}
         style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
       >
         {/* Background click handler */}
@@ -116,7 +114,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
 
         {/* Core Components */}
         <TimelineCamera
-          target={cameraTarget}
+          target={new Vector3(0, 2, 0)}
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
           events={events}
@@ -137,6 +135,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onHover={onCardHover}
           onPositionUpdate={onCardPositionUpdate}
           getAnimationProps={getCardAnimationProps}
+          currentPosition={currentPosition}
         />
 
         {/* Environment & Helpers */}
