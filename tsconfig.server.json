@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "./dist/server",
+    "rootDir": "./src",
+    "declaration": true
+  },
+  "include": [
+    "src/data/services/*.ts",
+    "src/data/types/*.ts",
+    "src/utils/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+} 

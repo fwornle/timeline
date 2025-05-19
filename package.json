@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "build:server": "tsc -p tsconfig.server.json",
+    "dev": "npm run build:server && concurrently \"vite\" \"node server.cjs\"",
     "server": "node server.cjs",
     "start": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "tsc -b && vite build",

@@ -13,28 +13,28 @@ export function useLogger(context: LoggerContext) {
   const { component, topic } = context;
 
   const debug = useCallback(
-    (message: string, data?: Record<string, any>) => {
+    (message: string, data?: Record<string, unknown>) => {
       logger.log(LogLevel.DEBUG, component, topic, message, data);
     },
     [component, topic]
   );
 
   const info = useCallback(
-    (message: string, data?: Record<string, any>) => {
+    (message: string, data?: Record<string, unknown>) => {
       logger.log(LogLevel.INFO, component, topic, message, data);
     },
     [component, topic]
   );
 
   const warn = useCallback(
-    (message: string, data?: Record<string, any>) => {
+    (message: string, data?: Record<string, unknown>) => {
       logger.log(LogLevel.WARN, component, topic, message, data);
     },
     [component, topic]
   );
 
   const error = useCallback(
-    (message: string, data?: Record<string, any>) => {
+    (message: string, data?: Record<string, unknown>) => {
       logger.log(LogLevel.ERROR, component, topic, message, data);
     },
     [component, topic]

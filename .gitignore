@@ -37,5 +37,5 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# app specific - timeline app mock cache
-.mockcache/
+# app specific - timeline app cache
+.timeline-cache/
