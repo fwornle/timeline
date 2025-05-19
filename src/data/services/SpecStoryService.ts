@@ -12,6 +12,20 @@ interface SpecHistoryResponse {
   status?: string;
   version: string;
   tags?: string[] | string;
+  changes?: Array<{
+    field: string;
+    oldValue: string | null;
+    newValue: string;
+  }>;
+  type?: 'spec';
+}
+
+interface SpecAPIResponse {
+  success: boolean;
+  data: SpecHistoryResponse[];
+  timestamp: string;
+  cached: boolean;
+  mocked: boolean;
 }
 
 export interface SpecServiceConfig {
@@ -151,34 +165,35 @@ export class SpecStoryService {
       const version = data.version;
       const timestamp = new Date(data.timestamp);
 
-      // Generate changes based on the data
-      const changes = [];
+      // Use existing changes if provided, otherwise generate them
+      const changes = data.changes || [];
       
-      // Add status change if status is present
-      if (data.status) {
-        changes.push({
-          field: 'status',
-          oldValue: 'draft',
-          newValue: data.status
-        });
-      }
-
-      // Add tags change if tags are present
-      if (data.tags) {
-        changes.push({
-          field: 'tags',
-          oldValue: null,
-          newValue: Array.isArray(data.tags) ? data.tags.join(', ') : data.tags
-        });
-      }
-
-      // If no changes were detected, add a default change
       if (changes.length === 0) {
-        changes.push({
-          field: 'content',
-          oldValue: null,
-          newValue: data.description || 'No description available'
-        });
+        // Generate changes based on the data
+        if (data.status) {
+          changes.push({
+            field: 'status',
+            oldValue: 'draft',
+            newValue: data.status
+          });
+        }
+
+        if (data.tags) {
+          changes.push({
+            field: 'tags',
+            oldValue: null,
+            newValue: Array.isArray(data.tags) ? data.tags.join(', ') : data.tags
+          });
+        }
+
+        // If still no changes were detected, add a default change
+        if (changes.length === 0) {
+          changes.push({
+            field: 'content',
+            oldValue: null,
+            newValue: data.description || 'No description available'
+          });
+        }
       }
 
       const event: SpecTimelineEvent = {
@@ -240,12 +255,11 @@ export class SpecStoryService {
       logger.info('data', 'Fetching spec history', { repository: this.repository, startDate, endDate });
 
       params.append('repository', this.repository);
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<SpecAPIResponse>(
         `${this.baseUrl}/specs/history?${params.toString()}`
       );
 
       const events = response.data.map((spec: SpecHistoryResponse) => this.parseSpecEvent(spec));
-      // Use mocked flag if available, otherwise fall back to cached
       const cached = response.mocked || response.cached || false;
       const mocked = response.mocked || false;
 

@@ -254,6 +254,71 @@ export function useTimelineData(repoUrl: string) {
     setFilter(prev => ({ ...prev, ...newFilter }));
   }, []);
 
+  const hardReload = useCallback(async () => {
+    if (!repoUrl) return;
+    
+    setIsFetching(true);
+    setState(prev => ({
+      ...prev,
+      sources: {
+        git: { isLoading: true, error: null },
+        spec: { isLoading: true, error: null }
+      }
+    }));
+    
+    try {
+      // First purge the cache
+      const purgeResponse = await fetch(`${API_BASE_URL}/purge/hard?repository=${encodeURIComponent(repoUrl)}`, {
+        method: 'POST'
+      });
+
+      if (!purgeResponse.ok) {
+        throw new Error(`Failed to purge cache: ${await purgeResponse.text()}`);
+      }
+
+      // Wait a bit for the server to clean up
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Then reload the data
+      const [gitResult, specResult] = await Promise.all([
+        gitService().fetchGitHistory(),
+        specService().fetchSpecHistory()
+      ]);
+
+      // Update state with new data
+      const allEvents = [...gitResult.events, ...specResult.events]
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+      const period = allEvents.length > 0 ? {
+        start: allEvents[0].timestamp,
+        end: allEvents[allEvents.length - 1].timestamp,
+        events: allEvents
+      } : null;
+
+      setState({
+        events: allEvents,
+        period,
+        sources: {
+          git: { isLoading: false, error: null },
+          spec: { isLoading: false, error: null }
+        }
+      });
+
+      setUsingMockedData(gitResult.mocked || specResult.mocked);
+    } catch (error) {
+      console.error('Error during hard reload:', error);
+      setState(prev => ({
+        ...prev,
+        sources: {
+          git: { isLoading: false, error: error as Error },
+          spec: { isLoading: false, error: error as Error }
+        }
+      }));
+    } finally {
+      setIsFetching(false);
+    }
+  }, [repoUrl, gitService, specService]);
+
   // Return stable interface
   return {
     events: state.events,
@@ -270,6 +335,7 @@ export function useTimelineData(repoUrl: string) {
     refresh: fetchTimelineData,
     purgeAndRefresh,
     hardPurgeAndRefresh,
-    usingMockedData
+    usingMockedData,
+    hardReload
   };
 }

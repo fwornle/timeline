@@ -4,18 +4,23 @@ import { withRetry } from '../../utils/api/retry';
 import { TimelineAPIError, ServerError, NotFoundError, NetworkError } from '../../utils/api/errors';
 
 interface GitCommitResponse {
-  hash: string;
+  id: string;
+  type: 'git';
   timestamp: string;
-  author: {
-    name: string;
-    email: string;
-  };
-  message: string;
+  title: string;
+  authorName: string;
+  authorEmail: string;
   branch: string;
-  files: Array<{
-    path: string;
-    status: 'A' | 'M' | 'D';  // Added, Modified, Deleted
-  }>;
+  commitHash: string;
+  files: Array<{ path: string; type: 'modified' | 'added' | 'deleted' }>;
+}
+
+interface GitHistoryResponse {
+  success: boolean;
+  data: GitCommitResponse[];
+  timestamp: string;
+  cached: boolean;
+  mocked: boolean;
 }
 
 export interface GitServiceConfig {
@@ -131,18 +136,18 @@ export class GitService {
   private parseGitCommit(data: GitCommitResponse): GitTimelineEvent {
     try {
       const event: GitTimelineEvent = {
-        id: `git-${data.hash}`,
+        id: data.id,
         type: 'git',
         timestamp: new Date(data.timestamp),
-        title: data.message.split('\n')[0],
-        description: data.message.split('\n').slice(1).join('\n').trim(),
-        commitHash: data.hash,
-        authorName: data.author.name,
-        authorEmail: data.author.email,
+        title: data.title,
+        description: '', // No description in the data
+        commitHash: data.commitHash,
+        authorName: data.authorName,
+        authorEmail: data.authorEmail,
         branch: data.branch,
         files: data.files.map(file => ({
           path: file.path,
-          changeType: file.status === 'A' ? 'added' : file.status === 'M' ? 'modified' : 'deleted'
+          changeType: file.type
         }))
       };
 
@@ -184,12 +189,11 @@ export class GitService {
       logger.info('data', 'Fetching git history', { repository: this.repository, startDate, endDate });
 
       params.append('repository', this.repository);
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<GitHistoryResponse>(
         `${this.baseUrl}/git/history?${params.toString()}`
       );
 
       const events = this.parseGitHistory(response.data);
-      // Use mocked flag if available, otherwise fall back to cached
       const cached = response.mocked || response.cached || false;
       const mocked = response.mocked || false;
 

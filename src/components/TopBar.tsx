@@ -8,12 +8,14 @@ interface TopBarProps {
   onRepoUrlChange?: (url: string) => void;
   onReloadData?: () => void;
   onHardReload?: () => void;
+  isLoading?: boolean;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
   onRepoUrlChange,
   onReloadData,
-  onHardReload
+  onHardReload,
+  isLoading
 }) => {
   const [showPrefs, setShowPrefs] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -75,8 +77,9 @@ const TopBar: React.FC<TopBarProps> = ({
                         logger.info('Soft reload requested');
                         onReloadData?.();
                       }}
+                      disabled={isLoading}
                     >
-                      <i className="bi bi-arrow-clockwise" />
+                      <i className={`bi ${isLoading ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} />
                     </Button>
                   </OverlayTrigger>
 
@@ -96,8 +99,9 @@ const TopBar: React.FC<TopBarProps> = ({
                         logger.info('Hard reload requested');
                         onHardReload?.();
                       }}
+                      disabled={isLoading}
                     >
-                      <i className="bi bi-exclamation-triangle" />
+                      <i className={`bi ${isLoading ? 'bi-hourglass-split' : 'bi-exclamation-triangle'}`} />
                     </Button>
                   </OverlayTrigger>
                 </>
@@ -110,6 +114,7 @@ const TopBar: React.FC<TopBarProps> = ({
                 title="Repository Settings"
                 aria-label="Repository Settings"
                 onClick={() => setShowPrefs(true)}
+                disabled={isLoading}
               >
                 <i className="bi bi-gear" />
               </Button>

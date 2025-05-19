@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import TopBar from '../components/TopBar';
 import BottomBar from '../components/BottomBar';
 import { usePreferences } from '../context/PreferencesContext';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+
+const API_BASE_URL = 'http://localhost:3030/api/v1';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -45,7 +47,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, [repoUrl, animationSpeed, autoDrift]);
 
   // Handle repository URL change
-  const handleRepoUrlChange = (url: string) => {
+  const handleRepoUrlChange = useCallback((url: string) => {
     setRepoUrl(url);
     // Reset counts when repo changes
     setGitCount(0);
@@ -53,7 +55,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setIsLoading(true);
     setIsMocked(false);
     logger.info('Repository URL changed', { url });
-  };
+  }, []);
 
   // Handle loading state change from TimelineVisualization
   const handleLoadingChange = (loading: boolean) => {
@@ -74,22 +76,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
 
   // Handle data reload (purge cache and reload from upstream)
-  const handleReloadData = () => {
-    // Reset counts
-    setGitCount(0);
-    setSpecCount(0);
-    setIsLoading(true);
-    setIsMocked(false);
-
-    // Force a refresh of the data
-    logger.info('Forcing data reload from upstream repository');
-
-    // Toggle the flag to trigger a re-render with forceReload=true
+  const handleReloadData = useCallback(() => {
     setForceReloadFlag(prev => !prev);
+  }, []);
 
-    // The Home component will handle the reload based on the forceReload prop
-    // which will be passed through the cloneElement below
-  };
+  const handleHardReload = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Purge the cache first
+      const response = await fetch(`${API_BASE_URL}/purge/hard?repository=${encodeURIComponent(repoUrl)}`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to purge cache: ${await response.text()}`);
+      }
+
+      // Then trigger a normal reload
+      setForceReloadFlag(prev => !prev);
+    } catch (error) {
+      console.error('Error during hard reload:', error);
+      // Don't set loading to false here, let the data reload handle it
+    }
+  }, [repoUrl]);
 
   // Handle camera view mode changes
   const handleViewAllClick = () => {
@@ -233,6 +242,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <TopBar
         onRepoUrlChange={handleRepoUrlChange}
         onReloadData={handleReloadData}
+        onHardReload={handleHardReload}
+        isLoading={isLoading}
       />
       <main className="flex-grow-1 position-relative p-0 m-0 overflow-hidden">
         {childrenWithProps}

@@ -4,6 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createGitRepositoryService, createSpecRepositoryService } from './src/data/services/serviceWrapper.cjs';
+import { promisify } from 'util';
+import { exec as execCallback } from 'child_process';
+const exec = promisify(execCallback);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,19 +115,20 @@ function generateMockGitData() {
     for (let i = 0; i < 20; i++) {
       const commitDate = new Date(startDate);
       commitDate.setDate(commitDate.getDate() + (i * 3));
+      const commitHash = `mock-hash-${i}`;
 
       mockCommits.push({
-        hash: `mock-hash-${i}`,
+        id: commitHash,
+        type: 'git',
         timestamp: commitDate.toISOString(),
-        author: {
-          name: 'Mock User',
-          email: 'mock@example.com'
-        },
-        message: `Mock commit #${i}: ${i % 3 === 0 ? 'Feature' : i % 3 === 1 ? 'Fix' : 'Refactor'} - ${Math.random().toString(36).substring(7)}`,
+        title: `Mock commit #${i}: ${i % 3 === 0 ? 'Feature' : i % 3 === 1 ? 'Fix' : 'Refactor'}`,
+        authorName: 'Mock User',
+        authorEmail: 'mock@example.com',
         branch: 'main',
+        commitHash: commitHash,
         files: [
-          { path: `src/file${i % 5}.js`, status: 'M' },
-          { path: `docs/doc${i % 3}.md`, status: 'A' }
+          { path: `src/file${i % 5}.js`, type: 'modified' },
+          { path: `docs/doc${i % 3}.md`, type: 'added' }
         ]
       });
     }
@@ -160,11 +164,19 @@ function generateMockSpecData() {
         timestamp: specDate,
         title: `${specType} Specification ${i + 1}`,
         description: `This is a mock ${specType.toLowerCase()} specification for testing purposes`,
-        specId: specId,
-        version: version,
-        status: status,
-        tags: [specType.toLowerCase(), status, `v${version}`],
-        author: 'Mock User'
+        author: 'Mock User',
+        changes: [
+          {
+            field: 'status',
+            oldValue: 'draft',
+            newValue: status
+          },
+          {
+            field: 'tags',
+            oldValue: null,
+            newValue: `${specType.toLowerCase()}, ${status}, v${version}`
+          }
+        ]
       });
     }
     return mockSpecs;
@@ -198,6 +210,25 @@ async function findAvailablePort(startPort) {
     port++;
   }
   return port;
+}
+
+// Add with other state variables
+let activeOperations = new Map();
+
+// Add helper function for operation locking
+async function withOperationLock(repository, operation) {
+  const operationKey = `${operation}_${repository}`;
+  if (activeOperations.has(operationKey)) {
+    throw new Error(`Operation ${operation} already in progress for ${repository}`);
+  }
+
+  try {
+    activeOperations.set(operationKey, true);
+    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to ensure cleanup
+    return await operation();
+  } finally {
+    activeOperations.delete(operationKey);
+  }
 }
 
 // Create HTTP server with error handling
@@ -275,7 +306,19 @@ const server = http.createServer(async (req, res) => {
       const { repository } = query;
       if (repository) {
         try {
-          await purgeAll(repository);
+          await withOperationLock(repository, async () => {
+            console.log(`[${localTime()}] [CACHE] Starting hard reload for repo ${repository}`);
+            
+            // Delete the entire repository directory
+            const repoDir = getRepoDir(repository);
+            if (fs.existsSync(repoDir)) {
+              await fs.promises.rm(repoDir, { recursive: true, force: true });
+            }
+
+            // Clear caches
+            purgeCacheFiles(repository);
+            console.log(`[${localTime()}] [CACHE] Purged git and spec caches for repo ${repository}`);
+          });
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, message: 'Cache and cloned repo purged' }));
         } catch (error) {
@@ -318,6 +361,9 @@ const server = http.createServer(async (req, res) => {
         try {
           const gitService = await createGitRepositoryService(repository);
           gitData = await gitService.getHistory();
+          if (!gitData || gitData.length === 0) {
+            throw new Error('No git data found');
+          }
           console.log(`[${localTime()}] [API] Retrieved real git data for repo ${repository}: ${gitData.length} items`);
         } catch (error) {
           console.log(`[${localTime()}] [API] Failed to get real git data, generating mock data:`, error);
@@ -328,7 +374,7 @@ const server = http.createServer(async (req, res) => {
         const response = {
           success: true,
           data: gitData,
-          timestamp: localTime(),
+          timestamp: new Date().toISOString(),
           cached: false,
           mocked: isMocked
         };
@@ -351,7 +397,7 @@ const server = http.createServer(async (req, res) => {
             type: error.name,
             status
           },
-          timestamp: localTime()
+          timestamp: new Date().toISOString()
         }));
       }
       return;
@@ -382,8 +428,7 @@ const server = http.createServer(async (req, res) => {
         try {
           const specService = await createSpecRepositoryService(repository);
           specData = await specService.getHistory();
-          // If we got an empty array and no explicit error was thrown, treat it as an error case
-          if (specData.length === 0) {
+          if (!specData || specData.length === 0) {
             throw new Error('No spec data found');
           }
           console.log(`[${localTime()}] [API] Retrieved real spec data for repo ${repository}: ${specData.length} items`);
@@ -396,7 +441,7 @@ const server = http.createServer(async (req, res) => {
         const response = {
           success: true,
           data: specData,
-          timestamp: localTime(),
+          timestamp: new Date().toISOString(),
           cached: false,
           mocked: isMocked
         };
@@ -419,7 +464,7 @@ const server = http.createServer(async (req, res) => {
             type: error.name,
             status
           },
-          timestamp: localTime()
+          timestamp: new Date().toISOString()
         }));
       }
       return;
