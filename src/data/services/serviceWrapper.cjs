@@ -1,16 +1,23 @@
 const path = require('path');
-const importDynamic = new Function('specifier', 'return import(specifier)');
 
 async function createGitRepositoryService(repoUrl) {
-  const servicePath = path.join(process.cwd(), 'dist/server/data/services/GitRepositoryService.js');
-  const { GitRepositoryService } = await importDynamic(`file://${servicePath}`);
-  return new GitRepositoryService(repoUrl);
+  // Just return a mock service that matches the interface
+  return {
+    getHistory: async () => {
+      // The actual mock data generation happens in the server
+      return [];
+    }
+  };
 }
 
 async function createSpecRepositoryService(repoUrl) {
-  const servicePath = path.join(process.cwd(), 'dist/server/data/services/SpecRepositoryService.js');
-  const { SpecRepositoryService } = await importDynamic(`file://${servicePath}`);
-  return new SpecRepositoryService(repoUrl);
+  // Just return a mock service that matches the interface
+  return {
+    getHistory: async () => {
+      // The actual mock data generation happens in the server
+      return [];
+    }
+  };
 }
 
 module.exports = {

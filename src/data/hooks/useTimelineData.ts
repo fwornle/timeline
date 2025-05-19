@@ -205,61 +205,40 @@ export function useTimelineData(repoUrl: string) {
       // Wait a bit to ensure the cache is cleared
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Reset hasInitialFetch to allow a new fetch
-      setHasInitialFetch(false);
-
       // Fetch fresh data
-      try {
-        const [gitResult, specResult] = await Promise.all([
-          gitService().fetchGitHistory(),
-          specService().fetchSpecHistory()
-        ]);
+      const [gitResult, specResult] = await Promise.all([
+        gitService().fetchGitHistory(),
+        specService().fetchSpecHistory()
+      ]);
 
-        setUsingMockedData(gitResult.mocked || specResult.mocked);
+      setUsingMockedData(gitResult.mocked || specResult.mocked);
 
-        const allEvents = [...gitResult.events, ...specResult.events]
-          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      const allEvents = [...gitResult.events, ...specResult.events]
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-        const period = allEvents.length > 0 ? {
-          start: allEvents[0].timestamp,
-          end: allEvents[allEvents.length - 1].timestamp,
-          events: allEvents
-        } : null;
+      const period = allEvents.length > 0 ? {
+        start: allEvents[0].timestamp,
+        end: allEvents[allEvents.length - 1].timestamp,
+        events: allEvents
+      } : null;
 
-        setState({
-          events: allEvents,
-          period,
-          sources: {
-            git: { isLoading: false, error: null },
-            spec: { isLoading: false, error: null }
-          }
-        });
-
-        // Set hasInitialFetch back to true after successful fetch
-        setHasInitialFetch(true);
-      } catch (fetchError) {
-        logger.error('data', 'Failed to fetch data after purge', { error: fetchError });
-        setState(prev => ({
-          ...prev,
-          sources: {
-            git: { isLoading: false, error: fetchError as Error },
-            spec: { isLoading: false, error: fetchError as Error }
-          }
-        }));
-        // Set hasInitialFetch back to true even on error to prevent loops
-        setHasInitialFetch(true);
-      }
-    } catch (purgeError) {
-      logger.error('data', 'Failed to purge cache', { error: purgeError });
+      setState({
+        events: allEvents,
+        period,
+        sources: {
+          git: { isLoading: false, error: null },
+          spec: { isLoading: false, error: null }
+        }
+      });
+    } catch (error) {
+      logger.error('data', 'Failed to purge and refresh data', { error });
       setState(prev => ({
         ...prev,
         sources: {
-          git: { isLoading: false, error: purgeError as Error },
-          spec: { isLoading: false, error: purgeError as Error }
+          git: { isLoading: false, error: error as Error },
+          spec: { isLoading: false, error: error as Error }
         }
       }));
-      // Set hasInitialFetch back to true on error to prevent loops
-      setHasInitialFetch(true);
     } finally {
       setIsFetching(false);
     }
