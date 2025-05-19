@@ -178,7 +178,7 @@ export function useTimelineData(repoUrl: string) {
   }, [repoUrl, isFetching, hasInitialFetch, gitService, specService]); // Include all dependencies
 
   // Function to purge cache and reload data
-  const purgeAndRefresh = useCallback(async () => {
+  const purgeAndRefresh = useCallback(async (hardPurge = false) => {
     if (!repoUrl || isFetching) {
       return;
     }
@@ -194,7 +194,8 @@ export function useTimelineData(repoUrl: string) {
 
     try {
       // Send POST request to purge cache
-      const response = await fetch(`${API_BASE_URL}/purge?repository=${encodeURIComponent(repoUrl)}`, {
+      const endpoint = hardPurge ? `${API_BASE_URL}/purge/hard` : `${API_BASE_URL}/purge`;
+      const response = await fetch(`${endpoint}?repository=${encodeURIComponent(repoUrl)}`, {
         method: 'POST'
       });
 
@@ -231,7 +232,7 @@ export function useTimelineData(repoUrl: string) {
         }
       });
     } catch (error) {
-      logger.error('data', 'Failed to purge and refresh data', { error });
+      logger.error('data', `Failed to ${hardPurge ? 'hard ' : ''}purge and refresh data`, { error });
       setState(prev => ({
         ...prev,
         sources: {
@@ -243,6 +244,11 @@ export function useTimelineData(repoUrl: string) {
       setIsFetching(false);
     }
   }, [repoUrl, isFetching, gitService, specService]);
+
+  // Convenience method for hard reload
+  const hardPurgeAndRefresh = useCallback(() => {
+    return purgeAndRefresh(true);
+  }, [purgeAndRefresh]);
 
   const updateFilter = useCallback((newFilter: Partial<TimelineFilter>) => {
     setFilter(prev => ({ ...prev, ...newFilter }));
@@ -261,8 +267,9 @@ export function useTimelineData(repoUrl: string) {
     sources: state.sources,
     filter,
     updateFilter,
-    refresh: () => fetchTimelineData(true),
+    refresh: fetchTimelineData,
     purgeAndRefresh,
+    hardPurgeAndRefresh,
     usingMockedData
   };
 }

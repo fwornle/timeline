@@ -167,15 +167,16 @@ class SpecRepositoryService {
 
   parseSpecFile(filename, content) {
     try {
-      // Expected filename format: YYYY-MM-DD-title.md
-      const match = filename.match(/^(\d{4}-\d{2}-\d{2})-(.+)\.md$/);
+      // Expected filename format: YYYY-MM-DD_HH-mm-title.md
+      const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})-(.+)\.md$/);
       if (!match) {
         console.warn(`[${localTime()}] [SPEC] Invalid spec filename format: ${filename}`);
         return null;
       }
 
-      const [, dateStr, titleSlug] = match;
-      const timestamp = new Date(dateStr);
+      const [, dateStr, timeStr, titleSlug] = match;
+      // Convert date and time to ISO format for parsing
+      const timestamp = new Date(`${dateStr}T${timeStr.replace('-', ':')}`);
       
       // Parse frontmatter and content
       const lines = content.split('\n');
@@ -205,7 +206,15 @@ class SpecRepositoryService {
       const description = lines.slice(contentStart).join('\n').trim();
       const title = frontmatter.title || titleSlug.replace(/-/g, ' ');
       const version = frontmatter.version || '1.0.0';
-      const specId = `${dateStr}-${titleSlug}`;
+      const specId = `${dateStr}-${timeStr}-${titleSlug}`;
+
+      // Extract type from title or use default
+      const typeMatch = titleSlug.match(/(system|api|ui|database|architecture|security|refactoring|documentation)/i);
+      const type = typeMatch ? typeMatch[1].toLowerCase() : 'general';
+
+      // Extract status from title or use default
+      const statusMatch = titleSlug.match(/(draft|review|approved|implemented|deprecated)/i);
+      const status = statusMatch ? statusMatch[1].toLowerCase() : 'draft';
 
       return {
         id: specId,
@@ -215,10 +224,10 @@ class SpecRepositoryService {
         description,
         specId,
         version,
-        status: frontmatter.status || 'draft',
+        status: frontmatter.status || status,
         tags: [
-          frontmatter.type?.toLowerCase() || 'general',
-          frontmatter.status || 'draft',
+          type,
+          frontmatter.status || status,
           `v${version}`
         ]
       };

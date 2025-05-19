@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "build:server": "tsc -p tsconfig.server.json",
-    "dev": "npm run build:server && concurrently \"vite\" \"node server.mjs\"",
-    "server": "node server.mjs",
-    "start": "concurrently \"npm run server\" \"npm run dev\"",
+    "dev": "concurrently \"vite\" \"npm run server\"",
+    "server": "npm run build:server && node server.mjs",
+    "start": "npm run dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -21,6 +21,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "heroicons": "^2.2.0",
+    "joi": "^17.13.3",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.0",

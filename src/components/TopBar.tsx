@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from 'react-bootstrap';
+import { Button, Navbar, Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import PreferencesModal from './PreferencesModal';
 import { usePreferences } from '../context/PreferencesContext';
+import { useLogger } from '../utils/logging/hooks/useLogger';
 
 interface TopBarProps {
   onRepoUrlChange?: (url: string) => void;
   onReloadData?: () => void;
+  onHardReload?: () => void;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
   onRepoUrlChange,
-  onReloadData
+  onReloadData,
+  onHardReload
 }) => {
-  const navigate = useNavigate();
   const [showPrefs, setShowPrefs] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const { preferences } = usePreferences();
+  const logger = useLogger({ component: 'TopBar', topic: 'ui' });
 
   const handleRepoUrlChange = (url: string) => {
     if (onRepoUrlChange) {
@@ -24,24 +26,16 @@ const TopBar: React.FC<TopBarProps> = ({
     }
   };
 
-  const handleLogoClick = () => {
-    navigate('/about');
-  };
-
   const collapseClassName = `collapse navbar-collapse justify-content-between${expanded ? ' show' : ''}`;
 
   return (
     <>
-      <nav className="navbar navbar-expand-lg navbar-dark bg-primary w-100 px-0 mx-0" style={{ minHeight: '56px' }}>
-        <div className="container-fluid px-3">
+      <Navbar bg="primary" variant="dark" expand="lg" className="w-100 px-0 mx-0" style={{ minHeight: '56px' }}>
+        <Container fluid>
           {/* Branding/Logo (left) - Clickable to go to About */}
-          <div
-            className="navbar-brand mb-0 h1 cursor-pointer"
-            onClick={handleLogoClick}
-            style={{ cursor: 'pointer' }}
-          >
-            <span role="img" aria-label="logo">⏱️</span> Timeline
-          </div>
+          <Navbar.Brand href="#" className="d-flex align-items-center">
+            <span className="text-light d-none d-lg-inline">Timeline</span>
+          </Navbar.Brand>
 
           {/* Toggler for mobile */}
           <button
@@ -70,15 +64,42 @@ const TopBar: React.FC<TopBarProps> = ({
               {preferences.repoUrl && (
                 <>
                   {/* Reload Data Button */}
-                  <Button
-                    variant="outline-light"
-                    size="sm"
-                    title="Reload Data from Repository"
-                    aria-label="Reload Data from Repository"
-                    onClick={onReloadData}
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Reload data from cache or upstream repository</Tooltip>}
                   >
-                    <i className="bi bi-cloud-arrow-down" />
-                  </Button>
+                    <Button
+                      variant="outline-light"
+                      size="sm"
+                      onClick={() => {
+                        logger.info('Soft reload requested');
+                        onReloadData?.();
+                      }}
+                    >
+                      <i className="bi bi-arrow-clockwise" />
+                    </Button>
+                  </OverlayTrigger>
+
+                  {/* Hard Reload Button */}
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={
+                      <Tooltip>
+                        <strong>Warning:</strong> This will delete the local repository clone and all cached data
+                      </Tooltip>
+                    }
+                  >
+                    <Button
+                      variant="outline-warning"
+                      size="sm"
+                      onClick={() => {
+                        logger.info('Hard reload requested');
+                        onHardReload?.();
+                      }}
+                    >
+                      <i className="bi bi-exclamation-triangle" />
+                    </Button>
+                  </OverlayTrigger>
                 </>
               )}
 
@@ -94,8 +115,8 @@ const TopBar: React.FC<TopBarProps> = ({
               </Button>
             </div>
           </div>
-        </div>
-      </nav>
+        </Container>
+      </Navbar>
 
       <PreferencesModal
         show={showPrefs}

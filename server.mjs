@@ -34,8 +34,14 @@ function sanitizeRepoUrl(repository) {
   return repository.replace(/[%@:\/]/g, '_');
 }
 
+// Helper function to get repo directory path
+function getRepoDir(repository) {
+  const safeRepo = sanitizeRepoUrl(repository);
+  return path.join(TIMELINE_CACHE_DIR, safeRepo);
+}
+
+// Helper function to get cache file paths
 function getCacheFilePath(repository, type) {
-  // type: 'git' or 'spec'
   const safeRepo = sanitizeRepoUrl(repository);
   return path.join(TIMELINE_CACHE_DIR, `${safeRepo}.${type}.json`);
 }
@@ -62,7 +68,8 @@ function writeCache(repository, type, data) {
   console.log(`[${localTime()}] [CACHE] Wrote ${type} cache for repo ${repository}: ${data.data?.length || 0} items`);
 }
 
-function purgeCache(repository) {
+// Soft purge - only removes cache files, keeps cloned repo
+function purgeCacheFiles(repository) {
   ['git', 'spec'].forEach(type => {
     const filePath = getCacheFilePath(repository, type);
     if (fs.existsSync(filePath)) {
@@ -70,6 +77,24 @@ function purgeCache(repository) {
       console.log(`[${localTime()}] [CACHE] Purged ${type} cache for repo ${repository}`);
     }
   });
+}
+
+// Hard purge - removes both cache files and cloned repo
+async function purgeAll(repository) {
+  // First purge cache files
+  purgeCacheFiles(repository);
+  
+  // Then remove cloned repo directory
+  const repoDir = getRepoDir(repository);
+  if (fs.existsSync(repoDir)) {
+    try {
+      await fs.promises.rm(repoDir, { recursive: true, force: true });
+      console.log(`[${localTime()}] [CACHE] Purged cloned repo at ${repoDir}`);
+    } catch (error) {
+      console.error(`[${localTime()}] [CACHE] Failed to purge cloned repo:`, error);
+      throw error;
+    }
+  }
 }
 
 // Helper for local time logging
@@ -130,14 +155,16 @@ function generateMockSpecData() {
       const specId = `mock-spec-${i}`;
 
       mockSpecs.push({
-        id: specId,
-        timestamp: specDate.toISOString(),
-        author: 'Mock User',
+        id: `spec-${specId}-${version}`,
+        type: 'spec',
+        timestamp: specDate,
         title: `${specType} Specification ${i + 1}`,
         description: `This is a mock ${specType.toLowerCase()} specification for testing purposes`,
-        status: status,
+        specId: specId,
         version: version,
-        tags: [specType.toLowerCase(), status, `v${version}`]
+        status: status,
+        tags: [specType.toLowerCase(), status, `v${version}`],
+        author: 'Mock User'
       });
     }
     return mockSpecs;
@@ -145,6 +172,32 @@ function generateMockSpecData() {
     console.error(`[${localTime()}] Error generating mock spec data:`, error);
     return [];
   }
+}
+
+// Helper function to check if a port is in use
+async function isPortInUse(port) {
+  return new Promise((resolve) => {
+    const server = http.createServer();
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(true);
+      }
+    });
+    server.once('listening', () => {
+      server.close();
+      resolve(false);
+    });
+    server.listen(port);
+  });
+}
+
+// Helper function to find an available port
+async function findAvailablePort(startPort) {
+  let port = startPort;
+  while (await isPortInUse(port)) {
+    port++;
+  }
+  return port;
 }
 
 // Create HTTP server with error handling
@@ -203,13 +256,36 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Purge endpoint
+    // Soft purge endpoint (existing /purge endpoint)
     if (path === `${API_PREFIX}/purge` && req.method === 'POST') {
       const { repository } = query;
       if (repository) {
-        purgeCache(repository);
+        purgeCacheFiles(repository);
         res.writeHead(200);
-        res.end(JSON.stringify({ success: true, message: 'Cache purged' }));
+        res.end(JSON.stringify({ success: true, message: 'Cache files purged' }));
+      } else {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Repository required' }));
+      }
+      return;
+    }
+
+    // Hard purge endpoint (new)
+    if (path === `${API_PREFIX}/purge/hard` && req.method === 'POST') {
+      const { repository } = query;
+      if (repository) {
+        try {
+          await purgeAll(repository);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'Cache and cloned repo purged' }));
+        } catch (error) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ 
+            success: false, 
+            message: 'Failed to purge repo',
+            error: error.message 
+          }));
+        }
       } else {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Repository required' }));
@@ -306,6 +382,10 @@ const server = http.createServer(async (req, res) => {
         try {
           const specService = await createSpecRepositoryService(repository);
           specData = await specService.getHistory();
+          // If we got an empty array and no explicit error was thrown, treat it as an error case
+          if (specData.length === 0) {
+            throw new Error('No spec data found');
+          }
           console.log(`[${localTime()}] [API] Retrieved real spec data for repo ${repository}: ${specData.length} items`);
         } catch (error) {
           console.log(`[${localTime()}] [API] Failed to get real spec data, generating mock data:`, error);
@@ -393,7 +473,17 @@ server.on('error', (error) => {
 });
 
 // Start the server
-server.listen(PORT, () => {
-  console.log(`[${localTime()}] Server is running at http://localhost:${PORT}`);
-  console.log(`[${localTime()}] Health check available at http://localhost:${PORT}${API_PREFIX}/health`);
-});
+async function startServer() {
+  try {
+    const port = await findAvailablePort(PORT);
+    server.listen(port, () => {
+      console.log(`[${localTime()}] Server is running at http://localhost:${port}`);
+      console.log(`[${localTime()}] Health check available at http://localhost:${port}${API_PREFIX}/health`);
+    });
+  } catch (error) {
+    console.error(`[${localTime()}] Failed to start server:`, error);
+    process.exit(1);
+  }
+}
+
+startServer();

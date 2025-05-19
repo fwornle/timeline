@@ -9,9 +9,9 @@ interface SpecHistoryResponse {
   author: string;
   title: string;
   description: string;
-  status: string;
+  status?: string;
   version: string;
-  tags: string[];
+  tags?: string[] | string;
 }
 
 export interface SpecServiceConfig {
@@ -151,19 +151,35 @@ export class SpecStoryService {
       const version = data.version;
       const timestamp = new Date(data.timestamp);
 
-      // Generate some mock changes based on the version
-      const changes = [
-        {
+      // Generate changes based on the data
+      const changes = [];
+      
+      // Add status change if status is present
+      if (data.status) {
+        changes.push({
           field: 'status',
           oldValue: 'draft',
           newValue: data.status
-        },
-        {
+        });
+      }
+
+      // Add tags change if tags are present
+      if (data.tags) {
+        changes.push({
           field: 'tags',
           oldValue: null,
-          newValue: data.tags.join(', ')
-        }
-      ];
+          newValue: Array.isArray(data.tags) ? data.tags.join(', ') : data.tags
+        });
+      }
+
+      // If no changes were detected, add a default change
+      if (changes.length === 0) {
+        changes.push({
+          field: 'content',
+          oldValue: null,
+          newValue: data.description || 'No description available'
+        });
+      }
 
       const event: SpecTimelineEvent = {
         id: `spec-${specId}-${version}`,
