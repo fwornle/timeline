@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Text } from '@react-three/drei';
 import { Group, MathUtils, Vector3, PerspectiveCamera } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import type { TimelineEvent } from '../../data/types/TimelineEvent';
+import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
 import { DEFAULTS } from '../../animation/constants';
 
@@ -596,6 +596,23 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const cardWidth = 3;
   const cardHeight = 2.2; // Adjusted height for better proportions
 
+  // Function to render statistics based on event type
+  const renderStats = (event: TimelineEvent): string => {
+    if (event.type === 'git') {
+      const gitEvent = event as GitTimelineEvent;
+      const stats = gitEvent.stats;
+      if (!stats) return '';
+
+      return `+${stats.filesAdded} -${stats.filesDeleted} ~${stats.filesModified} files`;
+    } else {
+      const specEvent = event as SpecTimelineEvent;
+      const stats = specEvent.stats;
+      if (!stats) return '';
+
+      return `${stats.promptCount} prompts, ${stats.filesCreated} files, ${stats.linesDelta} LOC`;
+    }
+  };
+
   return (
     <group
       ref={groupRef}
@@ -689,6 +706,17 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
           fontWeight="bold"
         >
           {event.type === 'git' ? 'Commit' : 'Spec'}
+        </Text>
+
+        {/* Stats - bottom center */}
+        <Text
+          position={[0, -0.95, 0.01]}
+          fontSize={0.11}
+          color="#e0e0e0"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {renderStats(event)}
         </Text>
 
         {/* Date - bottom right */}

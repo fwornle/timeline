@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { logger } from '../../utils/logging/logger';
 import type { GitTimelineEvent } from '../types/TimelineEvent';
+import { enhanceGitCommitWithStats } from '../parsers/GitCommitParser';
 
 const execAsync = promisify(exec);
 
@@ -105,12 +106,15 @@ export class GitRepositoryService {
         events.push(currentCommit as GitTimelineEvent);
       }
 
+      // Enhance commits with statistics
+      const enhancedEvents = events.map(event => enhanceGitCommitWithStats(event));
+
       logger.info('git', 'Git history fetched successfully', {
         repoUrl: this.repoUrl,
-        commitCount: events.length
+        commitCount: enhancedEvents.length
       });
 
-      return events;
+      return enhancedEvents;
     } catch (error: unknown) {
       logger.error('git', 'Failed to get git history', {
         repoUrl: this.repoUrl,

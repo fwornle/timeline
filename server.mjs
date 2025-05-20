@@ -134,6 +134,33 @@ function generateMockGitData() {
       commitDate.setDate(commitDate.getDate() + (i * 3));
       const commitHash = `mock-hash-${i}`;
 
+      // Generate random file counts
+      const filesAdded = Math.floor(Math.random() * 3) + 1;
+      const filesModified = Math.floor(Math.random() * 4) + 1;
+      const filesDeleted = Math.floor(Math.random() * 2);
+
+      // Generate random line counts
+      const linesAdded = Math.floor(Math.random() * 100) + 10;
+      const linesDeleted = Math.floor(Math.random() * 50);
+
+      // Create file list
+      const files = [];
+
+      // Add modified files
+      for (let j = 0; j < filesModified; j++) {
+        files.push({ path: `src/file${(i + j) % 5}.js`, type: 'modified' });
+      }
+
+      // Add added files
+      for (let j = 0; j < filesAdded; j++) {
+        files.push({ path: `docs/doc${(i + j) % 3}.md`, type: 'added' });
+      }
+
+      // Add deleted files
+      for (let j = 0; j < filesDeleted; j++) {
+        files.push({ path: `test/test${(i + j) % 4}.js`, type: 'deleted' });
+      }
+
       mockCommits.push({
         id: commitHash,
         type: 'git',
@@ -143,10 +170,15 @@ function generateMockGitData() {
         authorEmail: 'mock@example.com',
         branch: 'main',
         commitHash: commitHash,
-        files: [
-          { path: `src/file${i % 5}.js`, type: 'modified' },
-          { path: `docs/doc${i % 3}.md`, type: 'added' }
-        ]
+        files: files,
+        stats: {
+          filesAdded,
+          filesModified,
+          filesDeleted,
+          linesAdded,
+          linesDeleted,
+          linesDelta: linesAdded - linesDeleted
+        }
       });
     }
     return mockCommits;
@@ -175,12 +207,22 @@ function generateMockSpecData() {
       const version = `0.${Math.floor(i / 3) + 1}.${i % 3}`;
       const specId = `mock-spec-${i}`;
 
+      // Generate random statistics
+      const promptCount = Math.floor(Math.random() * 5) + 1;
+      const filesCreated = Math.floor(Math.random() * 4) + 1;
+      const filesModified = Math.floor(Math.random() * 3) + 1;
+      const linesAdded = Math.floor(Math.random() * 150) + 20;
+      const linesDeleted = Math.floor(Math.random() * 50);
+      const toolInvocations = Math.floor(Math.random() * 8) + 2;
+
       mockSpecs.push({
         id: `spec-${specId}-${version}`,
         type: 'spec',
         timestamp: specDate,
         title: `${specType} Specification ${i + 1}`,
         description: `This is a mock ${specType.toLowerCase()} specification for testing purposes`,
+        specId: specId,
+        version: version,
         author: 'Mock User',
         changes: [
           {
@@ -193,7 +235,16 @@ function generateMockSpecData() {
             oldValue: null,
             newValue: `${specType.toLowerCase()}, ${status}, v${version}`
           }
-        ]
+        ],
+        stats: {
+          promptCount,
+          filesCreated,
+          filesModified,
+          linesAdded,
+          linesDeleted,
+          linesDelta: linesAdded - linesDeleted,
+          toolInvocations
+        }
       });
     }
     return mockSpecs;

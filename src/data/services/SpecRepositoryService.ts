@@ -2,6 +2,7 @@ import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '../../utils/logging/logger';
 import type { SpecTimelineEvent } from '../types/TimelineEvent';
+import { parseSpecHistoryStats } from '../parsers/SpecHistoryParser';
 
 export class SpecRepositoryService {
   constructor(private repoUrl: string) {}
@@ -31,9 +32,9 @@ export class SpecRepositoryService {
         }
       } catch (error: unknown) {
         if (error instanceof Error && error.message.includes('ENOENT')) {
-          logger.warn('spec', 'No spec history directory found', { 
+          logger.warn('spec', 'No spec history directory found', {
             repoUrl: this.repoUrl,
-            specDir 
+            specDir
           });
           return [];
         }
@@ -69,7 +70,7 @@ export class SpecRepositoryService {
 
       const [, dateStr, titleSlug] = match;
       const timestamp = new Date(dateStr);
-      
+
       // Parse frontmatter and content
       const lines = content.split('\n');
       const frontmatter: Record<string, string> = {};
@@ -122,6 +123,9 @@ export class SpecRepositoryService {
         });
       }
 
+      // Parse statistics from the content
+      const stats = parseSpecHistoryStats(content);
+
       return {
         id: specId,
         type: 'spec',
@@ -130,7 +134,8 @@ export class SpecRepositoryService {
         description,
         specId,
         version,
-        changes
+        changes,
+        stats
       };
     } catch (error: unknown) {
       logger.error('spec', 'Failed to parse spec file', {
@@ -140,4 +145,4 @@ export class SpecRepositoryService {
       return null;
     }
   }
-} 
+}

@@ -16,6 +16,14 @@ export interface GitTimelineEvent extends BaseTimelineEvent {
     path: string;
     changeType: 'added' | 'modified' | 'deleted';
   }>;
+  stats?: {
+    filesAdded: number;
+    filesModified: number;
+    filesDeleted: number;
+    linesAdded: number;
+    linesDeleted: number;
+    linesDelta: number;
+  };
 }
 
 export interface SpecTimelineEvent extends BaseTimelineEvent {
@@ -27,6 +35,15 @@ export interface SpecTimelineEvent extends BaseTimelineEvent {
     oldValue: string | number | boolean | null;
     newValue: string | number | boolean | null;
   }>;
+  stats?: {
+    promptCount: number;
+    filesCreated: number;
+    filesModified: number;
+    linesAdded: number;
+    linesDeleted: number;
+    linesDelta: number;
+    toolInvocations: number;
+  };
 }
 
 export type TimelineEvent = GitTimelineEvent | SpecTimelineEvent;

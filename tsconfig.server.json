@@ -14,7 +14,8 @@
   "include": [
     "src/data/services/*.ts",
     "src/data/types/*.ts",
+    "src/data/parsers/*.ts",
     "src/utils/**/*.ts"
   ],
   "exclude": ["node_modules"]
-} 
+}
