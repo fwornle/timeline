@@ -27,17 +27,39 @@ class GitRepositoryService {
       const isHttps = this.repoUrl.startsWith('http');
       const cloneUrl = this.repoUrl; // Use the original URL as provided
 
-      // Clone or update the repository
+      // Clone or update the repository with timeout
       try {
         console.log(`[${localTime()}] [GIT] Attempting to clone with ${isHttps ? 'HTTPS' : 'SSH'}: ${cloneUrl}`);
-        await execAsync(`git clone ${cloneUrl} ${workDir}`);
+
+        // Create a promise that will be rejected after timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Git operation timed out after 60 seconds'));
+          }, 60000); // 60 second timeout
+        });
+
+        // Race the git operation against the timeout
+        await Promise.race([
+          execAsync(`git clone ${cloneUrl} ${workDir}`),
+          timeoutPromise
+        ]);
+
         console.log(`[${localTime()}] [GIT] Repository cloned successfully with ${isHttps ? 'HTTPS' : 'SSH'}`);
       } catch (cloneError) {
         // If directory exists, try to update instead
         if (fs.existsSync(workDir)) {
           console.log(`[${localTime()}] [GIT] Using existing repository at ${workDir}`);
           try {
-            await execAsync(`cd ${workDir} && git fetch && git reset --hard origin/main`);
+            // Race the git update operation against a timeout
+            await Promise.race([
+              execAsync(`cd ${workDir} && git fetch && git reset --hard origin/main`),
+              new Promise((_, reject) => {
+                setTimeout(() => {
+                  reject(new Error('Git update operation timed out after 60 seconds'));
+                }, 60000); // 60 second timeout
+              })
+            ]);
+
             console.log(`[${localTime()}] [GIT] Repository updated successfully`);
           } catch (updateError) {
             console.error(`[${localTime()}] [GIT] Failed to update existing repository:`, updateError);
@@ -50,11 +72,16 @@ class GitRepositoryService {
         }
       }
 
-      // Get git history
+      // Get git history with timeout
       console.log(`[${localTime()}] [GIT] Fetching git log`);
-      const { stdout } = await execAsync(
-        `cd ${workDir} && git log --pretty=format:"%H|%aI|%an|%ae|%s" --name-status`
-      );
+      const { stdout } = await Promise.race([
+        execAsync(`cd ${workDir} && git log --pretty=format:"%H|%aI|%an|%ae|%s" --name-status`),
+        new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Git log operation timed out after 60 seconds'));
+          }, 60000); // 60 second timeout
+        })
+      ]);
 
       // Parse git log output
       const events = [];

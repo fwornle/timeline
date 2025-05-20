@@ -124,8 +124,15 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   useEffect(() => {
     if (forceReload && repoUrl && !isLoading) {
       logger.info('Forcing data reload with cache purge', { repoUrl });
+
       // Use purgeAndRefresh to clear the cache first, then reload
-      purgeAndRefresh();
+      // Wrap in a try/catch to ensure we don't get stuck in a loading state
+      try {
+        purgeAndRefresh();
+      } catch (error) {
+        logger.error('Error during forced reload', { error });
+        // The purgeAndRefresh function should handle its own errors and reset loading state
+      }
     }
   }, [forceReload, repoUrl, purgeAndRefresh, logger, isLoading]);
 

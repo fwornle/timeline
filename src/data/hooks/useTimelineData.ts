@@ -191,16 +191,31 @@ export function useTimelineData(repoUrl: string) {
   // Helper function to fetch data (no retries)
   const fetchData = useCallback(async (type: 'git' | 'spec') => {
     try {
-      if (type === 'git') {
-        return await gitService().fetchGitHistory();
-      } else {
-        return await specService().fetchSpecHistory();
-      }
+      // Set a timeout for the entire operation
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Fetch ${type} data timed out after 60 seconds`));
+        }, 60000); // 60 second timeout
+      });
+
+      // Race the fetch operation against the timeout
+      return await Promise.race([
+        type === 'git' ? gitService().fetchGitHistory() : specService().fetchSpecHistory(),
+        timeoutPromise
+      ]);
     } catch (error) {
       logger.error('data', `Failed to fetch ${type} data`, { error });
-      throw error;
+
+      // Create a mock result with empty data and mocked flag
+      const mockResult = {
+        events: [],
+        mocked: true
+      };
+
+      // Return mock data on error to prevent UI from hanging
+      return mockResult;
     }
-  }, [gitService, specService]);
+  }, [gitService, specService, logger]);
 
   // Function to purge cache and reload data
   const purgeAndRefresh = useCallback(async (hardPurge = false) => {
@@ -394,7 +409,11 @@ export function useTimelineData(repoUrl: string) {
         }
       }));
     } finally {
+      // Always reset the fetching state to prevent UI from being stuck
       setIsFetching(false);
+
+      // Set hasInitialFetch to true to prevent automatic refetching
+      setHasInitialFetch(true);
     }
   }, [repoUrl, isFetching, fetchData]);
 
