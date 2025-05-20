@@ -136,7 +136,7 @@ export function useTimelineData(repoUrl: string) {
     }
 
     logger.info('data', 'Initial fetch for repository', { repoUrl });
-    
+
     // Start the fetch process
     const doFetch = async () => {
       setIsFetching(true);
@@ -188,9 +188,29 @@ export function useTimelineData(repoUrl: string) {
     doFetch();
   }, [repoUrl, isFetching, hasInitialFetch, gitService, specService]); // Include all dependencies
 
+  // Helper function to fetch data (no retries)
+  const fetchData = useCallback(async (type: 'git' | 'spec') => {
+    try {
+      if (type === 'git') {
+        return await gitService().fetchGitHistory();
+      } else {
+        return await specService().fetchSpecHistory();
+      }
+    } catch (error) {
+      logger.error('data', `Failed to fetch ${type} data`, { error });
+      throw error;
+    }
+  }, [gitService, specService]);
+
   // Function to purge cache and reload data
   const purgeAndRefresh = useCallback(async (hardPurge = false) => {
-    if (!repoUrl || isFetching) {
+    if (!repoUrl) {
+      return;
+    }
+
+    // If already fetching, don't start another fetch
+    if (isFetching) {
+      logger.warn('data', 'Ignoring purgeAndRefresh request - already fetching data');
       return;
     }
 
@@ -204,45 +224,166 @@ export function useTimelineData(repoUrl: string) {
     }));
 
     try {
-      // Send POST request to purge cache
-      const endpoint = hardPurge ? `${API_BASE_URL}/purge/hard` : `${API_BASE_URL}/purge`;
-      const response = await fetch(`${endpoint}?repository=${encodeURIComponent(repoUrl)}`, {
-        method: 'POST'
-      });
+      if (hardPurge) {
+        // Hard purge - purge everything at once
+        const response = await fetch(`${API_BASE_URL}/purge/hard?repository=${encodeURIComponent(repoUrl)}`, {
+          method: 'POST'
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to purge cache');
-      }
-
-      // Wait a bit to ensure the cache is cleared
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Fetch fresh data
-      const [gitResult, specResult] = await Promise.all([
-        gitService().fetchGitHistory(),
-        specService().fetchSpecHistory()
-      ]);
-
-      setIsGitHistoryMocked(gitResult.mocked);
-      setIsSpecHistoryMocked(specResult.mocked);
-
-      const allEvents = [...gitResult.events, ...specResult.events]
-        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-      const period = allEvents.length > 0 ? {
-        start: allEvents[0].timestamp,
-        end: allEvents[allEvents.length - 1].timestamp,
-        events: allEvents
-      } : null;
-
-      setState({
-        events: allEvents,
-        period,
-        sources: {
-          git: { isLoading: false, error: null },
-          spec: { isLoading: false, error: null }
+        if (!response.ok) {
+          throw new Error('Failed to purge cache');
         }
-      });
+
+        // Wait a bit to ensure the cache is cleared
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Fetch fresh data
+        const [gitResult, specResult] = await Promise.all([
+          fetchData('git'),
+          fetchData('spec')
+        ]);
+
+        setIsGitHistoryMocked(gitResult.mocked);
+        setIsSpecHistoryMocked(specResult.mocked);
+
+        const allEvents = [...gitResult.events, ...specResult.events]
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        const period = allEvents.length > 0 ? {
+          start: allEvents[0].timestamp,
+          end: allEvents[allEvents.length - 1].timestamp,
+          events: allEvents
+        } : null;
+
+        setState({
+          events: allEvents,
+          period,
+          sources: {
+            git: { isLoading: false, error: null },
+            spec: { isLoading: false, error: null }
+          }
+        });
+      } else {
+        // Soft purge - purge and reload each data source separately
+
+        // First purge and reload git data
+        setState(prev => ({
+          ...prev,
+          sources: {
+            ...prev.sources,
+            git: { isLoading: true, error: null }
+          }
+        }));
+
+        try {
+          // Purge git cache
+          const gitPurgeResponse = await fetch(`${API_BASE_URL}/purge/git?repository=${encodeURIComponent(repoUrl)}`, {
+            method: 'POST'
+          });
+
+          if (!gitPurgeResponse.ok) {
+            throw new Error('Failed to purge git cache');
+          }
+
+          // Wait a bit to ensure the cache is cleared
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Fetch fresh git data
+          const gitResult = await fetchData('git');
+          setIsGitHistoryMocked(gitResult.mocked);
+
+          // Update git data in state
+          setState(prev => {
+            const gitEvents = gitResult.events;
+            const specEvents = prev.events.filter(e => e.type === 'spec');
+            const allEvents = [...gitEvents, ...specEvents]
+              .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+            const period = allEvents.length > 0 ? {
+              start: allEvents[0].timestamp,
+              end: allEvents[allEvents.length - 1].timestamp,
+              events: allEvents
+            } : null;
+
+            return {
+              events: allEvents,
+              period,
+              sources: {
+                ...prev.sources,
+                git: { isLoading: false, error: null }
+              }
+            };
+          });
+        } catch (error) {
+          logger.error('data', 'Failed to purge and refresh git data', { error });
+          setState(prev => ({
+            ...prev,
+            sources: {
+              ...prev.sources,
+              git: { isLoading: false, error: error as Error }
+            }
+          }));
+        }
+
+        // Then purge and reload spec data
+        setState(prev => ({
+          ...prev,
+          sources: {
+            ...prev.sources,
+            spec: { isLoading: true, error: null }
+          }
+        }));
+
+        try {
+          // Purge spec cache
+          const specPurgeResponse = await fetch(`${API_BASE_URL}/purge/spec?repository=${encodeURIComponent(repoUrl)}`, {
+            method: 'POST'
+          });
+
+          if (!specPurgeResponse.ok) {
+            throw new Error('Failed to purge spec cache');
+          }
+
+          // Wait a bit to ensure the cache is cleared
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Fetch fresh spec data
+          const specResult = await fetchData('spec');
+          setIsSpecHistoryMocked(specResult.mocked);
+
+          // Update spec data in state
+          setState(prev => {
+            const gitEvents = prev.events.filter(e => e.type === 'git');
+            const specEvents = specResult.events;
+            const allEvents = [...gitEvents, ...specEvents]
+              .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+            const period = allEvents.length > 0 ? {
+              start: allEvents[0].timestamp,
+              end: allEvents[allEvents.length - 1].timestamp,
+              events: allEvents
+            } : null;
+
+            return {
+              events: allEvents,
+              period,
+              sources: {
+                ...prev.sources,
+                spec: { isLoading: false, error: null }
+              }
+            };
+          });
+        } catch (error) {
+          logger.error('data', 'Failed to purge and refresh spec data', { error });
+          setState(prev => ({
+            ...prev,
+            sources: {
+              ...prev.sources,
+              spec: { isLoading: false, error: error as Error }
+            }
+          }));
+        }
+      }
     } catch (error) {
       logger.error('data', `Failed to ${hardPurge ? 'hard ' : ''}purge and refresh data`, { error });
       setState(prev => ({
@@ -255,7 +396,7 @@ export function useTimelineData(repoUrl: string) {
     } finally {
       setIsFetching(false);
     }
-  }, [repoUrl, isFetching, gitService, specService]);
+  }, [repoUrl, isFetching, fetchData]);
 
   // Convenience method for hard reload
   const hardPurgeAndRefresh = useCallback(() => {
@@ -266,71 +407,11 @@ export function useTimelineData(repoUrl: string) {
     setFilter(prev => ({ ...prev, ...newFilter }));
   }, []);
 
+  // Hard reload is now just a wrapper around purgeAndRefresh with hardPurge=true
   const hardReload = useCallback(async () => {
     if (!repoUrl) return;
-    
-    setIsFetching(true);
-    setState(prev => ({
-      ...prev,
-      sources: {
-        git: { isLoading: true, error: null },
-        spec: { isLoading: true, error: null }
-      }
-    }));
-    
-    try {
-      // First purge the cache
-      const purgeResponse = await fetch(`${API_BASE_URL}/purge/hard?repository=${encodeURIComponent(repoUrl)}`, {
-        method: 'POST'
-      });
-
-      if (!purgeResponse.ok) {
-        throw new Error(`Failed to purge cache: ${await purgeResponse.text()}`);
-      }
-
-      // Wait a bit for the server to clean up
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Then reload the data
-      const [gitResult, specResult] = await Promise.all([
-        gitService().fetchGitHistory(),
-        specService().fetchSpecHistory()
-      ]);
-
-      // Update state with new data
-      const allEvents = [...gitResult.events, ...specResult.events]
-        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-      const period = allEvents.length > 0 ? {
-        start: allEvents[0].timestamp,
-        end: allEvents[allEvents.length - 1].timestamp,
-        events: allEvents
-      } : null;
-
-      setState({
-        events: allEvents,
-        period,
-        sources: {
-          git: { isLoading: false, error: null },
-          spec: { isLoading: false, error: null }
-        }
-      });
-
-      setIsGitHistoryMocked(gitResult.mocked);
-      setIsSpecHistoryMocked(specResult.mocked);
-    } catch (error) {
-      console.error('Error during hard reload:', error);
-      setState(prev => ({
-        ...prev,
-        sources: {
-          git: { isLoading: false, error: error as Error },
-          spec: { isLoading: false, error: error as Error }
-        }
-      }));
-    } finally {
-      setIsFetching(false);
-    }
-  }, [repoUrl, gitService, specService]);
+    await purgeAndRefresh(true);
+  }, [repoUrl, purgeAndRefresh]);
 
   // Return stable interface
   return {

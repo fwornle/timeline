@@ -6,7 +6,11 @@ import type { GitTimelineEvent } from '../types/TimelineEvent';
 const execAsync = promisify(exec);
 
 export class GitRepositoryService {
-  constructor(private repoUrl: string) {}
+  private repoUrl: string;
+
+  constructor(repoUrl: string) {
+    this.repoUrl = repoUrl;
+  }
 
   /**
    * Clone or update a repository and get its history
@@ -17,10 +21,17 @@ export class GitRepositoryService {
       const repoDir = this.repoUrl.replace(/[^a-zA-Z0-9]/g, '_');
       const workDir = `.timeline-cache/${repoDir}`;
 
+      // Determine if URL is HTTPS or SSH
+      const isHttps = this.repoUrl.startsWith('http');
+      const cloneUrl = this.repoUrl;
+
       // Clone or update the repository
       try {
-        await execAsync(`git clone ${this.repoUrl} ${workDir}`);
-        logger.info('git', 'Repository cloned successfully', { repoUrl: this.repoUrl });
+        await execAsync(`git clone ${cloneUrl} ${workDir}`);
+        logger.info('git', 'Repository cloned successfully', {
+          repoUrl: this.repoUrl,
+          protocol: isHttps ? 'HTTPS' : 'SSH'
+        });
       } catch (error: unknown) {
         // If directory exists, try to update instead
         if (error instanceof Error && error.message.includes('already exists')) {
@@ -39,7 +50,7 @@ export class GitRepositoryService {
       // Parse git log output
       const events: GitTimelineEvent[] = [];
       let currentCommit: Partial<GitTimelineEvent> | null = null;
-      
+
       stdout.split('\n').forEach(line => {
         if (line.includes('|')) {
           // This is a commit line
@@ -92,4 +103,4 @@ export class GitRepositoryService {
       throw error;
     }
   }
-} 
+}

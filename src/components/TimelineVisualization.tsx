@@ -122,12 +122,12 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Handle force reload when the prop changes
   useEffect(() => {
-    if (forceReload && repoUrl) {
+    if (forceReload && repoUrl && !isLoading) {
       logger.info('Forcing data reload with cache purge', { repoUrl });
       // Use purgeAndRefresh to clear the cache first, then reload
       purgeAndRefresh();
     }
-  }, [forceReload, repoUrl, purgeAndRefresh, logger]);
+  }, [forceReload, repoUrl, purgeAndRefresh, logger, isLoading]);
 
   // Track external view mode changes
   useEffect(() => {
@@ -218,7 +218,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         // Sort events by timestamp to find the earliest
         const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         const firstEvent = sortedEvents[0];
-        
+
         // Select the first event (which should be at -length/2)
         if (cardPositionsRef.current.has(firstEvent.id)) {
           selectCard(firstEvent.id);

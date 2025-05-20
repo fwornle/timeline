@@ -1,6 +1,5 @@
 import type { SpecTimelineEvent } from '../types/TimelineEvent';
 import { logger } from '../../utils/logging/logger';
-import { withRetry } from '../../utils/api/retry';
 import { TimelineAPIError, ServerError, NotFoundError, NetworkError } from '../../utils/api/errors';
 
 interface SpecHistoryResponse {
@@ -56,15 +55,7 @@ export class SpecStoryService {
     };
   }
 
-  /**
-   * Validates the repository URL
-   */
-  private validateRepository(repository: string): void {
-    if (!repository || repository.trim() === '') {
-      logger.error('data', 'Empty repository URL');
-      throw new TimelineAPIError('Please enter a repository URL');
-    }
-  }
+  // Removed unused validateRepository method
 
   /**
    * Resolves the spec directory from the repository URL
@@ -97,51 +88,44 @@ export class SpecStoryService {
     });
 
     try {
-      const response = await withRetry(
-        async () => {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-          try {
-            const response = await fetch(url, {
-              ...init,
-              signal: controller.signal,
-              headers: {
-                'Content-Type': 'application/json',
-                ...(init?.headers || {})
-              }
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-              if (response.status === 404) {
-                throw new NotFoundError(`Resource not found: ${url}`);
-              } else if (response.status >= 500) {
-                throw new ServerError(`Server error: ${response.status}`);
-              } else {
-                const errorData = await response.json().catch(() => ({}));
-                throw new TimelineAPIError(
-                  errorData.error?.message || `API error: ${response.status}`
-                );
-              }
-            }
-
-            return response;
-          } catch (error) {
-            clearTimeout(timeoutId);
-            if (error instanceof Error && error.name === 'AbortError') {
-              throw new TimelineAPIError(`Request timeout after ${this.config.timeout}ms`);
-            }
-            throw error;
+      try {
+        const response = await fetch(url, {
+          ...init,
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(init?.headers || {})
           }
-        },
-        this.config
-      );
+        });
 
-      const data = await response.json();
-      // Return the full response data to access the cached/mocked flags
-      return data;
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new NotFoundError(`Resource not found: ${url}`);
+          } else if (response.status >= 500) {
+            throw new ServerError(`Server error: ${response.status}`);
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new TimelineAPIError(
+              errorData.error?.message || `API error: ${response.status}`
+            );
+          }
+        }
+
+        const data = await response.json();
+        // Return the full response data to access the cached/mocked flags
+        return data as T;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new TimelineAPIError(`Request timeout after ${this.config.timeout}ms`);
+        }
+        throw error;
+      }
     } catch (error) {
       if (error instanceof TimelineAPIError) {
         throw error;
@@ -166,7 +150,7 @@ export class SpecStoryService {
 
       // Use existing changes if provided, otherwise generate them
       const changes = data.changes || [];
-      
+
       if (changes.length === 0) {
         // Generate changes based on the data
         if (data.status) {

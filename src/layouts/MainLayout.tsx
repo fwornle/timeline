@@ -77,12 +77,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     logger.info('Timeline position reset');
   };
 
-  // Handle data reload (purge cache and reload from upstream)
+  // Handle soft reload (purge cache files but keep repo)
   const handleReloadData = useCallback(() => {
+    if (isLoading) {
+      logger.warn('Soft reload requested but ignored - already loading data');
+      return;
+    }
+    logger.info('Soft reload requested');
+    setIsLoading(true); // Set loading state immediately to prevent multiple clicks
     setForceReloadFlag(prev => !prev);
-  }, []);
+  }, [logger, isLoading]);
 
+  // Handle hard reload (purge cache files and repo)
   const handleHardReload = useCallback(async () => {
+    if (isLoading) {
+      logger.warn('Hard reload requested but ignored - already loading data');
+      return;
+    }
+
+    logger.info('Hard reload requested');
     setIsLoading(true);
     try {
       // Purge the cache first
@@ -97,10 +110,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       // Then trigger a normal reload
       setForceReloadFlag(prev => !prev);
     } catch (error) {
-      console.error('Error during hard reload:', error);
-      // Don't set loading to false here, let the data reload handle it
+      logger.error('Error during hard reload:', { error });
+      setIsLoading(false); // Reset loading state on error
     }
-  }, [repoUrl]);
+  }, [repoUrl, logger, isLoading]);
 
   // Handle camera view mode changes
   const handleViewAllClick = () => {
@@ -144,7 +157,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     if (React.isValidElement(child)) {
       // Get child type name in a simpler way
       const childType = child.type.toString();
-      console.debug('MainLayout processing child:', { 
+      console.debug('MainLayout processing child:', {
         childType,
         childProps: Object.keys(child.props || {})
       });
@@ -168,7 +181,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       // Detect AppRoutes (from React Router) - this is likely what we have
       if (childType.includes('AppRoutes') || childType.includes('Routes')) {
         console.debug('Found Routes component, need to pass props to its children');
-        
+
         // For Routes, pass a routeProps object with all callbacks
         try {
           return React.cloneElement(child as React.ReactElement<RouteProps>, {
@@ -186,9 +199,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               },
               onPositionChange: (pos: number) => setCurrentPosition(pos),
               onTimelineDatesChange: (startDate: Date, endDate: Date) => {
-                console.debug('MainLayout received timeline dates:', { 
-                  startDate: startDate.toISOString(), 
-                  endDate: endDate.toISOString() 
+                console.debug('MainLayout received timeline dates:', {
+                  startDate: startDate.toISOString(),
+                  endDate: endDate.toISOString()
                 });
                 setTimelineStartDate(startDate);
                 setTimelineEndDate(endDate);
@@ -208,7 +221,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           return child;
         }
       }
-      
+
       // For direct components, pass props directly
       return child;
     }
@@ -236,8 +249,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       debugMode,
     });
   }, [
-    repoUrl, animationSpeed, autoDrift, gitCount, specCount, 
-    isLoading, isGitHistoryMocked, isSpecHistoryMocked, currentPosition, timelineStartDate, 
+    repoUrl, animationSpeed, autoDrift, gitCount, specCount,
+    isLoading, isGitHistoryMocked, isSpecHistoryMocked, currentPosition, timelineStartDate,
     timelineEndDate, timelineLength, forceReloadFlag, viewAllMode, focusCurrentMode, debugMode
   ]);
 

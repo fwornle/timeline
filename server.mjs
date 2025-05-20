@@ -82,11 +82,28 @@ function purgeCacheFiles(repository) {
   });
 }
 
+// Purge a specific cache file (git or spec)
+function purgeCacheFile(repository, type) {
+  if (!['git', 'spec'].includes(type)) {
+    throw new Error(`Invalid cache type: ${type}`);
+  }
+
+  const filePath = getCacheFilePath(repository, type);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    console.log(`[${localTime()}] [CACHE] Purged ${type} cache for repo ${repository}`);
+    return true;
+  } else {
+    console.log(`[${localTime()}] [CACHE] No ${type} cache file found for repo ${repository}`);
+    return false;
+  }
+}
+
 // Hard purge - removes both cache files and cloned repo
 async function purgeAll(repository) {
   // First purge cache files
   purgeCacheFiles(repository);
-  
+
   // Then remove cloned repo directory
   const repoDir = getRepoDir(repository);
   if (fs.existsSync(repoDir)) {
@@ -301,6 +318,42 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Purge specific cache type endpoint (git or spec)
+    if (path.startsWith(`${API_PREFIX}/purge/`) && path !== `${API_PREFIX}/purge/hard` && req.method === 'POST') {
+      const type = path.split('/').pop(); // Extract the type from the URL
+
+      if (!['git', 'spec'].includes(type)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Invalid cache type. Must be "git" or "spec"' }));
+        return;
+      }
+
+      const { repository } = query;
+      if (!repository) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Repository required' }));
+        return;
+      }
+
+      try {
+        const purged = purgeCacheFile(repository, type);
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          message: purged ? `${type} cache purged` : `No ${type} cache found to purge`,
+          purged
+        }));
+      } catch (error) {
+        res.writeHead(500);
+        res.end(JSON.stringify({
+          success: false,
+          message: `Failed to purge ${type} cache`,
+          error: error.message
+        }));
+      }
+      return;
+    }
+
     // Hard purge endpoint (new)
     if (path === `${API_PREFIX}/purge/hard` && req.method === 'POST') {
       const { repository } = query;
@@ -308,7 +361,7 @@ const server = http.createServer(async (req, res) => {
         try {
           await withOperationLock(repository, async () => {
             console.log(`[${localTime()}] [CACHE] Starting hard reload for repo ${repository}`);
-            
+
             // Delete the entire repository directory
             const repoDir = getRepoDir(repository);
             if (fs.existsSync(repoDir)) {
@@ -323,10 +376,10 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ success: true, message: 'Cache and cloned repo purged' }));
         } catch (error) {
           res.writeHead(500);
-          res.end(JSON.stringify({ 
-            success: false, 
+          res.end(JSON.stringify({
+            success: false,
             message: 'Failed to purge repo',
-            error: error.message 
+            error: error.message
           }));
         }
       } else {
