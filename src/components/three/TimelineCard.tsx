@@ -70,7 +70,7 @@ const hoverDebounce = {
   // Track the last time a hover state changed
   lastHoverChangeTime: 0,
   // Minimum time (ms) between hover state changes
-  debounceTime: 200, // Reduced debounce time for better responsiveness
+  debounceTime: 300, // Increased for better stability
   // Track if we're in a hover animation
   isInHoverAnimation: false,
   // Track the last mouse position
@@ -80,12 +80,12 @@ const hoverDebounce = {
   // Last time camera moved
   lastCameraMoveTime: 0,
   // Camera movement cooldown (ms)
-  cameraCooldownTime: 200,
+  cameraCooldownTime: 300, // Increased to prevent hover during camera movement
   // New values for improved hover stability
   hoverStartPosition: { x: 0, y: 0 },
-  significantMoveThreshold: 20, // Reduced threshold for more responsive unhover
+  significantMoveThreshold: 30, // Increased to prevent accidental unhover
   isHoverLocked: false,
-  hoverLockDuration: 300, // Reduced lock duration for more responsive unhover
+  hoverLockDuration: 500, // Increased to ensure animation completes
 };
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -326,7 +326,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       const targetScale = newIsHovered ? zoomFactor : 1; // Larger when hovered
 
       // Start animation with longer duration for hover animations to give more time to read
-      const animationDuration = newIsHovered ? 400 : 250; // Longer for hover, shorter for unhover
+      const animationDuration = newIsHovered ? 600 : 300; // Longer for hover, shorter for unhover
 
       // Start animation
       setAnimState({
@@ -596,22 +596,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const cardWidth = 3;
   const cardHeight = 2.2; // Adjusted height for better proportions
 
-  // Function to render statistics based on event type
-  const renderStats = (event: TimelineEvent): string => {
-    if (event.type === 'git') {
-      const gitEvent = event as GitTimelineEvent;
-      const stats = gitEvent.stats;
-      if (!stats) return '';
-
-      return `+${stats.filesAdded} -${stats.filesDeleted} ~${stats.filesModified} files`;
-    } else {
-      const specEvent = event as SpecTimelineEvent;
-      const stats = specEvent.stats;
-      if (!stats) return '';
-
-      return `${stats.promptCount} prompts, ${stats.filesCreated} files, ${stats.linesDelta} LOC`;
-    }
-  };
+  // We don't need this function anymore as we're rendering stats directly in the JSX
 
   return (
     <group
@@ -708,16 +693,52 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
           {event.type === 'git' ? 'Commit' : 'Spec'}
         </Text>
 
-        {/* Stats - bottom center */}
-        <Text
-          position={[0, -0.95, 0.01]}
-          fontSize={0.11}
-          color="#e0e0e0"
-          anchorX="center"
-          anchorY="middle"
-        >
-          {renderStats(event)}
-        </Text>
+        {/* Stats - bottom center - split into two lines for better readability */}
+        <group position={[0, -0.95, 0.01]}>
+          {event.type === 'git' ? (
+            <>
+              <Text
+                position={[0, 0.15, 0]}
+                fontSize={0.11}
+                color="#e0e0e0"
+                anchorX="center"
+                anchorY="middle"
+              >
+                {`Files: +${(event as GitTimelineEvent).stats?.filesAdded || 0} ~${(event as GitTimelineEvent).stats?.filesModified || 0} -${(event as GitTimelineEvent).stats?.filesDeleted || 0}`}
+              </Text>
+              <Text
+                position={[0, -0.1, 0]}
+                fontSize={0.11}
+                color="#e0e0e0"
+                anchorX="center"
+                anchorY="middle"
+              >
+                {`Lines: +${(event as GitTimelineEvent).stats?.linesAdded || 0} -${(event as GitTimelineEvent).stats?.linesDeleted || 0}`}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text
+                position={[0, 0.15, 0]}
+                fontSize={0.11}
+                color="#e0e0e0"
+                anchorX="center"
+                anchorY="middle"
+              >
+                {`Prompts: ${(event as SpecTimelineEvent).stats?.promptCount || 0} | Files: ${(event as SpecTimelineEvent).stats?.filesCreated || 0}`}
+              </Text>
+              <Text
+                position={[0, -0.1, 0]}
+                fontSize={0.11}
+                color="#e0e0e0"
+                anchorX="center"
+                anchorY="middle"
+              >
+                {`Lines: +${(event as SpecTimelineEvent).stats?.linesAdded || 0} -${(event as SpecTimelineEvent).stats?.linesDeleted || 0}`}
+              </Text>
+            </>
+          )}
+        </group>
 
         {/* Date - bottom right */}
         <Text

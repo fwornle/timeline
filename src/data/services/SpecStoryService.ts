@@ -179,6 +179,44 @@ export class SpecStoryService {
         }
       }
 
+      // Generate statistics based on the description content
+      const stats = {
+        promptCount: 0,
+        filesCreated: 0,
+        filesModified: 0,
+        linesAdded: 0,
+        linesDeleted: 0,
+        linesDelta: 0,
+        toolInvocations: 0
+      };
+
+      // Count prompts based on description content
+      if (data.description) {
+        // Count prompts (look for human/assistant exchanges)
+        const humanPromptMatches = data.description.match(/Human:|User:/gi);
+        if (humanPromptMatches) {
+          stats.promptCount = humanPromptMatches.length;
+        }
+
+        // Count code blocks as files created
+        const codeBlockMatches = data.description.match(/```[a-z]*/gi);
+        if (codeBlockMatches) {
+          stats.filesCreated = Math.floor(codeBlockMatches.length / 2); // Each file has opening and closing ```
+        }
+
+        // Estimate lines added based on description length
+        stats.linesAdded = Math.floor(data.description.length / 80); // Rough estimate: 1 line per 80 chars
+
+        // Estimate tool invocations
+        const toolMatches = data.description.match(/tool|function|command|invoke/gi);
+        if (toolMatches) {
+          stats.toolInvocations = toolMatches.length;
+        }
+      }
+
+      // Calculate line delta
+      stats.linesDelta = stats.linesAdded - stats.linesDeleted;
+
       const event: SpecTimelineEvent = {
         id: `spec-${specId}-${version}`,
         type: 'spec',
@@ -187,13 +225,15 @@ export class SpecStoryService {
         description: data.description,
         specId: specId,
         version: version,
-        changes
+        changes,
+        stats
       };
 
       logger.debug('data', 'Successfully parsed spec event', {
         specId,
         version,
-        changeCount: changes.length
+        changeCount: changes.length,
+        stats
       });
 
       return event;

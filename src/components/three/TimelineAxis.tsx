@@ -115,6 +115,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       const maxPos = length / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, clickedPosition));
 
+      // Log for debugging
+      console.log('Timeline axis clicked at position:', clickedPosition, 'clamped to:', clampedPosition);
+
       // Update position through callback
       onPositionChange(clampedPosition);
     }
@@ -128,8 +131,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         rotation={[Math.PI / 2, 0, 0]}
         onClick={handleAxisClick}
       >
-        <planeGeometry args={[4, length]} />
-        <meshBasicMaterial visible={false} />
+        <planeGeometry args={[8, length]} /> {/* Wider plane for easier clicking */}
+        <meshBasicMaterial visible={false} transparent={true} opacity={0} />
       </mesh>
 
       <Line

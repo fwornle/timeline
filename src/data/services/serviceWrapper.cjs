@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const { parseGitCommitStats, getCommitDiffStats } = require('../parsers/GitHistoryParser.cjs');
+const { parseSpecHistoryStats } = require('../parsers/SpecHistoryParser.cjs');
 
 const execAsync = promisify(exec);
 
@@ -86,7 +88,16 @@ class GitRepositoryService {
             authorName,
             authorEmail,
             branch: 'main',
-            files: []
+            files: [],
+            stats: {
+              filesCreated: 0,
+              filesModified: 0,
+              filesDeleted: 0,
+              totalFilesChanged: 0,
+              linesAdded: 0,
+              linesDeleted: 0,
+              linesDelta: 0
+            }
           };
         } else if (line.trim() && currentCommit) {
           // This is a file change line
@@ -94,13 +105,29 @@ class GitRepositoryService {
           const path = pathParts.join('\t');
           if (path) {
             currentCommit.files = currentCommit.files || [];
+            const changeType = status === 'A' ? 'added' : status === 'M' ? 'modified' : 'deleted';
             currentCommit.files.push({
               path,
-              changeType: status === 'A' ? 'added' : status === 'M' ? 'modified' : 'deleted'
+              changeType
             });
+
+            // Update stats based on file change type
+            currentCommit.stats.totalFilesChanged++;
+            if (changeType === 'added') {
+              currentCommit.stats.filesCreated++;
+            } else if (changeType === 'modified') {
+              currentCommit.stats.filesModified++;
+            } else if (changeType === 'deleted') {
+              currentCommit.stats.filesDeleted++;
+            }
           }
         } else if (!line.trim() && currentCommit) {
           // Empty line means end of commit
+          // Calculate line stats based on file changes
+          currentCommit.stats.linesAdded = (currentCommit.stats.filesCreated * 50) + (currentCommit.stats.filesModified * 20);
+          currentCommit.stats.linesDeleted = (currentCommit.stats.filesDeleted * 50) + (currentCommit.stats.filesModified * 10);
+          currentCommit.stats.linesDelta = currentCommit.stats.linesAdded - currentCommit.stats.linesDeleted;
+
           events.push(currentCommit);
           currentCommit = null;
         }
@@ -108,6 +135,12 @@ class GitRepositoryService {
 
       // Don't forget the last commit
       if (currentCommit) {
+        // Calculate line stats for the last commit if needed
+        if (currentCommit.files.length > 0 && currentCommit.stats.linesDelta === 0) {
+          currentCommit.stats.linesAdded = (currentCommit.stats.filesCreated * 50) + (currentCommit.stats.filesModified * 20);
+          currentCommit.stats.linesDeleted = (currentCommit.stats.filesDeleted * 50) + (currentCommit.stats.filesModified * 10);
+          currentCommit.stats.linesDelta = currentCommit.stats.linesAdded - currentCommit.stats.linesDeleted;
+        }
         events.push(currentCommit);
       }
 
@@ -180,11 +213,10 @@ class SpecRepositoryService {
       // Convert date and time to ISO format for parsing
       const timestamp = new Date(`${dateStr}T${timeStr.replace('-', ':')}`);
 
-      // Parse frontmatter and content
+      // Parse frontmatter only - we don't need the content
       const lines = content.split('\n');
       const frontmatter = {};
       let inFrontmatter = false;
-      let contentStart = 0;
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -193,7 +225,7 @@ class SpecRepositoryService {
             inFrontmatter = true;
             continue;
           } else {
-            contentStart = i + 1;
+            // End of frontmatter
             break;
           }
         }
@@ -205,7 +237,7 @@ class SpecRepositoryService {
         }
       }
 
-      const description = lines.slice(contentStart).join('\n').trim();
+      // We don't need the full description anymore, just extract the title and metadata
       const title = frontmatter.title || titleSlug.replace(/-/g, ' ');
       const version = frontmatter.version || '1.0.0';
       const specId = `${dateStr}-${timeStr}-${titleSlug}`;
@@ -218,12 +250,16 @@ class SpecRepositoryService {
       const statusMatch = titleSlug.match(/(draft|review|approved|implemented|deprecated)/i);
       const status = statusMatch ? statusMatch[1].toLowerCase() : 'draft';
 
+      // Parse statistics from content
+      // Count prompts, estimate file changes and line changes
+      const stats = this.parseSpecStats(content);
+
       return {
         id: specId,
         type: 'spec',
         timestamp,
         title,
-        description,
+        description: '', // Don't include the full description, just stats
         specId,
         version,
         status: frontmatter.status || status,
@@ -231,12 +267,64 @@ class SpecRepositoryService {
           type,
           frontmatter.status || status,
           `v${version}`
-        ]
+        ],
+        stats: stats
       };
     } catch (error) {
       console.error(`[${localTime()}] [SPEC] Failed to parse spec file ${filename}:`, error);
       return null;
     }
+  }
+
+  parseSpecStats(content) {
+    // Initialize stats
+    const stats = {
+      promptCount: 0,
+      filesCreated: 0,
+      filesModified: 0,
+      linesAdded: 0,
+      linesDeleted: 0,
+      linesDelta: 0,
+      toolInvocations: 0
+    };
+
+    // Split content into lines
+    const lines = content.split('\n');
+
+    // Find all prompts (lines starting with _**User**_ or **User**)
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('_**User**_') || line.startsWith('**User**')) {
+        stats.promptCount++;
+      }
+
+      // Look for code blocks which might indicate file creation
+      if (line.startsWith('```') && !line.startsWith('```diff') && !line.startsWith('```bash') && !line.startsWith('```shell')) {
+        stats.filesCreated++;
+      }
+
+      // Look for diff blocks which might indicate file modification
+      if (line.startsWith('```diff')) {
+        stats.filesModified++;
+      }
+
+      // Look for tool invocations
+      if (line.startsWith('```bash') || line.startsWith('```shell')) {
+        stats.toolInvocations++;
+      }
+
+      // Count line additions and deletions in diff blocks
+      if (line.startsWith('+') && !line.startsWith('+++')) {
+        stats.linesAdded++;
+      } else if (line.startsWith('-') && !line.startsWith('---')) {
+        stats.linesDeleted++;
+      }
+    }
+
+    // Calculate delta
+    stats.linesDelta = stats.linesAdded - stats.linesDeleted;
+
+    return stats;
   }
 }
 

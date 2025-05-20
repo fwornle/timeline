@@ -126,6 +126,40 @@ export class GitService {
    */
   private parseGitCommit(data: GitCommitResponse): GitTimelineEvent {
     try {
+      // Calculate stats based on files
+      const stats = {
+        filesAdded: 0,
+        filesModified: 0,
+        filesDeleted: 0,
+        linesAdded: 0,
+        linesDeleted: 0,
+        linesDelta: 0
+      };
+
+      // Count files by change type
+      if (data.files && Array.isArray(data.files)) {
+        data.files.forEach(file => {
+          switch (file.type) {
+            case 'added':
+              stats.filesAdded++;
+              stats.linesAdded += 50; // Estimate 50 lines per added file
+              break;
+            case 'modified':
+              stats.filesModified++;
+              stats.linesAdded += 20; // Estimate 20 lines added per modified file
+              stats.linesDeleted += 10; // Estimate 10 lines deleted per modified file
+              break;
+            case 'deleted':
+              stats.filesDeleted++;
+              stats.linesDeleted += 50; // Estimate 50 lines per deleted file
+              break;
+          }
+        });
+      }
+
+      // Calculate line delta
+      stats.linesDelta = stats.linesAdded - stats.linesDeleted;
+
       const event: GitTimelineEvent = {
         id: data.id,
         type: 'git',
@@ -139,7 +173,8 @@ export class GitService {
         files: data.files.map(file => ({
           path: file.path,
           changeType: file.type
-        }))
+        })),
+        stats: stats
       };
 
       return event;

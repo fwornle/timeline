@@ -24,43 +24,33 @@ interface TimelineCameraProps {
   debugMode?: boolean; // Enable camera position cycling for debugging
 }
 
-// Calculate a position that shows the timeline from bottom left with newest data at bottom left
+// Calculate a position that shows the timeline from above-left with timeline stretching from top-left to bottom-right
 const calculateViewAllPosition = (target: Vector3, events: TimelineEvent[] = []): Vector3 => {
   // If we have events, calculate a position that shows all of them
   if (events && events.length > 0) {
-    // Sort events by timestamp to find the earliest and latest
-    // This helps us understand the timeline structure, even though we're using event count for length
-    // We'll use this approach in future enhancements for more precise positioning
-
-    // For the timeline visualization, we know events are positioned along the Z-axis
-    // with alternating X positions
-
     // Estimate the length of the timeline based on number of events
     // Assuming events are spaced by ~5 units as in TimelineEvents.tsx
     const spacing = 5;
     const timelineLength = Math.max(events.length * spacing, 100);
 
-    // Calculate a position that will show the entire timeline
-    // We want to be far enough back and high enough to see all events
-
     // Calculate distance based on timeline length
     // The longer the timeline, the further back we need to be
-    const distance = Math.max(40, timelineLength * 0.7);
+    const distance = Math.max(50, timelineLength * 0.8);
 
-    // Position camera at an angle to see the timeline from the side and above
+    // Position camera at an angle to see the timeline from above-left
     // This will show the timeline stretching from top left to bottom right
     return new Vector3(
-      -distance * 0.8,        // Position to the left
+      -distance * 0.9,        // Position further to the left
       distance * 0.8,         // Position higher above to see more of the timeline
-      -timelineLength * 0.3   // Position toward the start of the timeline
+      -timelineLength * 0.4   // Position toward the start of the timeline
     );
   }
 
   // Fallback for when we don't have events or can't calculate bounds
   return new Vector3(
-    -40, // Position to the left
-    40,  // Position above
-    -30  // Position toward the start of the timeline
+    -50, // Position further to the left
+    45,  // Position higher above
+    -40  // Position further toward the start of the timeline
   );
 };
 
@@ -96,9 +86,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (initialPositionSet) return;
 
-    // Set initial camera position to look at the timeline from the front/left
-    // This position shows the timeline stretching from top left to bottom right
-    const initialPosition = new Vector3(-35, 30, -20);
+    // Set initial camera position to look at the timeline from above-left
+    // This position shows the timeline stretching from top left to bottom right corner
+    const initialPosition = new Vector3(-45, 40, -40);
     camera.position.copy(initialPosition);
     camera.lookAt(new Vector3(0, 2, 0));
 

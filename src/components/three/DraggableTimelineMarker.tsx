@@ -1,7 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Vector3, Raycaster, Plane } from 'three';
+import { Vector3, Vector2, Raycaster, Plane, Group } from 'three';
 
 interface DraggableTimelineMarkerProps {
   position: number;
@@ -20,8 +20,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   showLabel = true,
   labelText = 'Current',
 }) => {
-  const { camera, gl, scene } = useThree();
-  const markerRef = useRef<THREE.Group>(null);
+  const { camera, gl } = useThree();
+  const markerRef = useRef<Group>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragPlaneRef = useRef(new Plane(new Vector3(0, 0, 1), 0));
   const raycasterRef = useRef(new Raycaster());
@@ -31,71 +31,78 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   // Handle pointer down event to start dragging
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
-    
+
     // Set dragging state
     setIsDragging(true);
-    
+
     // Store initial position for reference
     initialPositionRef.current = position;
-    
+
     // Set up the drag plane perpendicular to the camera
     const normal = new Vector3(0, 0, 1); // Z-axis is our timeline axis
     dragPlaneRef.current.setFromNormalAndCoplanarPoint(
       normal,
       new Vector3(0, 2, position) // Use current marker position
     );
-    
+
     // Store the point where dragging started
     dragStartPointRef.current = new Vector3(0, 2, position);
-    
+
     // Capture pointer to track movement even outside the canvas
     gl.domElement.setPointerCapture(e.pointerId);
+
+    // Log for debugging
+    console.log('Marker drag started at position:', position);
   };
 
   // Handle pointer move event during dragging
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging) return;
-    
+    e.stopPropagation(); // Make sure to stop propagation
+
     // Calculate mouse position in normalized device coordinates (-1 to +1)
-    const mouse = {
-      x: (e.clientX / gl.domElement.clientWidth) * 2 - 1,
-      y: -(e.clientY / gl.domElement.clientHeight) * 2 + 1
-    };
-    
+    const mouseX = (e.clientX / gl.domElement.clientWidth) * 2 - 1;
+    const mouseY = -(e.clientY / gl.domElement.clientHeight) * 2 + 1;
+
     // Update the raycaster with the mouse position and camera
-    raycasterRef.current.setFromCamera({ x: mouse.x, y: mouse.y }, camera);
-    
+    raycasterRef.current.setFromCamera(new Vector2(mouseX, mouseY), camera);
+
     // Find the intersection point with the drag plane
     const intersectionPoint = new Vector3();
     if (raycasterRef.current.ray.intersectPlane(dragPlaneRef.current, intersectionPoint)) {
       // Constrain movement to the Z axis only
       const newPosition = intersectionPoint.z;
-      
+
       // Limit position to timeline bounds
       const minPos = -timelineLength / 2;
       const maxPos = timelineLength / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, newPosition));
-      
+
+      // Log for debugging
+      console.debug('Marker dragged to position:', clampedPosition);
+
       // Update position through callback
       onPositionChange(clampedPosition);
+    } else {
+      console.debug('No intersection with drag plane');
     }
   };
 
   // Handle pointer up event to end dragging
   const handlePointerUp = (e: React.PointerEvent) => {
     if (!isDragging) return;
-    
+
     // End dragging state
     setIsDragging(false);
     dragStartPointRef.current = null;
-    
+
     // Release pointer capture
     gl.domElement.releasePointerCapture(e.pointerId);
   };
 
   // Create a marker for the current position
   return (
-    <group 
+    <group
       ref={markerRef}
       position={[0, 2, position]}
       onPointerDown={handlePointerDown}
@@ -141,7 +148,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
           `}
         />
       </mesh>
-      
+
       {/* Vertical line */}
       <Line
         points={[
@@ -151,7 +158,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
       />
-      
+
       {/* Horizontal marker */}
       <Line
         points={[
@@ -161,7 +168,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
       />
-      
+
       {/* Label */}
       {showLabel && (
         <Text
