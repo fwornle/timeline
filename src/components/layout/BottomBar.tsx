@@ -72,8 +72,8 @@ export function BottomBar({
                 </span>
               </div>
 
-              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isGitHistoryMocked ? 'border border-yellow-400' : ''}`}
-                   style={{ borderWidth: isGitHistoryMocked ? '2px' : '0' }}>
+              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isGitHistoryMocked ? 'border-4 border-orange-500 shadow-[0_0_8px_2px_rgba(255,140,0,0.5)]' : ''}`}
+                   style={{ borderWidth: isGitHistoryMocked ? '4px' : '0', boxShadow: isGitHistoryMocked ? '0 0 8px 2px rgba(255,140,0,0.5)' : undefined }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" />
                 </svg>
@@ -82,8 +82,8 @@ export function BottomBar({
                 </span>
               </div>
 
-              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isSpecHistoryMocked ? 'border border-yellow-400' : ''}`}
-                   style={{ borderWidth: isSpecHistoryMocked ? '2px' : '0' }}>
+              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isSpecHistoryMocked ? 'border-4 border-orange-500 shadow-[0_0_8px_2px_rgba(255,140,0,0.5)]' : ''}`}
+                   style={{ borderWidth: isSpecHistoryMocked ? '4px' : '0', boxShadow: isSpecHistoryMocked ? '0 0 8px 2px rgba(255,140,0,0.5)' : undefined }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>

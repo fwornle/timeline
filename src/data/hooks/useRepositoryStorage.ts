@@ -176,7 +176,6 @@ export function useRepositoryStorage() {
         isValid,
         hasEvents,
         isMocked,
-        isCached: isValid && (hasEvents || isMocked),
         age: Math.round((Date.now() - data.timestamp) / (60 * 60 * 1000)) + ' hours'
       });
 
