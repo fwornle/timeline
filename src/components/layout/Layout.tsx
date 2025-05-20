@@ -11,7 +11,8 @@ interface LayoutProps {
   onAnimationSpeedChange: (speed: number) => void;
   autoDrift: boolean;
   onAutoDriftChange: (enabled: boolean) => void;
-  isCached?: boolean;
+  isGitHistoryMocked?: boolean;
+  isSpecHistoryMocked?: boolean;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -22,13 +23,14 @@ export const Layout: React.FC<LayoutProps> = ({
   onAnimationSpeedChange,
   autoDrift,
   onAutoDriftChange,
-  isCached = false,
+  isGitHistoryMocked = false,
+  isSpecHistoryMocked = false,
 }) => {
   // Determine if controls should be shown (only when repository URL is provided)
   const showControls = Boolean(repoUrl);
 
   // Get timeline data state for bottom bar
-  const { sources, retry } = useTimelineData(repoUrl);
+  const { sources, refresh } = useTimelineData(repoUrl);
 
   return (
     <div className="min-h-screen flex flex-col relative bg-gray-900">
@@ -47,13 +49,11 @@ export const Layout: React.FC<LayoutProps> = ({
         className="fixed bottom-0 left-0 right-0 z-10"
         showControls={showControls}
         sourceStates={sources}
-        onRetry={retry}
-        onRetryAll={() => {
-          retry('git');
-          retry('spec');
-        }}
-        isCached={isCached}
+        onRetry={() => refresh(true)}
+        onRetryAll={() => refresh(true)}
         repoUrl={repoUrl}
+        isGitHistoryMocked={isGitHistoryMocked}
+        isSpecHistoryMocked={isSpecHistoryMocked}
         animationSpeed={animationSpeed}
         onAnimationSpeedChange={onAnimationSpeedChange}
         autoDrift={autoDrift}
