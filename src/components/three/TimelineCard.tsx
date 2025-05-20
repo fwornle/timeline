@@ -172,7 +172,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   useEffect(() => {
     // Register this card
     globalClickHandlers.activeCards.add(event.id);
-    
+
     // Create a clear hover callback specific to this card
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const clearHover = (_: string | null) => {
@@ -180,23 +180,23 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
         onHover(null);
       }
     };
-    
+
     // Store the clear hover callback
     globalClickHandlers.clearHoverCallbacks.add(clearHover);
-    
+
     // Set up document listener if needed
     globalClickHandlers.setupDocumentListener();
-    
+
     // Cleanup on unmount
     return () => {
       globalClickHandlers.activeCards.delete(event.id);
       globalClickHandlers.clearHoverCallbacks.delete(clearHover);
-      
+
       // If this was the hovered card, clear the global state
       if (globalHoveredCardId.current === event.id) {
         globalHoveredCardId.current = null;
       }
-      
+
       // Clean up document listener if no more cards
       globalClickHandlers.cleanupDocumentListener();
     };
@@ -251,22 +251,22 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // Calculate the camera's field of view in radians
     // Default to 45 degrees if not a perspective camera
-    const fovRadians = (camera instanceof PerspectiveCamera) 
-      ? (camera.fov * Math.PI) / 180 
+    const fovRadians = (camera instanceof PerspectiveCamera)
+      ? (camera.fov * Math.PI) / 180
       : (45 * Math.PI) / 180;
-    
+
     // Calculate the visible height at the card's distance
     // This is the height of the visible area at the card's distance from camera
     const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
-    
+
     // We want the card to take up approximately 1/3 of the visible height
     const targetCardHeight = visibleHeight / 3;
-    
+
     // Calculate zoom factor needed to achieve this size
     // The card's base height is cardHeight (2.0 units)
     const cardBaseHeight = 2.0;
     const zoomFactor = targetCardHeight / cardBaseHeight;
-    
+
     // Apply min/max limits to keep the zoom reasonable
     const minZoom = 1.2;
     const maxZoom = 12.0;
@@ -282,11 +282,11 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     const maxMoveDistance = distance * 0.7; // Don't move more than 70% closer
     const finalMoveDistance = Math.min(moveDistance, maxMoveDistance);
 
-    return { 
-      angle, 
-      distance, 
-      zoomFactor: finalZoomFactor, 
-      moveDistance: finalMoveDistance 
+    return {
+      angle,
+      distance,
+      zoomFactor: finalZoomFactor,
+      moveDistance: finalMoveDistance
     };
   };
 
@@ -592,9 +592,9 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   };
 
   // Determine card color based on event type
-  const cardColor = event.type === 'git' ? '#3498db' : '#9b59b6';
+  const cardColor = event.type === 'git' ? '#2c3e50' : '#34495e'; // Darker, more professional base colors
   const cardWidth = 3;
-  const cardHeight = 2;
+  const cardHeight = 2.2; // Adjusted height for better proportions
 
   return (
     <group
@@ -605,59 +605,98 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       onPointerOut={handlePointerOut}
       rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
     >
+      {/* Card shadow */}
+      <mesh position={[0.08, -0.08, -0.05]} receiveShadow>
+        <boxGeometry args={[cardWidth, cardHeight, 0.05]} />
+        <meshStandardMaterial
+          color="#000000"
+          roughness={1}
+          metalness={0}
+          transparent
+          opacity={0.3}
+        />
+      </mesh>
+
       {/* Card background */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={[cardWidth, cardHeight, 0.1]} />
         <meshStandardMaterial
           color={cardColor}
-          roughness={0.5}
-          metalness={0.2}
+          roughness={0.4}
+          metalness={0.3}
           transparent
-          opacity={0.9}
+          opacity={0.95}
         />
       </mesh>
 
       {/* Card content */}
-      <group position={[0, 0.5, 0.06]}>
-        {/* Title */}
-        <Text
-          position={[0, 0.3, 0]}
-          fontSize={0.2}
-          maxWidth={2.5}
-          lineHeight={1.2}
-          textAlign="center"
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-        >
-          {event.title}
-        </Text>
-
-        {/* Type badge */}
-        <mesh position={[0, -0.4, 0]}>
-          <planeGeometry args={[1, 0.3]} />
+      <group position={[0, 0, 0.06]}>
+        {/* Header bar */}
+        <mesh position={[0, 0.95, 0]}>
+          <planeGeometry args={[cardWidth, 0.3]} />
           <meshBasicMaterial
             color={event.type === 'git' ? '#2980b9' : '#8e44ad'}
             transparent
-            opacity={0.9}
+            opacity={0.8}
           />
         </mesh>
+
+        {/* Header title */}
         <Text
-          position={[0, -0.4, 0.01]}
-          fontSize={0.15}
+          position={[-1.35, 0.95, 0.01]}
+          fontSize={0.13}
           color="#ffffff"
-          anchorX="center"
+          anchorX="left"
           anchorY="middle"
+          fontWeight="bold"
+        >
+          {event.type === 'git' ? 'GIT COMMIT' : 'SPEC CHANGE'}
+        </Text>
+
+        {/* Main content - left-justified with proper padding */}
+        <Text
+          position={[-1.3, 0.6, 0]} // Left-aligned with top padding
+          fontSize={0.22}
+          maxWidth={2.5}
+          lineHeight={1.3}
+          textAlign="left"
+          color="#ffffff"
+          anchorX="left"
+          anchorY="top"
+          overflowWrap="break-word"
+        >
+          {/* Truncate text with ellipsis if too long */}
+          {event.title.length > 80 ? event.title.substring(0, 80) + '...' : event.title}
+        </Text>
+
+        {/* Bottom bar with type and date */}
+        <mesh position={[0, -0.95, 0]}>
+          <planeGeometry args={[cardWidth, 0.4]} />
+          <meshBasicMaterial
+            color="#1a1a1a"
+            transparent
+            opacity={0.7}
+          />
+        </mesh>
+
+        {/* Type indicator - bottom left */}
+        <Text
+          position={[-1.35, -0.95, 0.01]}
+          fontSize={0.14}
+          color={event.type === 'git' ? '#4da6ff' : '#d580ff'}
+          anchorX="left"
+          anchorY="middle"
+          fontWeight="bold"
         >
           {event.type === 'git' ? 'Commit' : 'Spec'}
         </Text>
 
-        {/* Date */}
+        {/* Date - bottom right */}
         <Text
-          position={[0, -0.7, 0]}
+          position={[1.35, -0.95, 0.01]}
           fontSize={0.12}
-          color="#ffffff"
-          anchorX="center"
+          color="#e0e0e0"
+          anchorX="right"
           anchorY="middle"
         >
           {event.timestamp.toLocaleDateString()}

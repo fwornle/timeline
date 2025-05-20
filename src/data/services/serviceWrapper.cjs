@@ -46,27 +46,13 @@ class GitRepositoryService {
 
         console.log(`[${localTime()}] [GIT] Repository cloned successfully with ${isHttps ? 'HTTPS' : 'SSH'}`);
       } catch (cloneError) {
-        // If directory exists, try to update instead
+        // If directory exists, use it without trying to update from remote
         if (fs.existsSync(workDir)) {
           console.log(`[${localTime()}] [GIT] Using existing repository at ${workDir}`);
-          try {
-            // Race the git update operation against a timeout
-            await Promise.race([
-              execAsync(`cd ${workDir} && git fetch && git reset --hard origin/main`),
-              new Promise((_, reject) => {
-                setTimeout(() => {
-                  reject(new Error('Git update operation timed out after 60 seconds'));
-                }, 60000); // 60 second timeout
-              })
-            ]);
-
-            console.log(`[${localTime()}] [GIT] Repository updated successfully`);
-          } catch (updateError) {
-            console.error(`[${localTime()}] [GIT] Failed to update existing repository:`, updateError);
-            throw updateError;
-          }
+          // Skip the remote fetch and just use the local clone
+          console.log(`[${localTime()}] [GIT] Using local clone without remote fetch`);
         } else {
-          console.error(`[${localTime()}] [GIT] Clone attempt failed:`);
+          console.error(`[${localTime()}] [GIT] Clone attempt failed and no local repository exists:`);
           console.error(`[${localTime()}] [GIT] Error:`, cloneError.message);
           throw new Error(`Failed to clone repository using ${isHttps ? 'HTTPS' : 'SSH'}`);
         }

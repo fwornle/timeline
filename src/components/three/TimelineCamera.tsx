@@ -6,14 +6,14 @@ import { useLogger } from '../../utils/logging/hooks/useLogger';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
-// Define DEBUG_POSITIONS array again
+// Define DEBUG_POSITIONS array with improved positions for better timeline viewing
 const DEBUG_POSITIONS = [
-  { position: new Vector3(-30, 20, 25), name: "Overview Left" },        // Adjusted Z for centered timeline
-  { position: new Vector3(30, 20, 25), name: "Overview Right" },       // Adjusted Z
-  { position: new Vector3(0, 40, 25), name: "Top Down Middle" },      // Adjusted Z
-  { position: new Vector3(0, 5, -60), name: "Front View Low" },      // Look from the start, low angle
-  { position: new Vector3(-25, 10, -50), name: "Angled Start View" }, // Angled view of the start
-  { position: new Vector3(0, 10, 120), name: "End View" }              // View from beyond the end
+  { position: new Vector3(-40, 35, -30), name: "Timeline Overview" },    // Good position to see entire timeline
+  { position: new Vector3(-30, 25, 0), name: "Timeline Middle" },       // View from the middle
+  { position: new Vector3(-20, 15, 30), name: "Timeline End" },         // View from the end
+  { position: new Vector3(-35, 30, -50), name: "Timeline Start" },      // View from the start
+  { position: new Vector3(0, 50, 0), name: "Top Down" },                // Bird's eye view
+  { position: new Vector3(-50, 40, -40), name: "Far Overview" }         // Far back view to see everything
 ];
 
 interface TimelineCameraProps {
@@ -28,31 +28,39 @@ interface TimelineCameraProps {
 const calculateViewAllPosition = (target: Vector3, events: TimelineEvent[] = []): Vector3 => {
   // If we have events, calculate a position that shows all of them
   if (events && events.length > 0) {
+    // Sort events by timestamp to find the earliest and latest
+    // This helps us understand the timeline structure, even though we're using event count for length
+    // We'll use this approach in future enhancements for more precise positioning
+
     // For the timeline visualization, we know events are positioned along the Z-axis
-    // with alternating X positions, so we can use a simpler approach
+    // with alternating X positions
 
     // Estimate the length of the timeline based on number of events
     // Assuming events are spaced by ~5 units as in TimelineEvents.tsx
     const spacing = 5;
     const timelineLength = Math.max(events.length * spacing, 100);
 
-    // Position camera to see the entire timeline
-    // We want to be far enough back to see all events
-    const distance = Math.max(30, timelineLength * 0.8);
+    // Calculate a position that will show the entire timeline
+    // We want to be far enough back and high enough to see all events
 
-    // Position camera at an angle to see the timeline from the side
+    // Calculate distance based on timeline length
+    // The longer the timeline, the further back we need to be
+    const distance = Math.max(40, timelineLength * 0.7);
+
+    // Position camera at an angle to see the timeline from the side and above
+    // This will show the timeline stretching from top left to bottom right
     return new Vector3(
-      -distance,        // Position to the left
-      distance * 0.7,   // Position above proportional to the distance
-      timelineLength * 0.5  // Position at the middle of the timeline
+      -distance * 0.8,        // Position to the left
+      distance * 0.8,         // Position higher above to see more of the timeline
+      -timelineLength * 0.3   // Position toward the start of the timeline
     );
   }
 
   // Fallback for when we don't have events or can't calculate bounds
   return new Vector3(
-    -30, // Position to the left
-    30,  // Position above
-    50   // Position at a reasonable distance along timeline
+    -40, // Position to the left
+    40,  // Position above
+    -30  // Position toward the start of the timeline
   );
 };
 
@@ -88,8 +96,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (initialPositionSet) return;
 
-    // Set initial camera position to look at the timeline from the front/right
-    const initialPosition = new Vector3(-25, 20, 20);
+    // Set initial camera position to look at the timeline from the front/left
+    // This position shows the timeline stretching from top left to bottom right
+    const initialPosition = new Vector3(-35, 30, -20);
     camera.position.copy(initialPosition);
     camera.lookAt(new Vector3(0, 2, 0));
 
@@ -145,11 +154,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       const cycle = () => {
         const nextIndex = (debugPositionIndex + 1) % DEBUG_POSITIONS.length;
         const { position, name } = DEBUG_POSITIONS[nextIndex];
-        
+
         camera.position.copy(position);
         // For debug, look at a fixed point or center of timeline, e.g., new Vector3(0, 2, 0)
         // Or, if you want it to follow the `target` prop:
-        camera.lookAt(target); 
+        camera.lookAt(target);
         if (orbitControlsRef.current) {
           orbitControlsRef.current.target.copy(target); // Ensure controls target is also updated
         }
@@ -166,7 +175,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         orbitControlsRef.current.target.copy(target);
       }
       logger.info(`Camera moved to initial debug position: ${initialDebugPosition.name}`, { position: initialDebugPosition.position });
-      
+
       intervalId = window.setInterval(cycle, 3000); // Cycle every 3 seconds
     }
 

@@ -45,19 +45,9 @@ export class GitRepositoryService {
           protocol: isHttps ? 'HTTPS' : 'SSH'
         });
       } catch (error: unknown) {
-        // If directory exists, try to update instead
+        // If directory exists, use it without trying to update from remote
         if (error instanceof Error && error.message.includes('already exists')) {
-          // Race the git update operation against a timeout
-          await Promise.race([
-            execAsync(`cd ${workDir} && git fetch && git reset --hard origin/main`),
-            new Promise<{stdout: string, stderr: string}>((_, reject) => {
-              setTimeout(() => {
-                reject(new Error('Git update operation timed out after 60 seconds'));
-              }, 60000); // 60 second timeout
-            })
-          ]);
-
-          logger.info('git', 'Repository updated successfully', { repoUrl: this.repoUrl });
+          logger.info('git', 'Using existing repository without remote fetch', { repoUrl: this.repoUrl });
         } else {
           throw error;
         }

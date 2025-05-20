@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { useTimelineData } from '../data/hooks/useTimelineData';
 import { useTimelineAnimation } from '../animation/useTimelineAnimation';
@@ -120,9 +120,13 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     usingMockedData,
   } = useTimelineData(repoUrl);
 
+  // Track the previous forceReload value to detect changes
+  const prevForceReloadRef = useRef<boolean | undefined>(undefined);
+
   // Handle force reload when the prop changes
   useEffect(() => {
-    if (forceReload && repoUrl && !isLoading) {
+    // Only trigger reload if forceReload changed from false to true
+    if (forceReload && prevForceReloadRef.current !== forceReload && repoUrl && !isLoading) {
       logger.info('Forcing data reload with cache purge', { repoUrl });
 
       // Use purgeAndRefresh to clear the cache first, then reload
@@ -134,6 +138,9 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         // The purgeAndRefresh function should handle its own errors and reset loading state
       }
     }
+
+    // Update the ref with current value for next comparison
+    prevForceReloadRef.current = forceReload;
   }, [forceReload, repoUrl, purgeAndRefresh, logger, isLoading]);
 
   // Track external view mode changes
@@ -393,6 +400,14 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
           currentPosition={cameraTarget.z}
+          onMarkerPositionChange={(position) => {
+            // Update camera target Z position when marker is moved
+            cameraTarget.z = position;
+            // Also notify parent component
+            if (onPositionUpdate) {
+              onPositionUpdate(position);
+            }
+          }}
           debugMode={debugMode}
         />
       </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Line, Text } from '@react-three/drei';
+import { DraggableTimelineMarker } from './DraggableTimelineMarker';
 
 interface TimelineAxisProps {
   length?: number;
@@ -9,6 +10,7 @@ interface TimelineAxisProps {
   startDate?: Date;
   endDate?: Date;
   currentPosition?: number;
+  onPositionChange?: (position: number) => void;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -19,6 +21,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   startDate,
   endDate,
   currentPosition = 0,
+  onPositionChange,
 }) => {
   // Generate axis points - centered around z=0
   const axisPoints = [
@@ -92,91 +95,60 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     }
   }
 
-  // Create a marker for the current position
-  const CurrentPositionMarker = () => {
-    // Only show marker if we have a valid position
-    if (currentPosition === undefined || currentPosition === null) {
-      return null;
+  // Handle marker position changes
+  const handlePositionChange = (newPosition: number) => {
+    if (onPositionChange) {
+      onPositionChange(newPosition);
     }
+  };
 
-    // Create a vertical marker at the current position
-    return (
-      <group position={[0, 2, currentPosition]}>
-        {/* Transparent vertical plane - stands up perpendicular to the time axis (Z) */}
-        <mesh rotation={[0, 0, 0]} position={[0, 0, 0]}>
-          {/* Plane is perpendicular to Z (time axis), covers the timeline height */}
-          <planeGeometry args={[4, 2]} />
-          {/* Custom shader material for edge fade */}
-          <shaderMaterial
-            attach="material"
-            transparent
-            uniforms={{
-              color: { value: [1.0, 0.4, 0.0] }, // more saturated orange
-              opacity: { value: 0.7 }, // much less transparent
-              fade: { value: 0.7 }, // much less fade, more solid
-            }}
-            vertexShader={`
-              varying vec2 vUv;
-              void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-              }
-            `}
-            fragmentShader={`
-              uniform vec3 color;
-              uniform float opacity;
-              uniform float fade;
-              varying vec2 vUv;
-              void main() {
-                float edgeFade = smoothstep(0.0, fade, vUv.x) * smoothstep(0.0, fade, 1.0 - vUv.x)
-                                * smoothstep(0.0, fade, vUv.y) * smoothstep(0.0, fade, 1.0 - vUv.y);
-                gl_FragColor = vec4(color, opacity * edgeFade);
-              }
-            `}
-          />
-        </mesh>
-        {/* Vertical line */}
-        <Line
-          points={[
-            [0, -1, 0] as [number, number, number],
-            [0, 1, 0] as [number, number, number],
-          ]}
-          color="#ff9800" // Orange color for the marker
-          lineWidth={3}
-        />
-        {/* Horizontal marker */}
-        <Line
-          points={[
-            [-0.5, 0, 0] as [number, number, number],
-            [0.5, 0, 0] as [number, number, number],
-          ]}
-          color="#ff9800"
-          lineWidth={3}
-        />
-        {/* Label */}
-        <Text
-          position={[0, 1.2, 0]}
-          color="#ff9800"
-          fontSize={0.5}
-          anchorX="center"
-          anchorY="bottom"
-          fontWeight="bold"
-        >
-          Current
-        </Text>
-      </group>
-    );
+  // Handle click on the timeline axis to move the marker
+  const handleAxisClick = (e: any) => {
+    e.stopPropagation();
+    if (onPositionChange) {
+      // Get the clicked position along the Z axis
+      // In Three.js, the event contains a point property with the intersection point
+      const clickedPosition = e.point.z;
+
+      // Limit position to timeline bounds
+      const minPos = -length / 2;
+      const maxPos = length / 2;
+      const clampedPosition = Math.max(minPos, Math.min(maxPos, clickedPosition));
+
+      // Update position through callback
+      onPositionChange(clampedPosition);
+    }
   };
 
   return (
     <group>
+      {/* Invisible plane for click detection along the entire timeline */}
+      <mesh
+        position={[0, 2, 0]}
+        rotation={[Math.PI / 2, 0, 0]}
+        onClick={handleAxisClick}
+      >
+        <planeGeometry args={[4, length]} />
+        <meshBasicMaterial visible={false} />
+      </mesh>
+
       <Line
         points={axisPoints}
         color={color}
         lineWidth={1}
       />
       {ticks}
-      <CurrentPositionMarker />
+      {/* Only show marker if we have a valid position */}
+      {currentPosition !== undefined && currentPosition !== null && (
+        <DraggableTimelineMarker
+          position={currentPosition}
+          onPositionChange={handlePositionChange}
+          timelineLength={length}
+          color="#ff9800"
+          showLabel={true}
+          labelText="Current"
+        />
+      )}
     </group>
   );
 };

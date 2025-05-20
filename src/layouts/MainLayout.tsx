@@ -85,8 +85,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
     logger.info('Soft reload requested');
     setIsLoading(true); // Set loading state immediately to prevent multiple clicks
+
+    // Toggle the force reload flag to trigger a reload
+    // This will be detected by the TimelineVisualization component
     setForceReloadFlag(prev => !prev);
-  }, [logger, isLoading]);
+
+    // Log the new value for debugging
+    logger.debug('Force reload flag toggled', { newValue: !forceReloadFlag });
+  }, [logger, isLoading, forceReloadFlag]);
 
   // Handle hard reload (purge cache files and repo)
   const handleHardReload = useCallback(async () => {
@@ -109,11 +115,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       // Then trigger a normal reload
       setForceReloadFlag(prev => !prev);
+
+      // Log the new value for debugging
+      logger.debug('Force reload flag toggled for hard reload', { newValue: !forceReloadFlag });
     } catch (error) {
       logger.error('Error during hard reload:', { error });
       setIsLoading(false); // Reset loading state on error
     }
-  }, [repoUrl, logger, isLoading]);
+  }, [repoUrl, logger, isLoading, forceReloadFlag]);
 
   // Handle camera view mode changes
   const handleViewAllClick = () => {

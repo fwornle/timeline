@@ -28,6 +28,7 @@ export interface TimelineSceneProps {
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
   currentPosition?: number;
+  onMarkerPositionChange?: (position: number) => void;
   debugMode?: boolean;
 }
 
@@ -42,6 +43,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   viewAllMode = false,
   focusCurrentMode = false,
   currentPosition = 0,
+  onMarkerPositionChange,
   debugMode = false
 }) => {
   // Calculate the date range from events
@@ -61,7 +63,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   };
 
   const { startDate, endDate } = getDateRange();
-  
+
   // Calculate timelineLength based on events (consistent with TimelineEvents.tsx)
   const timelineLength = useMemo(() => {
     if (events.length === 0) return 100; // Default length if no events
@@ -129,6 +131,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           tickInterval={Math.max(5, timelineLength / 20)}
           color="#aaaaaa"
           currentPosition={currentPosition}
+          onPositionChange={onMarkerPositionChange}
         />
         <TimelineEvents
           events={events}
