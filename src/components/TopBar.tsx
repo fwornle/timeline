@@ -36,7 +36,7 @@ const TopBar: React.FC<TopBarProps> = ({
         <Container fluid>
           {/* Branding/Logo (left) - Clickable to go to About */}
           <Navbar.Brand href="#" className="d-flex align-items-center">
-            <span className="text-light d-none d-lg-inline">Timeline</span>
+            <span className="text-light d-none d-sm-inline">Timeline</span>
           </Navbar.Brand>
 
           {/* Toggler for mobile */}
@@ -55,7 +55,7 @@ const TopBar: React.FC<TopBarProps> = ({
             {/* Center area - Display repo URL */}
             <div className="navbar-nav mx-lg-auto text-center">
               {preferences.repoUrl && (
-                <span className="text-light d-none d-lg-inline">
+                <span className="text-light d-none d-md-inline">
                   {preferences.repoUrl}
                 </span>
               )}
