@@ -20,7 +20,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [gitCount, setGitCount] = useState(0);
   const [specCount, setSpecCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [isMocked, setIsMocked] = useState(false);
+  const [isGitHistoryMocked, setIsGitHistoryMocked] = useState(false);
+  const [isSpecHistoryMocked, setIsSpecHistoryMocked] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [forceReloadFlag, setForceReloadFlag] = useState(false);
   const [viewAllMode, setViewAllMode] = useState(false);
@@ -53,7 +54,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setGitCount(0);
     setSpecCount(0);
     setIsLoading(true);
-    setIsMocked(false);
+    setIsGitHistoryMocked(false);
+    setIsSpecHistoryMocked(false);
     logger.info('Repository URL changed', { url });
   }, []);
 
@@ -152,7 +154,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         routeProps?: {
           onLoadingChange?: (loading: boolean) => void;
           onEventCountsChange?: (gitCount: number, specCount: number) => void;
-          onMockStatusChange?: (mocked: boolean) => void;
+          onMockStatusChange?: (isGitHistoryMocked: boolean, isSpecHistoryMocked: boolean) => void;
           onPositionChange?: (position: number) => void;
           onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
           onTimelineLengthChange?: (timelineLength: number) => void;
@@ -177,9 +179,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setGitCount(gitCount);
                 setSpecCount(specCount);
               },
-              onMockStatusChange: (mocked: boolean) => {
-                console.debug('MainLayout.setIsMocked via routeProps:', { mocked });
-                setIsMocked(mocked);
+              onMockStatusChange: (gitMocked: boolean, specMocked: boolean) => {
+                console.debug('MainLayout.setIsMocked via routeProps:', { gitMocked, specMocked });
+                setIsGitHistoryMocked(gitMocked);
+                setIsSpecHistoryMocked(specMocked);
               },
               onPositionChange: (pos: number) => setCurrentPosition(pos),
               onTimelineDatesChange: (startDate: Date, endDate: Date) => {
@@ -221,7 +224,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       gitCount,
       specCount,
       isLoading,
-      isMocked,
+      isGitHistoryMocked,
+      isSpecHistoryMocked,
       currentPosition,
       timelineStartDate,
       timelineEndDate,
@@ -233,13 +237,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     });
   }, [
     repoUrl, animationSpeed, autoDrift, gitCount, specCount, 
-    isLoading, isMocked, currentPosition, timelineStartDate, 
+    isLoading, isGitHistoryMocked, isSpecHistoryMocked, currentPosition, timelineStartDate, 
     timelineEndDate, timelineLength, forceReloadFlag, viewAllMode, focusCurrentMode, debugMode
   ]);
 
   useEffect(() => {
-    console.debug('MainLayout isMocked:', isMocked);
-  }, [isMocked]);
+    console.debug('MainLayout mock status:', { isGitHistoryMocked, isSpecHistoryMocked });
+  }, [isGitHistoryMocked, isSpecHistoryMocked]);
 
   return (
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">
@@ -256,7 +260,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         gitCount={gitCount}
         specCount={specCount}
         isLoading={isLoading}
-        isMocked={isMocked}
+        isGitHistoryMocked={isGitHistoryMocked}
+        isSpecHistoryMocked={isSpecHistoryMocked}
         currentPosition={currentPosition}
         animationSpeed={animationSpeed}
         autoDrift={autoDrift}

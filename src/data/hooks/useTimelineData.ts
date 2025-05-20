@@ -44,7 +44,8 @@ export function useTimelineData(repoUrl: string) {
   });
 
   const [isFetching, setIsFetching] = useState(false);
-  const [usingMockedData, setUsingMockedData] = useState(false);
+  const [isGitHistoryMocked, setIsGitHistoryMocked] = useState(false);
+  const [isSpecHistoryMocked, setIsSpecHistoryMocked] = useState(false);
   const [hasInitialFetch, setHasInitialFetch] = useState(false);
 
   // Initialize services - memoize to prevent recreation
@@ -79,12 +80,12 @@ export function useTimelineData(repoUrl: string) {
         specService().fetchSpecHistory()
       ]);
 
-      // Check if either result is mocked
-      setUsingMockedData(gitResult.mocked || specResult.mocked);
+      // Update separate mock flags for each data source
+      setIsGitHistoryMocked(gitResult.mocked);
+      setIsSpecHistoryMocked(specResult.mocked);
       console.debug('useTimelineData fetchTimelineData:', {
         gitMocked: gitResult.mocked,
-        specMocked: specResult.mocked,
-        usingMockedData: gitResult.mocked || specResult.mocked
+        specMocked: specResult.mocked
       });
 
       // Combine and sort events
@@ -145,11 +146,11 @@ export function useTimelineData(repoUrl: string) {
           specService().fetchSpecHistory()
         ]);
 
-        setUsingMockedData(gitResult.mocked || specResult.mocked);
+        setIsGitHistoryMocked(gitResult.mocked);
+        setIsSpecHistoryMocked(specResult.mocked);
         console.debug('useTimelineData initial fetch:', {
           gitMocked: gitResult.mocked,
-          specMocked: specResult.mocked,
-          usingMockedData: gitResult.mocked || specResult.mocked
+          specMocked: specResult.mocked
         });
 
         const allEvents = [...gitResult.events, ...specResult.events]
@@ -222,7 +223,8 @@ export function useTimelineData(repoUrl: string) {
         specService().fetchSpecHistory()
       ]);
 
-      setUsingMockedData(gitResult.mocked || specResult.mocked);
+      setIsGitHistoryMocked(gitResult.mocked);
+      setIsSpecHistoryMocked(specResult.mocked);
 
       const allEvents = [...gitResult.events, ...specResult.events]
         .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -314,7 +316,8 @@ export function useTimelineData(repoUrl: string) {
         }
       });
 
-      setUsingMockedData(gitResult.mocked || specResult.mocked);
+      setIsGitHistoryMocked(gitResult.mocked);
+      setIsSpecHistoryMocked(specResult.mocked);
     } catch (error) {
       console.error('Error during hard reload:', error);
       setState(prev => ({
@@ -345,7 +348,9 @@ export function useTimelineData(repoUrl: string) {
     refresh: fetchTimelineData,
     purgeAndRefresh,
     hardPurgeAndRefresh,
-    usingMockedData,
+    isGitHistoryMocked,
+    isSpecHistoryMocked,
+    usingMockedData: isGitHistoryMocked || isSpecHistoryMocked,
     hardReload
   };
 }

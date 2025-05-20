@@ -6,7 +6,8 @@ interface BottomBarProps {
   gitCount?: number;
   specCount?: number;
   isLoading?: boolean;
-  isMocked?: boolean;
+  isGitHistoryMocked?: boolean;
+  isSpecHistoryMocked?: boolean;
   currentPosition?: number;
   animationSpeed?: number;
   autoDrift?: boolean;
@@ -26,7 +27,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
   gitCount = 0,
   specCount = 0,
   isLoading = false,
-  isMocked = false,
+  isGitHistoryMocked = false,
+  isSpecHistoryMocked = false,
   currentPosition = 0,
   animationSpeed = 1,
   autoDrift = false,
@@ -94,13 +96,14 @@ const BottomBar: React.FC<BottomBarProps> = ({
     console.debug('BottomBar props updated:', {
       gitCount,
       specCount,
-      isMocked,
+      isGitHistoryMocked,
+      isSpecHistoryMocked,
       debugMode,
       showControls,
       currentPosition,
       currentPositionAsDate: positionToDate()
     });
-  }, [gitCount, specCount, isMocked, debugMode, showControls, currentPosition, startDate, endDate]);
+  }, [gitCount, specCount, isGitHistoryMocked, isSpecHistoryMocked, debugMode, showControls, currentPosition, startDate, endDate]);
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onAnimationSpeedChange) {
@@ -130,21 +133,16 @@ const BottomBar: React.FC<BottomBarProps> = ({
           <Col xs={12} md={6} className="text-md-start text-center mb-2 mb-md-0">
             {showControls ? (
               <div className="d-flex flex-wrap gap-2 align-items-center">
-                <span className="badge bg-secondary">
+                <span className={`badge bg-secondary ${isGitHistoryMocked ? 'border border-warning' : ''}`} 
+                      style={{ borderWidth: isGitHistoryMocked ? '2px' : '0' }}>
                   <i className="bi bi-git me-1"></i>
                   {isLoading ? 'Loading...' : `${gitCount} commits`}
                 </span>
-                <span className="badge bg-info">
+                <span className={`badge bg-info ${isSpecHistoryMocked ? 'border border-warning' : ''}`}
+                      style={{ borderWidth: isSpecHistoryMocked ? '2px' : '0' }}>
                   <i className="bi bi-chat-dots me-1"></i>
                   {isLoading ? 'Loading...' : `${specCount} prompts`}
                 </span>
-                {/* Show mocked indicator when isMocked is true */}
-                {isMocked && (
-                  <span className="badge bg-warning text-dark">
-                    <i className="bi bi-database me-1"></i>
-                    Mocked
-                  </span>
-                )}
                 {/* Debug info for troubleshooting */}
                 {debugMode && (
                   <span className="badge bg-dark text-white ms-2">

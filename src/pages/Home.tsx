@@ -6,7 +6,7 @@ import { useLogger } from '../utils/logging/hooks/useLogger';
 interface HomeProps {
   onLoadingChange?: (loading: boolean) => void;
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
-  onMockStatusChange?: (isMocked: boolean) => void;
+  onMockStatusChange?: (isGitHistoryMocked: boolean, isSpecHistoryMocked: boolean) => void;
   onPositionChange?: (position: number) => void;
   onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
   onTimelineLengthChange?: (timelineLength: number) => void;
@@ -92,11 +92,12 @@ const Home: React.FC<HomeProps> = ({
         viewAllMode={viewAllMode}
         focusCurrentMode={focusCurrentMode}
         debugMode={debugMode}
-        onDataLoaded={(gitEvents, specEvents, isMocked) => {
+        onDataLoaded={(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked) => {
           console.debug('Home.onDataLoaded called with:', {
             gitEventsCount: gitEvents.length,
             specEventsCount: specEvents.length,
-            isMocked,
+            isGitHistoryMocked,
+            isSpecHistoryMocked,
             hasOnEventCountsChange: !!onEventCountsChange,
             hasOnMockStatusChange: !!onMockStatusChange,
             parentCallbacks: {
@@ -118,9 +119,12 @@ const Home: React.FC<HomeProps> = ({
           }
           
           if (onMockStatusChange) {
-            console.debug('Home calling onMockStatusChange with:', { isMocked });
-            onMockStatusChange(isMocked);
-            logger.info('Mock status updated', { isMocked });
+            console.debug('Home calling onMockStatusChange with:', { 
+              isGitHistoryMocked, 
+              isSpecHistoryMocked 
+            });
+            onMockStatusChange(isGitHistoryMocked, isSpecHistoryMocked);
+            logger.info('Mock status updated', { isGitHistoryMocked, isSpecHistoryMocked });
           } else {
             console.warn('Home cannot update mock status: onMockStatusChange is not defined');
           }

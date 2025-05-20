@@ -15,7 +15,8 @@ interface BottomBarProps {
   onRetry?: (source: 'git' | 'spec') => void;
   onRetryAll?: () => void;
   showControls?: boolean;
-  isMocked?: boolean;
+  isGitHistoryMocked?: boolean;
+  isSpecHistoryMocked?: boolean;
   repoUrl?: string;
   animationSpeed: number;
   onAnimationSpeedChange: (speed: number) => void;
@@ -30,7 +31,8 @@ export function BottomBar({
   onRetry,
   onRetryAll,
   showControls = false,
-  isMocked = false,
+  isGitHistoryMocked = false,
+  isSpecHistoryMocked = false,
   animationSpeed,
   onAnimationSpeedChange,
   autoDrift,
@@ -70,7 +72,8 @@ export function BottomBar({
                 </span>
               </div>
 
-              <div className="flex items-center gap-1 px-2 py-1 rounded">
+              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isGitHistoryMocked ? 'border border-yellow-400' : ''}`}
+                   style={{ borderWidth: isGitHistoryMocked ? '2px' : '0' }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" />
                 </svg>
@@ -79,7 +82,8 @@ export function BottomBar({
                 </span>
               </div>
 
-              <div className="flex items-center gap-1 px-2 py-1 rounded">
+              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isSpecHistoryMocked ? 'border border-yellow-400' : ''}`}
+                   style={{ borderWidth: isSpecHistoryMocked ? '2px' : '0' }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
@@ -87,17 +91,6 @@ export function BottomBar({
                   Prompts: {specCount}
                 </span>
               </div>
-
-              {isMocked && (
-                <div className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
-                    <path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                  </svg>
-                  <span className="text-xs text-gray-300 whitespace-nowrap">
-                    Using mock data
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* Animation Controls */}

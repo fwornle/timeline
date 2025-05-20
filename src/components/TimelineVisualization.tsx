@@ -13,7 +13,12 @@ interface TimelineVisualizationProps {
   autoDrift: boolean;
   onLoadingChange: (isLoading: boolean) => void;
   onError: (error: Error | null) => void;
-  onDataLoaded?: (gitEvents: TimelineEvent[], specEvents: TimelineEvent[], isMocked: boolean) => void;
+  onDataLoaded?: (
+    gitEvents: TimelineEvent[],
+    specEvents: TimelineEvent[],
+    isGitHistoryMocked: boolean,
+    isSpecHistoryMocked: boolean
+  ) => void;
   onPositionUpdate?: (position: number) => void;
   forceReload?: boolean;
   viewAllMode?: boolean;
@@ -110,6 +115,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     period,
     refresh,
     purgeAndRefresh,
+    isGitHistoryMocked,
+    isSpecHistoryMocked,
     usingMockedData,
   } = useTimelineData(repoUrl);
 
@@ -261,7 +268,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       gitCount: events.filter(e => e.type === 'git').length,
       specCount: events.filter(e => e.type === 'spec').length,
       hasDataLoadedCallback: !!onDataLoaded,
-      usingMockedData
+      isGitHistoryMocked,
+      isSpecHistoryMocked
     });
 
     // Call onDataLoaded callback when we have events
@@ -271,12 +279,13 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       console.debug('TimelineVisualization calling onDataLoaded:', {
         gitEventsCount: gitEvents.length,
         specEventsCount: specEvents.length,
-        isMocked: usingMockedData,
+        isGitHistoryMocked,
+        isSpecHistoryMocked,
         callbackName: onDataLoaded.name || 'anonymous function'
       });
-      onDataLoaded(gitEvents, specEvents, usingMockedData);
+      onDataLoaded(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
     }
-  }, [events, period, onDataLoaded, usingMockedData]);
+  }, [events, period, onDataLoaded, isGitHistoryMocked, isSpecHistoryMocked]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {
@@ -336,7 +345,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
           // Update the parent component with mock data
           if (onDataLoaded) {
-            onDataLoaded(mockGitEvents, mockSpecEvents, true);
+            onDataLoaded(mockGitEvents, mockSpecEvents, true, true);
           }
 
           // If there's an onError handler, clear the error
@@ -446,7 +455,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
                       // Update the parent component with mock data
                       if (onDataLoaded) {
-                        onDataLoaded(mockGitEvents, mockSpecEvents, true);
+                        onDataLoaded(mockGitEvents, mockSpecEvents, true, true);
                       }
 
                       // Clear error state
