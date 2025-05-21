@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Text } from '@react-three/drei';
-import { Group, MathUtils, Vector3, PerspectiveCamera } from 'three';
+import { Group, Vector3, PerspectiveCamera } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
@@ -704,7 +704,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 anchorX="center"
                 anchorY="middle"
               >
-                {`Files: +${(event as GitTimelineEvent).stats?.filesAdded || 0} ~${(event as GitTimelineEvent).stats?.filesModified || 0} -${(event as GitTimelineEvent).stats?.filesDeleted || 0}`}
+                {`Files: +${(event as GitTimelineEvent).stats?.filesAdded ?? (event as GitTimelineEvent).stats?.filesCreated ?? 0} ~${(event as GitTimelineEvent).stats?.filesModified ?? 0} -${(event as GitTimelineEvent).stats?.filesDeleted ?? 0}`}
               </Text>
               <Text
                 position={[0, -0.1, 0]}
@@ -713,7 +713,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 anchorX="center"
                 anchorY="middle"
               >
-                {`Lines: +${(event as GitTimelineEvent).stats?.linesAdded || 0} -${(event as GitTimelineEvent).stats?.linesDeleted || 0}`}
+                {`Lines: +${(event as GitTimelineEvent).stats?.linesAdded ?? 0} -${(event as GitTimelineEvent).stats?.linesDeleted ?? 0}`}
               </Text>
             </>
           ) : (
@@ -725,7 +725,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 anchorX="center"
                 anchorY="middle"
               >
-                {`Prompts: ${(event as SpecTimelineEvent).stats?.promptCount || 0} | Files: ${(event as SpecTimelineEvent).stats?.filesCreated || 0}`}
+                {`Prompts: ${(event as SpecTimelineEvent).stats?.promptCount ?? 0} | Files: ${(event as SpecTimelineEvent).stats?.filesCreated ?? 0}`}
               </Text>
               <Text
                 position={[0, -0.1, 0]}
@@ -734,7 +734,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 anchorX="center"
                 anchorY="middle"
               >
-                {`Lines: +${(event as SpecTimelineEvent).stats?.linesAdded || 0} -${(event as SpecTimelineEvent).stats?.linesDeleted || 0}`}
+                {`Lines: +${(event as SpecTimelineEvent).stats?.linesAdded ?? 0} -${(event as SpecTimelineEvent).stats?.linesDeleted ?? 0}`}
               </Text>
             </>
           )}

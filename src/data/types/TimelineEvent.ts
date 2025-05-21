@@ -17,12 +17,15 @@ export interface GitTimelineEvent extends BaseTimelineEvent {
     changeType: 'added' | 'modified' | 'deleted';
   }>;
   stats?: {
-    filesAdded: number;
+    // Support both naming conventions
+    filesAdded?: number;
+    filesCreated?: number; // Alternative name used in server
     filesModified: number;
     filesDeleted: number;
     linesAdded: number;
     linesDeleted: number;
     linesDelta: number;
+    totalFilesChanged?: number; // Additional field from server
   };
 }
 
