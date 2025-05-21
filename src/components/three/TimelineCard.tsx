@@ -104,6 +104,18 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 }) => {
   // Debug: Log the event data to see what's coming in
   console.log('TimelineCard rendering event:', event.id, event.type, 'stats:', event.stats);
+
+  // Additional debugging for spec events
+  if (event.type === 'spec') {
+    console.log('Spec event details:', {
+      id: event.id,
+      type: event.type,
+      stats: (event as SpecTimelineEvent).stats,
+      promptCount: (event as SpecTimelineEvent).stats?.promptCount,
+      filesCreated: (event as SpecTimelineEvent).stats?.filesCreated,
+      linesAdded: (event as SpecTimelineEvent).stats?.linesAdded
+    });
+  }
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
   const prevCameraPosition = useRef(camera.position.clone());

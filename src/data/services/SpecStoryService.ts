@@ -17,6 +17,15 @@ interface SpecHistoryResponse {
     newValue: string;
   }>;
   type?: 'spec';
+  stats?: {
+    promptCount: number;
+    filesCreated: number;
+    filesModified: number;
+    linesAdded: number;
+    linesDeleted: number;
+    linesDelta: number;
+    toolInvocations: number;
+  };
 }
 
 interface SpecAPIResponse {
@@ -179,43 +188,64 @@ export class SpecStoryService {
         }
       }
 
-      // Generate statistics based on the description content
-      const stats = {
-        promptCount: 0,
-        filesCreated: 0,
-        filesModified: 0,
-        linesAdded: 0,
-        linesDeleted: 0,
-        linesDelta: 0,
-        toolInvocations: 0
-      };
+      // Check if stats are provided in the data
+      let stats;
 
-      // Count prompts based on description content
-      if (data.description) {
-        // Count prompts (look for human/assistant exchanges)
-        const humanPromptMatches = data.description.match(/Human:|User:/gi);
-        if (humanPromptMatches) {
-          stats.promptCount = humanPromptMatches.length;
+      if (data.stats) {
+        // Use server-provided stats
+        console.log('Using server-provided stats for spec:', data.id, data.stats);
+        stats = {
+          promptCount: data.stats.promptCount || 0,
+          filesCreated: data.stats.filesCreated || 0,
+          filesModified: data.stats.filesModified || 0,
+          linesAdded: data.stats.linesAdded || 0,
+          linesDeleted: data.stats.linesDeleted || 0,
+          linesDelta: data.stats.linesDelta || 0,
+          toolInvocations: data.stats.toolInvocations || 0
+        };
+      } else {
+        // Generate statistics based on the description content
+        console.log('Generating stats for spec:', data.id);
+        stats = {
+          promptCount: 0,
+          filesCreated: 0,
+          filesModified: 0,
+          linesAdded: 0,
+          linesDeleted: 0,
+          linesDelta: 0,
+          toolInvocations: 0
+        };
+
+        // Count prompts based on description content
+        if (data.description) {
+          // Count prompts (look for human/assistant exchanges)
+          const humanPromptMatches = data.description.match(/Human:|User:/gi);
+          if (humanPromptMatches) {
+            stats.promptCount = humanPromptMatches.length;
+          }
+
+          // Count code blocks as files created
+          const codeBlockMatches = data.description.match(/```[a-z]*/gi);
+          if (codeBlockMatches) {
+            stats.filesCreated = Math.floor(codeBlockMatches.length / 2); // Each file has opening and closing ```
+          }
+
+          // Estimate lines added based on description length
+          stats.linesAdded = Math.floor(data.description.length / 80); // Rough estimate: 1 line per 80 chars
+
+          // Estimate tool invocations
+          const toolMatches = data.description.match(/tool|function|command|invoke/gi);
+          if (toolMatches) {
+            stats.toolInvocations = toolMatches.length;
+          }
         }
 
-        // Count code blocks as files created
-        const codeBlockMatches = data.description.match(/```[a-z]*/gi);
-        if (codeBlockMatches) {
-          stats.filesCreated = Math.floor(codeBlockMatches.length / 2); // Each file has opening and closing ```
-        }
-
-        // Estimate lines added based on description length
-        stats.linesAdded = Math.floor(data.description.length / 80); // Rough estimate: 1 line per 80 chars
-
-        // Estimate tool invocations
-        const toolMatches = data.description.match(/tool|function|command|invoke/gi);
-        if (toolMatches) {
-          stats.toolInvocations = toolMatches.length;
-        }
+        // Calculate line delta
+        stats.linesDelta = stats.linesAdded - stats.linesDeleted;
       }
 
-      // Calculate line delta
-      stats.linesDelta = stats.linesAdded - stats.linesDeleted;
+      // Debug: Log the final stats
+      console.log('Final stats for spec:', data.id, stats);
 
       const event: SpecTimelineEvent = {
         id: `spec-${specId}-${version}`,
