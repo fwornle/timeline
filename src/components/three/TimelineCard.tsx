@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Text } from '@react-three/drei';
-import { Group, Vector3, PerspectiveCamera } from 'three';
+import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
@@ -231,6 +231,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       const duration = 250; // short wiggle
       if (elapsed < duration) {
         // Wiggle: quick left-right rotation (Y axis)
+        // Use Math.sin directly as this is a simple calculation, not an interpolation
         const wiggleAngle = Math.sin((elapsed / duration) * Math.PI * 4) * 0.18; // 2 full wiggles
         setWiggleState((prev) => ({ ...prev, wiggleAngle }));
       } else {
@@ -739,7 +740,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 anchorX="center"
                 anchorY="middle"
               >
-                {`Prompts: ${(event as SpecTimelineEvent).stats?.promptCount ?? 0} | Files: ${(event as SpecTimelineEvent).stats?.filesCreated ?? 0}`}
+                {`Prompts: ${(event as SpecTimelineEvent).stats?.promptCount ?? 0} | Tools: ${(event as SpecTimelineEvent).stats?.toolInvocations ?? 0}`}
               </Text>
               <Text
                 position={[0, -0.1, 0]}
@@ -748,7 +749,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 anchorX="center"
                 anchorY="middle"
               >
-                {`Lines: +${(event as SpecTimelineEvent).stats?.linesAdded ?? 0} -${(event as SpecTimelineEvent).stats?.linesDeleted ?? 0}`}
+                {`Files: ${(event as SpecTimelineEvent).stats?.filesCreated ?? 0} | Lines: +${(event as SpecTimelineEvent).stats?.linesAdded ?? 0}`}
               </Text>
             </>
           )}
