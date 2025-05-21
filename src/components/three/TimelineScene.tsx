@@ -99,7 +99,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     <div className="w-full h-full" style={{ height: '100%' }}>
       <Canvas
         shadows
-        camera={{ position: [12, 8, 0], fov: 45 }}
+        camera={{ position: [-60, 70, -50], fov: 45 }}
         style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
       >
         {/* Background click handler */}

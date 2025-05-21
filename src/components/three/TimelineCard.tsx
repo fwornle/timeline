@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Text } from '@react-three/drei';
 import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -242,7 +242,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   });
 
   // Calculate camera-related values for animation
-  const calculateCameraValues = () => {
+  const calculateCameraValues = useCallback(() => {
     if (!groupRef.current) return { angle: 0, distance: 10, zoomFactor: 1.5, moveDistance: 1.0 };
 
     // Get card position in world space
@@ -251,15 +251,18 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     // Get camera position
     const cameraPosition = camera.position.clone();
 
-    // Calculate direction from card to camera (only in XZ plane for Y rotation)
+    // Calculate direction from card to camera (in 3D space for more accurate facing)
     const direction = new Vector3(
       cameraPosition.x - cardPosition.x,
-      0,
+      cameraPosition.y - cardPosition.y,
       cameraPosition.z - cardPosition.z
     ).normalize();
 
+    // Project the direction onto the XZ plane for Y rotation
+    const xzDirection = new Vector3(direction.x, 0, direction.z).normalize();
+
     // Calculate angle - we want the card to face the camera
-    const angle = Math.atan2(direction.x, direction.z);
+    const angle = Math.atan2(xzDirection.x, xzDirection.z);
 
     // Calculate distance from camera to card
     const distance = cardPosition.distanceTo(cameraPosition);
@@ -303,7 +306,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       zoomFactor: finalZoomFactor,
       moveDistance: finalMoveDistance
     };
-  };
+  }, [position, camera, groupRef]);
 
   // Update hover state when animation props change
   useEffect(() => {
@@ -358,7 +361,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
         animationDuration, // Store the duration for use in the animation frame
       });
     }
-  }, [animationProps, position, camera, event.id]);
+  }, [animationProps, position, camera, event.id, calculateCameraValues]);
 
   // Animation frame
   useFrame(() => {

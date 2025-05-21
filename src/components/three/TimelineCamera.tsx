@@ -8,7 +8,8 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 // Define DEBUG_POSITIONS array with improved positions for better timeline viewing
 const DEBUG_POSITIONS = [
-  { position: new Vector3(-40, 35, -30), name: "Timeline Overview" },    // Good position to see entire timeline
+  { position: new Vector3(-60, 70, -50), name: "Preferred View" },      // Preferred view from above with timeline from top-left to bottom-right
+  { position: new Vector3(-40, 35, -30), name: "Timeline Overview" },   // Good position to see entire timeline
   { position: new Vector3(-30, 25, 0), name: "Timeline Middle" },       // View from the middle
   { position: new Vector3(-20, 15, 30), name: "Timeline End" },         // View from the end
   { position: new Vector3(-35, 30, -50), name: "Timeline Start" },      // View from the start
@@ -25,7 +26,7 @@ interface TimelineCameraProps {
 }
 
 // Calculate a position that shows the timeline from above-left with timeline stretching from top-left to bottom-right
-const calculateViewAllPosition = (target: Vector3, events: TimelineEvent[] = []): Vector3 => {
+const calculateViewAllPosition = (_target: Vector3, events: TimelineEvent[] = []): Vector3 => {
   // If we have events, calculate a position that shows all of them
   if (events && events.length > 0) {
     // Estimate the length of the timeline based on number of events
@@ -35,22 +36,23 @@ const calculateViewAllPosition = (target: Vector3, events: TimelineEvent[] = [])
 
     // Calculate distance based on timeline length
     // The longer the timeline, the further back we need to be
-    const distance = Math.max(50, timelineLength * 0.8);
+    const distance = Math.max(60, timelineLength * 0.9);
 
-    // Position camera at an angle to see the timeline from above-left
+    // Position camera at an angle to see the timeline from above
     // This will show the timeline stretching from top left to bottom right
+    // with cards facing into the camera
     return new Vector3(
-      -distance * 0.9,        // Position further to the left
-      distance * 0.8,         // Position higher above to see more of the timeline
-      -timelineLength * 0.4   // Position toward the start of the timeline
+      -distance * 0.8,        // Position to the left
+      distance * 1.0,         // Position higher above for a more top-down view
+      -timelineLength * 0.5   // Position toward the start of the timeline
     );
   }
 
   // Fallback for when we don't have events or can't calculate bounds
   return new Vector3(
-    -50, // Position further to the left
-    45,  // Position higher above
-    -40  // Position further toward the start of the timeline
+    -60, // Position further to the left
+    70,  // Position higher above for a more top-down view
+    -50  // Position further toward the start of the timeline
   );
 };
 
@@ -58,12 +60,12 @@ const calculateViewAllPosition = (target: Vector3, events: TimelineEvent[] = [])
 const calculateFocusPosition = (target: Vector3): Vector3 => {
   // Position camera closer to the target for a focused view
   // Use a consistent distance for better user experience
-  const distance = 10; // Closer distance for better focus
+  const distance = 15; // Closer distance for better focus
 
   return new Vector3(
     -distance * 0.8,  // Position to the left
-    distance * 0.6,   // Position above
-    target.z         // Stay at target's Z position
+    distance * 1.2,   // Position higher above for a more top-down view
+    target.z - 5      // Stay at target's Z position but slightly offset to see more context
   );
 };
 
@@ -86,11 +88,12 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (initialPositionSet) return;
 
-    // Set initial camera position to look at the timeline from above-left
+    // Set initial camera position to look at the timeline from above
     // This position shows the timeline stretching from top left to bottom right corner
-    const initialPosition = new Vector3(-45, 40, -40);
+    // with cards facing into the camera
+    const initialPosition = new Vector3(-60, 70, -50);
     camera.position.copy(initialPosition);
-    camera.lookAt(new Vector3(0, 2, 0));
+    camera.lookAt(new Vector3(0, 0, 0));
 
     setInitialPositionSet(true);
     logger.info('Initial camera position set', {
