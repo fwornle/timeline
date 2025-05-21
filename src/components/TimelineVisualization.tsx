@@ -6,6 +6,8 @@ import { TimelineScene } from './three/TimelineScene';
 import type { TimelineEvent } from '../data/types/TimelineEvent';
 import { mockGitHistory } from '../data/mocks/mockGitHistory';
 import { mockSpecHistory } from '../data/mocks/mockSpecHistory';
+import { Vector3 } from 'three';
+import type { CameraState } from './three/TimelineCamera';
 
 interface TimelineVisualizationProps {
   repoUrl: string;
@@ -20,6 +22,9 @@ interface TimelineVisualizationProps {
     isSpecHistoryMocked: boolean
   ) => void;
   onPositionUpdate?: (position: number) => void;
+  onCameraPositionChange?: (position: Vector3) => void;
+  onCameraStateChange?: (state: CameraState) => void;
+  initialCameraState?: CameraState;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
@@ -92,6 +97,9 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   onError,
   onDataLoaded,
   onPositionUpdate,
+  onCameraPositionChange,
+  onCameraStateChange,
+  initialCameraState,
   forceReload = false,
   viewAllMode: externalViewAllMode = false,
   focusCurrentMode: externalFocusCurrentMode = false,
@@ -259,7 +267,6 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     if (onPositionUpdate && cameraTarget) {
       // Use the z position as the timeline position
       onPositionUpdate(cameraTarget.z);
-      console.debug('Position updated:', cameraTarget.z);
     }
   }, [cameraTarget, onPositionUpdate]);
 
@@ -270,36 +277,30 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       if (cardPositionsRef && cardPositionsRef.current && cardPositionsRef.current.has(selectedCardId)) {
         const position = cardPositionsRef.current.get(selectedCardId)!;
         onPositionUpdate(position.z);
-        console.debug('Position updated from card selection:', position.z);
+        if (debugMode) {
+          logger.debug('Position updated from card selection', { position: position.z });
+        }
       }
     }
-  }, [selectedCardId, onPositionUpdate, cardPositionsRef]);
+  }, [selectedCardId, onPositionUpdate, cardPositionsRef, debugMode, logger]);
 
   // Log significant state changes and notify parent
   useEffect(() => {
-    console.debug('TimelineVisualization - events or period changed:', {
-      eventsCount: events.length,
-      gitCount: events.filter(e => e.type === 'git').length,
-      specCount: events.filter(e => e.type === 'spec').length,
-      hasDataLoadedCallback: !!onDataLoaded,
-      isGitHistoryMocked,
-      isSpecHistoryMocked
-    });
+    if (debugMode) {
+      logger.debug('TimelineVisualization - events or period changed', {
+        eventsCount: events.length,
+        gitCount: events.filter(e => e.type === 'git').length,
+        specCount: events.filter(e => e.type === 'spec').length
+      });
+    }
 
     // Call onDataLoaded callback when we have events
     if (onDataLoaded && events.length > 0) {
       const gitEvents = events.filter(e => e.type === 'git');
       const specEvents = events.filter(e => e.type === 'spec');
-      console.debug('TimelineVisualization calling onDataLoaded:', {
-        gitEventsCount: gitEvents.length,
-        specEventsCount: specEvents.length,
-        isGitHistoryMocked,
-        isSpecHistoryMocked,
-        callbackName: onDataLoaded.name || 'anonymous function'
-      });
       onDataLoaded(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
     }
-  }, [events, period, onDataLoaded, isGitHistoryMocked, isSpecHistoryMocked]);
+  }, [events, period, onDataLoaded, isGitHistoryMocked, isSpecHistoryMocked, debugMode, logger]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {
@@ -408,6 +409,17 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
               onPositionUpdate(position);
             }
           }}
+          onCameraPositionChange={(position) => {
+            if (onCameraPositionChange) {
+              onCameraPositionChange(position);
+            }
+          }}
+          onCameraStateChange={(state) => {
+            if (onCameraStateChange) {
+              onCameraStateChange(state);
+            }
+          }}
+          initialCameraState={initialCameraState}
           debugMode={debugMode}
         />
       </div>

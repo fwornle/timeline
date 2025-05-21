@@ -31,11 +31,9 @@ const globalClickHandlers = {
   // Flag if we've added the document click listener
   documentListenerAdded: false,
   // Function to check if a click is outside all cards
-  handleDocumentClick: (e: MouseEvent) => {
+  handleDocumentClick: (_: MouseEvent) => {
     // Since we can't use className in Three.js, we need a different approach
-    // We'll use the event to log click details for debugging
     if (globalHoveredCardId.current) {
-      console.debug(`Document click at (${e.clientX},${e.clientY}): clearing hover on ${globalHoveredCardId.current}`);
       // Find and clear the hover callback for the currently hovered card
       for (const callback of globalClickHandlers.clearHoverCallbacks) {
         callback(null); // This will call onHover(null) for the active cards
@@ -51,7 +49,6 @@ const globalClickHandlers = {
       document.addEventListener('click', globalClickHandlers.handleDocumentClick);
       document.addEventListener('pointerdown', globalClickHandlers.handleDocumentClick);
       globalClickHandlers.documentListenerAdded = true;
-      console.debug('Added document click/pointer listener for timeline cards');
     }
   },
   // Cleanup the document listener when no cards are active
@@ -60,7 +57,6 @@ const globalClickHandlers = {
       document.removeEventListener('click', globalClickHandlers.handleDocumentClick);
       document.removeEventListener('pointerdown', globalClickHandlers.handleDocumentClick);
       globalClickHandlers.documentListenerAdded = false;
-      console.debug('Removed document click/pointer listener for timeline cards');
     }
   }
 };
@@ -102,20 +98,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   },
   wiggle = false
 }) => {
-  // Debug: Log the event data to see what's coming in
-  console.log('TimelineCard rendering event:', event.id, event.type, 'stats:', event.stats);
-
-  // Additional debugging for spec events
-  if (event.type === 'spec') {
-    console.log('Spec event details:', {
-      id: event.id,
-      type: event.type,
-      stats: (event as SpecTimelineEvent).stats,
-      promptCount: (event as SpecTimelineEvent).stats?.promptCount,
-      filesCreated: (event as SpecTimelineEvent).stats?.filesCreated,
-      linesAdded: (event as SpecTimelineEvent).stats?.linesAdded
-    });
-  }
+  // Logging disabled to improve performance
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
   const prevCameraPosition = useRef(camera.position.clone());
@@ -314,7 +297,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // Only trigger animation if hover state changed
     if (newIsHovered !== isHovered.current) {
-      console.debug(`Animation props changed for ${event.id}, hover: ${newIsHovered}`);
+      // Animation props changed
       isHovered.current = newIsHovered;
 
       // Update global hovered card tracking
@@ -603,7 +586,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
 
     if (onHover) {
-      console.debug(`Clearing hover on ${event.id} due to pointer out`);
+      // Clear hover on pointer out
       globalHoveredCardId.current = null;
       onHover(null);
     }

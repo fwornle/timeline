@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
+import type { CameraState } from './three/TimelineCamera';
 
 interface BottomBarProps {
   gitCount?: number;
@@ -9,6 +10,8 @@ interface BottomBarProps {
   isGitHistoryMocked?: boolean;
   isSpecHistoryMocked?: boolean;
   currentPosition?: number;
+  cameraPosition?: { x: number, y: number, z: number };
+  cameraState?: CameraState;
   animationSpeed?: number;
   autoDrift?: boolean;
   debugMode?: boolean;
@@ -21,6 +24,7 @@ interface BottomBarProps {
   onFocusCurrentClick?: () => void;
   onDebugModeChange?: (enabled: boolean) => void;
   onResetTimeline?: () => void;
+  onSaveCameraState?: (state: CameraState) => void;
 }
 
 const BottomBar: React.FC<BottomBarProps> = ({
@@ -30,6 +34,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
   isGitHistoryMocked = false,
   isSpecHistoryMocked = false,
   currentPosition = 0,
+  cameraPosition = { x: -60, y: 70, z: -50 }, // Default camera position
+  cameraState,
   animationSpeed = 1,
   autoDrift = false,
   debugMode = false,
@@ -41,42 +47,75 @@ const BottomBar: React.FC<BottomBarProps> = ({
   onViewAllClick,
   onFocusCurrentClick,
   onDebugModeChange,
-  onResetTimeline
+  onResetTimeline,
+  onSaveCameraState
 }) => {
   const { preferences } = usePreferences();
   const repoUrl = preferences.repoUrl || '';
   const showControls = !!repoUrl;
+
+  // Log when camera state changes (for debugging)
+  React.useEffect(() => {
+    if (cameraState) {
+      console.log('BottomBar received updated camera state:', {
+        position: { 
+          x: cameraState.position.x.toFixed(2), 
+          y: cameraState.position.y.toFixed(2), 
+          z: cameraState.position.z.toFixed(2) 
+        },
+        target: { 
+          x: cameraState.target.x.toFixed(2), 
+          y: cameraState.target.y.toFixed(2), 
+          z: cameraState.target.z.toFixed(2) 
+        },
+        zoom: cameraState.zoom.toFixed(2)
+      });
+    }
+  }, [cameraState]);
+
+  // Force re-render on debug mode changes
+  const [lastDebugModeChange, setLastDebugModeChange] = React.useState(Date.now());
+  
+  // Log when debug mode changes
+  React.useEffect(() => {
+    console.log('BottomBar: Debug mode changed to:', debugMode);
+    // Force component re-render when debug mode changes
+    setLastDebugModeChange(Date.now());
+  }, [debugMode]);
+  
+  // Log on each render to see if debugMode is consistent
+  console.log('BottomBar rendering with debugMode:', debugMode, 'lastChange:', lastDebugModeChange);
 
   // Helper function to convert position to a date
   const positionToDate = (): string => {
     if (!startDate || !endDate) {
       return `Position: ${currentPosition.toFixed(2)}`;
     }
-    
+
     try {
       // Get the full time range of the timeline
       const startTimestamp = startDate.getTime();
       const endTimestamp = endDate.getTime();
       const timeRange = endTimestamp - startTimestamp;
-      
+
       // Use the actual timelineLength passed as a prop
       const actualTimelineLength = timelineLength;
-      
+
       // Estimate the position range of the timeline in the scene
       // Timeline runs from -length/2 to +length/2
       const estimatedTimelineStartZ = -actualTimelineLength / 2;
       const estimatedTimelineEndZ = actualTimelineLength / 2;
-      
+
       // Calculate the position's normalized location on the timeline (0 to 1)
       // Clamp value between 0 and 1 to handle edge cases
-      const normalizedPosition = Math.max(0, Math.min(1, 
+      const normalizedPosition = Math.max(0, Math.min(1,
         (currentPosition - estimatedTimelineStartZ) / (estimatedTimelineEndZ - estimatedTimelineStartZ)
       ));
-      
+
       // Map the normalized position to a timestamp
       const currentTimestamp = startTimestamp + (normalizedPosition * timeRange);
       const currentDate = new Date(currentTimestamp);
-      
+
       // Format the date
       return currentDate.toLocaleDateString(undefined, {
         month: 'short',
@@ -91,19 +130,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
     }
   };
 
-  // Log when props change
-  useEffect(() => {
-    console.debug('BottomBar props updated:', {
-      gitCount,
-      specCount,
-      isGitHistoryMocked,
-      isSpecHistoryMocked,
-      debugMode,
-      showControls,
-      currentPosition,
-      currentPositionAsDate: positionToDate()
-    });
-  }, [gitCount, specCount, isGitHistoryMocked, isSpecHistoryMocked, debugMode, showControls, currentPosition, startDate, endDate]);
+  // Removed excessive logging for performance
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onAnimationSpeedChange) {
@@ -118,10 +145,11 @@ const BottomBar: React.FC<BottomBarProps> = ({
   };
 
   const handleDebugModeChange = () => {
-    console.debug('Debug mode change requested, current value:', debugMode);
+    console.log('Debug mode change requested, current value:', debugMode);
     if (onDebugModeChange) {
-      console.debug('Calling onDebugModeChange with new value:', !debugMode);
-      onDebugModeChange(!debugMode);
+      const newValue = !debugMode;
+      console.log('Calling onDebugModeChange with new value:', newValue);
+      onDebugModeChange(newValue);
     }
   };
 
@@ -133,7 +161,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
           <Col xs={12} md={6} className="text-md-start text-center mb-2 mb-md-0">
             {showControls ? (
               <div className="d-flex flex-wrap gap-2 align-items-center">
-                <span className={`badge bg-secondary ${isGitHistoryMocked ? 'border border-warning' : ''}`} 
+                <span className={`badge bg-secondary ${isGitHistoryMocked ? 'border border-warning' : ''}`}
                       style={{ borderWidth: isGitHistoryMocked ? '2px' : '0' }}>
                   <i className="bi bi-git me-1"></i>
                   {isLoading ? 'Loading...' : `${gitCount} commits`}
@@ -153,6 +181,48 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 <span className="badge bg-primary">
                   <i className="bi bi-clock-history me-1"></i>
                   {positionToDate()}
+                </span>
+                <span
+                  className="badge bg-primary text-white"
+                  style={{
+                    cursor: 'pointer',
+                    padding: '8px',
+                    display: 'inline-block',
+                    lineHeight: '1.2',
+                    transition: 'all 0.2s ease',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                  onClick={() => {
+                    if (cameraState && onSaveCameraState) {
+                      onSaveCameraState(cameraState);
+                    } else {
+                      alert('Cannot save camera view - no camera state available.');
+                    }
+                  }}
+                  title="Click to save this camera view"
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  }}
+                >
+                  <i className="bi bi-camera me-1"></i>
+                  <div style={{ textAlign: 'left' }}>
+                    {cameraState ? (
+                      <>
+                        <div><small>Pos: {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
+                        <div><small>Look: {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
+                        <div><small>Zoom: {cameraState.zoom.toFixed(1)}x</small></div>
+                        <div><small style={{ color: '#aaffff' }}>Click to save view</small></div>
+                      </>
+                    ) : (
+                      <>XYZ: {cameraPosition?.x?.toFixed(1) || '0.0'}, {cameraPosition?.y?.toFixed(1) || '0.0'}, {cameraPosition?.z?.toFixed(1) || '0.0'}</>
+                    )}
+                  </div>
                 </span>
               </div>
             ) : (
@@ -220,8 +290,26 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   className={`btn btn-sm ${debugMode ? 'btn-danger' : 'btn-outline-danger'}`}
                   onClick={handleDebugModeChange}
                   title="Toggle camera debug mode"
+                  style={{ 
+                    position: 'relative',
+                    overflow: 'visible'
+                  }}
                 >
                   <i className="bi bi-camera"></i>
+                  {debugMode && (
+                    <span 
+                      style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        backgroundColor: 'red',
+                        borderRadius: '50%',
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid white'
+                      }}
+                    />
+                  )}
                 </button>
               </div>
             </Col>

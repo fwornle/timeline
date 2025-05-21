@@ -7,6 +7,7 @@ import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { Vector3 } from 'three';
 import { useEffect, useMemo } from 'react';
 import { clearAllCardHovers } from './TimelineCard';
+import type { CameraState } from './TimelineCamera';
 
 export interface TimelineSceneProps {
   events: TimelineEvent[];
@@ -29,6 +30,9 @@ export interface TimelineSceneProps {
   focusCurrentMode?: boolean;
   currentPosition?: number;
   onMarkerPositionChange?: (position: number) => void;
+  onCameraPositionChange?: (position: Vector3) => void;
+  onCameraStateChange?: (state: CameraState) => void;
+  initialCameraState?: CameraState;
   debugMode?: boolean;
 }
 
@@ -44,6 +48,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   focusCurrentMode = false,
   currentPosition = 0,
   onMarkerPositionChange,
+  onCameraPositionChange,
+  onCameraStateChange,
+  initialCameraState,
   debugMode = false
 }) => {
   // Calculate the date range from events
@@ -123,6 +130,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           focusCurrentMode={focusCurrentMode}
           events={events}
           debugMode={debugMode}
+          onCameraPositionChange={onCameraPositionChange}
+          onCameraStateChange={onCameraStateChange}
+          initialCameraState={initialCameraState}
         />
         <TimelineAxis
           startDate={startDate}

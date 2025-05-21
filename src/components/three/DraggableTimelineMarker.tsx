@@ -51,8 +51,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
     // Capture pointer to track movement even outside the canvas
     gl.domElement.setPointerCapture(e.pointerId);
 
-    // Log for debugging
-    console.log('Marker drag started at position:', position);
+    // Marker drag started
   };
 
   // Handle pointer move event during dragging
@@ -78,13 +77,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
       const maxPos = timelineLength / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, newPosition));
 
-      // Log for debugging
-      console.debug('Marker dragged to position:', clampedPosition);
-
       // Update position through callback
       onPositionChange(clampedPosition);
-    } else {
-      console.debug('No intersection with drag plane');
     }
   };
 

@@ -115,9 +115,6 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       const maxPos = length / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, clickedPosition));
 
-      // Log for debugging
-      console.log('Timeline axis clicked at position:', clickedPosition, 'clamped to:', clampedPosition);
-
       // Update position through callback
       onPositionChange(clampedPosition);
     }

@@ -4,6 +4,8 @@ import TopBar from '../components/TopBar';
 import BottomBar from '../components/BottomBar';
 import { usePreferences } from '../context/PreferencesContext';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+import type { CameraState } from '../components/three/TimelineCamera';
+import { Vector3 } from 'three';
 
 const API_BASE_URL = 'http://localhost:3030/api/v1';
 
@@ -23,6 +25,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isGitHistoryMocked, setIsGitHistoryMocked] = useState(false);
   const [isSpecHistoryMocked, setIsSpecHistoryMocked] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
+  const [cameraPosition, setCameraPosition] = useState({ x: -60, y: 70, z: -50 }); // Initialize with default camera position
+
+  // Initialize with default camera state
+  const [cameraState, setCameraState] = useState<CameraState>(() => {
+    // Try to load from preferences first
+    if (preferences.cameraState) {
+      try {
+        const storedState = preferences.cameraState;
+        return {
+          position: new Vector3(
+            storedState.position.x,
+            storedState.position.y,
+            storedState.position.z
+          ),
+          target: new Vector3(
+            storedState.target.x,
+            storedState.target.y,
+            storedState.target.z
+          ),
+          zoom: storedState.zoom
+        };
+      } catch (error) {
+        console.error('Failed to load camera state from preferences', error);
+      }
+    }
+    
+    // Default state if not available in preferences
+    return {
+      position: new Vector3(-60, 70, -50),
+      target: new Vector3(0, 0, 0),
+      zoom: 1
+    };
+  });
   const [forceReloadFlag, setForceReloadFlag] = useState(false);
   const [viewAllMode, setViewAllMode] = useState(false);
   const [focusCurrentMode, setFocusCurrentMode] = useState(false);
@@ -31,11 +66,52 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [timelineEndDate, setTimelineEndDate] = useState<Date | undefined>(undefined);
   const [timelineLength, setTimelineLength] = useState(100);
 
-  // Log debug mode changes
+  // Debug mode effect
   useEffect(() => {
-    logger.info('Debug mode changed', { debugMode });
-    console.debug('Debug mode is now:', debugMode);
-  }, [debugMode, logger]);
+    console.log('MainLayout: Debug mode effect triggered, debugMode is:', debugMode);
+    
+    // Force camera state updates when debug mode is enabled
+    if (debugMode) {
+      // This will help with debug mode cycling
+      console.log('Debug mode enabled - making sure camera state is fresh');
+    }
+  }, [debugMode]);
+
+  // Load camera state from preferences on startup - this can be removed since we're initializing in the useState above
+  useEffect(() => {
+    if (preferences.cameraState) {
+      try {
+        // Convert the stored camera state back to a proper CameraState object
+        const storedState = preferences.cameraState;
+        const restoredState: CameraState = {
+          position: new Vector3(
+            storedState.position.x,
+            storedState.position.y,
+            storedState.position.z
+          ),
+          target: new Vector3(
+            storedState.target.x,
+            storedState.target.y,
+            storedState.target.z
+          ),
+          zoom: storedState.zoom
+        };
+
+        setCameraState(restoredState);
+
+        // Also update the camera position for backward compatibility
+        setCameraPosition({
+          x: storedState.position.x,
+          y: storedState.position.y,
+          z: storedState.position.z
+        });
+
+        logger.info('Loaded camera state from preferences', { restoredState });
+      } catch (error) {
+        logger.error('Failed to load camera state from preferences', { error });
+      }
+    }
+  }, [preferences.cameraState]);
 
   // Update preferences when state changes
   useEffect(() => {
@@ -43,9 +119,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       ...preferences,
       repoUrl,
       animationSpeed,
-      autoDrift
+      autoDrift,
+      cameraState: cameraState
     });
-  }, [repoUrl, animationSpeed, autoDrift]);
+  }, [repoUrl, animationSpeed, autoDrift, cameraState]);
 
   // Handle repository URL change
   const handleRepoUrlChange = useCallback((url: string) => {
@@ -166,10 +243,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     if (React.isValidElement(child)) {
       // Get child type name in a simpler way
       const childType = child.type.toString();
-      console.debug('MainLayout processing child:', {
-        childType,
-        childProps: Object.keys(child.props || {})
-      });
+
+      // Only log in debug mode
+      if (debugMode) {
+        logger.debug('Processing child component', {
+          childType,
+          childProps: Object.keys(child.props || {})
+        });
+      }
 
       // Define type for route props
       interface RouteProps {
@@ -178,6 +259,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onEventCountsChange?: (gitCount: number, specCount: number) => void;
           onMockStatusChange?: (isGitHistoryMocked: boolean, isSpecHistoryMocked: boolean) => void;
           onPositionChange?: (position: number) => void;
+          onCameraPositionChange?: (position: { x: number, y: number, z: number }) => void;
+          onCameraStateChange?: (state: CameraState) => void;
+          initialCameraState?: CameraState;
           onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
           onTimelineLengthChange?: (timelineLength: number) => void;
           forceReload?: boolean;
@@ -189,7 +273,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       // Detect AppRoutes (from React Router) - this is likely what we have
       if (childType.includes('AppRoutes') || childType.includes('Routes')) {
-        console.debug('Found Routes component, need to pass props to its children');
+        if (debugMode) {
+          logger.debug('Found Routes component, passing props to children');
+        }
 
         // For Routes, pass a routeProps object with all callbacks
         try {
@@ -197,26 +283,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             routeProps: {
               onLoadingChange: handleLoadingChange,
               onEventCountsChange: (gitCount: number, specCount: number) => {
-                console.debug('MainLayout.setGitCount/setSpecCount via routeProps:', { gitCount, specCount });
                 setGitCount(gitCount);
                 setSpecCount(specCount);
               },
               onMockStatusChange: (gitMocked: boolean, specMocked: boolean) => {
-                console.debug('MainLayout.setIsMocked via routeProps:', { gitMocked, specMocked });
                 setIsGitHistoryMocked(gitMocked);
                 setIsSpecHistoryMocked(specMocked);
               },
               onPositionChange: (pos: number) => setCurrentPosition(pos),
-              onTimelineDatesChange: (startDate: Date, endDate: Date) => {
-                console.debug('MainLayout received timeline dates:', {
-                  startDate: startDate.toISOString(),
-                  endDate: endDate.toISOString()
+              onCameraPositionChange: (pos: { x: number, y: number, z: number }) => {
+                setCameraPosition(pos);
+              },
+              onCameraStateChange: (state: CameraState) => {
+                console.log('MainLayout received camera state change:', {
+                  position: { 
+                    x: state.position.x.toFixed(2), 
+                    y: state.position.y.toFixed(2), 
+                    z: state.position.z.toFixed(2) 
+                  },
+                  target: { 
+                    x: state.target.x.toFixed(2), 
+                    y: state.target.y.toFixed(2), 
+                    z: state.target.z.toFixed(2) 
+                  },
+                  zoom: state.zoom.toFixed(2)
                 });
+                setCameraState(state);
+              },
+              initialCameraState: cameraState,
+              onTimelineDatesChange: (startDate: Date, endDate: Date) => {
                 setTimelineStartDate(startDate);
                 setTimelineEndDate(endDate);
               },
               onTimelineLengthChange: (length: number) => {
-                console.debug('MainLayout received timeline length:', { length });
                 setTimelineLength(length);
               },
               forceReload: forceReloadFlag,
@@ -237,35 +336,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return child;
   });
 
-  // Debug output to track state and props
+  // Debug output to track state and props only when in debug mode
   useEffect(() => {
-    console.debug('MainLayout state:', {
-      repoUrl,
-      animationSpeed,
-      autoDrift,
-      gitCount,
-      specCount,
-      isLoading,
-      isGitHistoryMocked,
-      isSpecHistoryMocked,
-      currentPosition,
-      timelineStartDate,
-      timelineEndDate,
-      timelineLength,
-      forceReloadFlag,
-      viewAllMode,
-      focusCurrentMode,
-      debugMode,
-    });
+    if (debugMode) {
+      logger.debug('MainLayout state updated', {
+        repoUrl,
+        animationSpeed,
+        autoDrift,
+        gitCount,
+        specCount,
+        isLoading,
+        isGitHistoryMocked,
+        isSpecHistoryMocked,
+        currentPosition,
+        timelineLength
+      });
+    }
   }, [
     repoUrl, animationSpeed, autoDrift, gitCount, specCount,
-    isLoading, isGitHistoryMocked, isSpecHistoryMocked, currentPosition, timelineStartDate,
-    timelineEndDate, timelineLength, forceReloadFlag, viewAllMode, focusCurrentMode, debugMode
+    isLoading, isGitHistoryMocked, isSpecHistoryMocked, currentPosition,
+    timelineLength, debugMode, logger
   ]);
-
-  useEffect(() => {
-    console.debug('MainLayout mock status:', { isGitHistoryMocked, isSpecHistoryMocked });
-  }, [isGitHistoryMocked, isSpecHistoryMocked]);
 
   return (
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">
@@ -285,6 +376,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         isGitHistoryMocked={isGitHistoryMocked}
         isSpecHistoryMocked={isSpecHistoryMocked}
         currentPosition={currentPosition}
+        cameraPosition={cameraPosition}
+        cameraState={cameraState}
         animationSpeed={animationSpeed}
         autoDrift={autoDrift}
         debugMode={debugMode}
@@ -296,10 +389,42 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         onViewAllClick={handleViewAllClick}
         onFocusCurrentClick={handleFocusCurrentClick}
         onDebugModeChange={(enabled) => {
-          console.debug('MainLayout received debug mode change:', enabled);
+          console.log('MainLayout: Debug mode change requested from BottomBar:', enabled);
+          // Immediately update the state
           setDebugMode(enabled);
+          
+          // If enabling debug mode, force a camera state update
+          if (enabled && cameraState) {
+            console.log('Forcing camera state update due to debug mode activation');
+            // Create a new object to ensure state change is detected
+            const refreshedState = {
+              position: new Vector3(
+                cameraState.position.x,
+                cameraState.position.y,
+                cameraState.position.z
+              ),
+              target: new Vector3(
+                cameraState.target.x,
+                cameraState.target.y,
+                cameraState.target.z
+              ),
+              zoom: cameraState.zoom
+            };
+            setCameraState(refreshedState);
+          }
+          
+          // Log again to verify state update
+          setTimeout(() => {
+            console.log('MainLayout: Debug mode updated to:', enabled);
+          }, 10);
         }}
         onResetTimeline={handleRefreshTimeline}
+        onSaveCameraState={(state) => {
+          setCameraState(state);
+
+          // Show a confirmation message
+          alert('Camera view saved! This view will be restored when you restart the app.');
+        }}
       />
     </div>
   );

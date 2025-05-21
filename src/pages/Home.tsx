@@ -32,25 +32,25 @@ const Home: React.FC<HomeProps> = ({
   const { preferences } = usePreferences();
   const [error, setError] = useState<Error | null>(null);
 
-  // Debug logging for props received
+  // Debug logging for props received only when in debug mode
   useEffect(() => {
-    console.debug('Home component received props:', {
-      hasOnLoadingChange: !!onLoadingChange,
-      hasOnEventCountsChange: !!onEventCountsChange,
-      hasOnMockStatusChange: !!onMockStatusChange,
-      hasOnPositionChange: !!onPositionChange,
-      hasOnTimelineDatesChange: !!onTimelineDatesChange,
-      hasOnTimelineLengthChange: !!onTimelineLengthChange,
-      forceReload,
-      viewAllMode,
-      focusCurrentMode,
-      debugMode,
-      stack: new Error().stack
-    });
+    if (debugMode) {
+      logger.debug('Home component received props', {
+        hasOnLoadingChange: !!onLoadingChange,
+        hasOnEventCountsChange: !!onEventCountsChange,
+        hasOnMockStatusChange: !!onMockStatusChange,
+        hasOnPositionChange: !!onPositionChange,
+        hasOnTimelineDatesChange: !!onTimelineDatesChange,
+        hasOnTimelineLengthChange: !!onTimelineLengthChange,
+        forceReload,
+        viewAllMode,
+        focusCurrentMode
+      });
+    }
   }, [
-    onLoadingChange, onEventCountsChange, onMockStatusChange, 
-    onPositionChange, onTimelineDatesChange, onTimelineLengthChange, forceReload, viewAllMode, 
-    focusCurrentMode, debugMode
+    onLoadingChange, onEventCountsChange, onMockStatusChange,
+    onPositionChange, onTimelineDatesChange, onTimelineLengthChange, forceReload, viewAllMode,
+    focusCurrentMode, debugMode, logger
   ]);
 
   // Log error state changes
@@ -93,42 +93,25 @@ const Home: React.FC<HomeProps> = ({
         focusCurrentMode={focusCurrentMode}
         debugMode={debugMode}
         onDataLoaded={(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked) => {
-          console.debug('Home.onDataLoaded called with:', {
-            gitEventsCount: gitEvents.length,
-            specEventsCount: specEvents.length,
-            isGitHistoryMocked,
-            isSpecHistoryMocked,
-            hasOnEventCountsChange: !!onEventCountsChange,
-            hasOnMockStatusChange: !!onMockStatusChange,
-            parentCallbacks: {
-              onEventCountsChange: onEventCountsChange?.toString().substring(0, 100) + '...',
-              onMockStatusChange: onMockStatusChange?.toString().substring(0, 100) + '...'
-            },
-            stack: new Error().stack
-          });
-          
-          if (onEventCountsChange) {
-            console.debug('Home calling onEventCountsChange with:', {
-              gitCount: gitEvents.length, 
-              specCount: specEvents.length
+          if (debugMode) {
+            logger.debug('Home.onDataLoaded called', {
+              gitEventsCount: gitEvents.length,
+              specEventsCount: specEvents.length,
+              isGitHistoryMocked,
+              isSpecHistoryMocked
             });
+          }
+
+          if (onEventCountsChange) {
             onEventCountsChange(gitEvents.length, specEvents.length);
             logger.info('Event counts updated', { gitCount: gitEvents.length, specCount: specEvents.length });
-          } else {
-            console.warn('Home cannot update event counts: onEventCountsChange is not defined');
           }
-          
+
           if (onMockStatusChange) {
-            console.debug('Home calling onMockStatusChange with:', { 
-              isGitHistoryMocked, 
-              isSpecHistoryMocked 
-            });
             onMockStatusChange(isGitHistoryMocked, isSpecHistoryMocked);
             logger.info('Mock status updated', { isGitHistoryMocked, isSpecHistoryMocked });
-          } else {
-            console.warn('Home cannot update mock status: onMockStatusChange is not defined');
           }
-          
+
           // If there are events with timestamps, determine start and end dates
           if ((gitEvents.length > 0 || specEvents.length > 0)) {
             const allEvents = [...gitEvents, ...specEvents];
@@ -137,7 +120,7 @@ const Home: React.FC<HomeProps> = ({
               const sortedEvents = [...allEvents].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
               const startDate = sortedEvents[0].timestamp;
               const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
-              
+
               if (onTimelineDatesChange) {
                 onTimelineDatesChange(startDate, endDate);
               }
@@ -152,7 +135,9 @@ const Home: React.FC<HomeProps> = ({
           }
         }}
         onPositionUpdate={(position) => {
-          console.debug('Home.onPositionUpdate called with:', { position, hasCallback: !!onPositionChange });
+          if (debugMode) {
+            logger.debug('Home.onPositionUpdate called', { position });
+          }
           if (onPositionChange) {
             onPositionChange(position);
           }

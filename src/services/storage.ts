@@ -1,5 +1,12 @@
 const STORAGE_KEY = 'timeline_prefs';
 
+// Camera state type for storing in preferences
+export type StoredCameraState = {
+  position: { x: number; y: number; z: number };
+  target: { x: number; y: number; z: number };
+  zoom: number;
+};
+
 // Export as a type to fix import issues
 export type Preferences = {
   // Repository information
@@ -12,6 +19,9 @@ export type Preferences = {
 
   // UI preferences
   theme?: 'light' | 'dark' | 'system';
+
+  // Camera state
+  cameraState?: StoredCameraState;
 }
 
 // Simple obfuscation (not real encryption)

@@ -20,11 +20,6 @@ interface AppRoutesProps {
 }
 
 const AppRoutes: React.FC<AppRoutesProps> = ({ routeProps }) => {
-  console.debug('AppRoutes received routeProps:', {
-    hasRouteProps: !!routeProps,
-    props: routeProps ? Object.keys(routeProps) : 'none'
-  });
-  
   return (
     <Routes>
       <Route path="/" element={<Home {...routeProps} />} />
@@ -33,4 +28,4 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ routeProps }) => {
   );
 };
 
-export default AppRoutes; 
+export default AppRoutes;
