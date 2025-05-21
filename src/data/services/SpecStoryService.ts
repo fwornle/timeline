@@ -282,7 +282,18 @@ export class SpecStoryService {
         `${this.baseUrl}/specs/history?${params.toString()}`
       );
 
-      const events = response.data.map((spec: SpecHistoryResponse) => this.parseSpecEvent(spec));
+      // Debug: Log the raw response data
+      console.log('Raw spec history response:', response);
+
+      const events = response.data.map((spec: SpecHistoryResponse) => {
+        // Debug: Log each raw spec before parsing
+        console.log('Raw spec event:', spec.id, 'stats:', spec.stats);
+        const parsedSpec = this.parseSpecEvent(spec);
+        // Debug: Log each parsed spec
+        console.log('Parsed spec event:', parsedSpec.id, 'stats:', parsedSpec.stats);
+        return parsedSpec;
+      });
+
       const mocked = response.mocked || false;
 
       logger.info('data', 'Successfully fetched spec history', {

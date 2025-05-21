@@ -12,6 +12,15 @@ interface GitCommitResponse {
   branch: string;
   commitHash: string;
   files: Array<{ path: string; type: 'modified' | 'added' | 'deleted' }>;
+  stats?: {
+    filesCreated?: number;
+    filesModified?: number;
+    filesDeleted?: number;
+    totalFilesChanged?: number;
+    linesAdded?: number;
+    linesDeleted?: number;
+    linesDelta?: number;
+  };
 }
 
 interface GitHistoryResponse {
@@ -126,39 +135,69 @@ export class GitService {
    */
   private parseGitCommit(data: GitCommitResponse): GitTimelineEvent {
     try {
-      // Calculate stats based on files
-      const stats = {
-        filesAdded: 0,
-        filesModified: 0,
-        filesDeleted: 0,
-        linesAdded: 0,
-        linesDeleted: 0,
-        linesDelta: 0
+      // Debug: Log the incoming data
+      console.log('parseGitCommit input data:', data.id, 'incoming stats:', data.stats);
+
+      // Initialize stats - use server stats if available, otherwise calculate
+      let stats: {
+        filesAdded: number;
+        filesModified: number;
+        filesDeleted: number;
+        linesAdded: number;
+        linesDeleted: number;
+        linesDelta: number;
       };
 
-      // Count files by change type
-      if (data.files && Array.isArray(data.files)) {
-        data.files.forEach(file => {
-          switch (file.type) {
-            case 'added':
-              stats.filesAdded++;
-              stats.linesAdded += 50; // Estimate 50 lines per added file
-              break;
-            case 'modified':
-              stats.filesModified++;
-              stats.linesAdded += 20; // Estimate 20 lines added per modified file
-              stats.linesDeleted += 10; // Estimate 10 lines deleted per modified file
-              break;
-            case 'deleted':
-              stats.filesDeleted++;
-              stats.linesDeleted += 50; // Estimate 50 lines per deleted file
-              break;
-          }
-        });
+      if (data.stats) {
+        // Use server-provided stats
+        console.log('Using server-provided stats for commit:', data.id);
+        stats = {
+          filesAdded: data.stats.filesCreated || 0,
+          filesModified: data.stats.filesModified || 0,
+          filesDeleted: data.stats.filesDeleted || 0,
+          linesAdded: data.stats.linesAdded || 0,
+          linesDeleted: data.stats.linesDeleted || 0,
+          linesDelta: data.stats.linesDelta || 0
+        };
+      } else {
+        // Calculate stats from files
+        console.log('Calculating stats for commit:', data.id);
+        stats = {
+          filesAdded: 0,
+          filesModified: 0,
+          filesDeleted: 0,
+          linesAdded: 0,
+          linesDeleted: 0,
+          linesDelta: 0
+        };
+
+        // Count files by change type
+        if (data.files && Array.isArray(data.files)) {
+          data.files.forEach(file => {
+            switch (file.type) {
+              case 'added':
+                stats.filesAdded++;
+                stats.linesAdded += 50; // Estimate 50 lines per added file
+                break;
+              case 'modified':
+                stats.filesModified++;
+                stats.linesAdded += 20; // Estimate 20 lines added per modified file
+                stats.linesDeleted += 10; // Estimate 10 lines deleted per modified file
+                break;
+              case 'deleted':
+                stats.filesDeleted++;
+                stats.linesDeleted += 50; // Estimate 50 lines per deleted file
+                break;
+            }
+          });
+        }
+
+        // Calculate line delta
+        stats.linesDelta = stats.linesAdded - stats.linesDeleted;
       }
 
-      // Calculate line delta
-      stats.linesDelta = stats.linesAdded - stats.linesDeleted;
+      // Debug: Log the final stats
+      console.log('Final stats for commit:', data.id, stats);
 
       const event: GitTimelineEvent = {
         id: data.id,
@@ -191,13 +230,6 @@ export class GitService {
   }
 
   /**
-   * Parses an array of git commit responses into GitTimelineEvents
-   */
-  private parseGitHistory(data: GitCommitResponse[]): GitTimelineEvent[] {
-    return data.map(commit => this.parseGitCommit(commit));
-  }
-
-  /**
    * Fetches git history from the API
    */
   async fetchGitHistory(startDate?: Date, endDate?: Date): Promise<{ events: GitTimelineEvent[], mocked: boolean }> {
@@ -219,7 +251,18 @@ export class GitService {
         `${this.baseUrl}/git/history?${params.toString()}`
       );
 
-      const events = this.parseGitHistory(response.data);
+      // Debug: Log the raw response data
+      console.log('Raw git history response:', response);
+
+      const events = response.data.map(commit => {
+        // Debug: Log each raw commit before parsing
+        console.log('Raw git commit:', commit.id, 'stats:', commit.stats);
+        const parsedCommit = this.parseGitCommit(commit);
+        // Debug: Log each parsed commit
+        console.log('Parsed git commit:', parsedCommit.id, 'stats:', parsedCommit.stats);
+        return parsedCommit;
+      });
+
       const mocked = response.mocked || false;
 
       logger.info('data', 'Successfully fetched git history', {

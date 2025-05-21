@@ -102,6 +102,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   },
   wiggle = false
 }) => {
+  // Debug: Log the event data to see what's coming in
+  console.log('TimelineCard rendering event:', event.id, event.type, 'stats:', event.stats);
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
   const prevCameraPosition = useRef(camera.position.clone());
