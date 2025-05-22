@@ -55,11 +55,14 @@ const BottomBar: React.FC<BottomBarProps> = ({
   const repoUrl = preferences.repoUrl || '';
   const showControls = !!repoUrl;
 
+  // Force re-render on debug mode changes
+  const [lastDebugModeChange, setLastDebugModeChange] = React.useState(Date.now());
+
   // Log when camera state changes (for debugging)
   React.useEffect(() => {
-    if (cameraState) {
+    if (cameraState && debugMode) {
       console.log('[BottomBar] Camera state received:', {
-        id: Date.now(), // Unique ID to track updates
+        id: Date.now(),
         position: { 
           x: cameraState.position.x.toFixed(2), 
           y: cameraState.position.y.toFixed(2), 
@@ -77,20 +80,23 @@ const BottomBar: React.FC<BottomBarProps> = ({
         hasTarget: !!cameraState.target
       });
     }
-  }, [cameraState]);
+  }, [cameraState, debugMode]);
 
-  // Force re-render on debug mode changes
-  const [lastDebugModeChange, setLastDebugModeChange] = React.useState(Date.now());
-  
   // Log when debug mode changes
   React.useEffect(() => {
-    console.log('BottomBar: Debug mode changed to:', debugMode);
+    if (debugMode) {
+      console.log('BottomBar: Debug mode changed to:', debugMode);
+    }
     // Force component re-render when debug mode changes
     setLastDebugModeChange(Date.now());
   }, [debugMode]);
-  
-  // Log on each render to see if debugMode is consistent
-  console.log('BottomBar rendering with debugMode:', debugMode, 'lastChange:', lastDebugModeChange);
+
+  // Conditional logging inside the component
+  React.useEffect(() => {
+    if (debugMode) {
+      console.log('BottomBar rendering with debugMode:', debugMode, 'lastChange:', lastDebugModeChange);
+    }
+  }, [debugMode, lastDebugModeChange]);
 
   // Helper function to convert position to a date
   const positionToDate = (): string => {
@@ -136,8 +142,6 @@ const BottomBar: React.FC<BottomBarProps> = ({
     }
   };
 
-  // Removed excessive logging for performance
-
   const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onAnimationSpeedChange) {
       onAnimationSpeedChange(parseFloat(e.target.value));
@@ -151,10 +155,14 @@ const BottomBar: React.FC<BottomBarProps> = ({
   };
 
   const handleDebugModeChange = () => {
-    console.log('Debug mode change requested, current value:', debugMode);
+    if (debugMode) {
+      console.log('Debug mode change requested, current value:', debugMode);
+    }
     if (onDebugModeChange) {
       const newValue = !debugMode;
-      console.log('Calling onDebugModeChange with new value:', newValue);
+      if (debugMode) {
+        console.log('Calling onDebugModeChange with new value:', newValue);
+      }
       onDebugModeChange(newValue);
     }
   };

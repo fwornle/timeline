@@ -136,54 +136,67 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       return;
     }
     
+    // Create a fresh state object with direct values to ensure clean state
+    const cleanState: CameraState = {
+      position: new Vector3(
+        Number(newState.position.x),
+        Number(newState.position.y),
+        Number(newState.position.z)
+      ),
+      target: new Vector3(
+        Number(newState.target.x),
+        Number(newState.target.y),
+        Number(newState.target.z)
+      ),
+      zoom: Number(newState.zoom)
+    };
+    
     // Update local state
-    setCameraState({
-      position: newState.position.clone(),
-      target: newState.target.clone(),
-      zoom: newState.zoom
-    });
+    setCameraState(cleanState);
     
     // Mark the source of this state change
     stateChangeSourceRef.current = source;
     
     // Notify parent components
     if (onCameraStateChange) {
-      console.log('[TimelineCamera] Sending state to parent:', {
-        id: Date.now(),
-        source,
-        position: {
-          x: newState.position.x.toFixed(2),
-          y: newState.position.y.toFixed(2),
-          z: newState.position.z.toFixed(2)
-        },
-        target: {
-          x: newState.target.x.toFixed(2),
-          y: newState.target.y.toFixed(2),
-          z: newState.target.z.toFixed(2)
-        },
-        zoom: newState.zoom.toFixed(2),
-        isClone: newState.position !== newState.position.clone()
-      });
-      onCameraStateChange(newState);
+      // Only log in debug mode to reduce console spam
+      if (debugMode) {
+        console.log('[TimelineCamera] Sending state to parent:', {
+          id: Date.now(),
+          source,
+          position: {
+            x: cleanState.position.x.toFixed(2),
+            y: cleanState.position.y.toFixed(2),
+            z: cleanState.position.z.toFixed(2)
+          },
+          target: {
+            x: cleanState.target.x.toFixed(2),
+            y: cleanState.target.y.toFixed(2),
+            z: cleanState.target.z.toFixed(2)
+          },
+          zoom: cleanState.zoom.toFixed(2)
+        });
+      }
+      onCameraStateChange(cleanState);
     }
     
     if (onCameraPositionChange) {
-      onCameraPositionChange(newState.position);
+      onCameraPositionChange(cleanState.position);
     }
     
     if (debugMode) {
       console.log(`Camera state updated from ${source}:`, {
         position: {
-          x: newState.position.x.toFixed(1),
-          y: newState.position.y.toFixed(1),
-          z: newState.position.z.toFixed(1)
+          x: cleanState.position.x.toFixed(1),
+          y: cleanState.position.y.toFixed(1),
+          z: cleanState.position.z.toFixed(1)
         },
         target: {
-          x: newState.target.x.toFixed(1),
-          y: newState.target.y.toFixed(1),
-          z: newState.target.z.toFixed(1)
+          x: cleanState.target.x.toFixed(1),
+          y: cleanState.target.y.toFixed(1),
+          z: cleanState.target.z.toFixed(1)
         },
-        zoom: newState.zoom.toFixed(1)
+        zoom: cleanState.zoom.toFixed(1)
       });
     }
   };
@@ -207,21 +220,23 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       orbitControlsRef.current.update();
     }
     
-    // Log the state that was applied to help with debugging
-    console.log(`[TimelineCamera] Applied state to camera:`, {
-      position: { 
-        x: state.position.x.toFixed(2), 
-        y: state.position.y.toFixed(2), 
-        z: state.position.z.toFixed(2) 
-      },
-      target: { 
-        x: state.target.x.toFixed(2), 
-        y: state.target.y.toFixed(2), 
-        z: state.target.z.toFixed(2) 
-      },
-      zoom: state.zoom.toFixed(2),
-      cameraDotZoom: camera.zoom.toFixed(2)
-    });
+    // Only log in debug mode to reduce console spam
+    if (debugMode) {
+      console.log(`[TimelineCamera] Applied state to camera:`, {
+        position: { 
+          x: state.position.x.toFixed(2), 
+          y: state.position.y.toFixed(2), 
+          z: state.position.z.toFixed(2) 
+        },
+        target: { 
+          x: state.target.x.toFixed(2), 
+          y: state.target.y.toFixed(2), 
+          z: state.target.z.toFixed(2) 
+        },
+        zoom: state.zoom.toFixed(2),
+        cameraDotZoom: camera.zoom.toFixed(2)
+      });
+    }
   };
   
   // Initial setup - Apply initial camera state once

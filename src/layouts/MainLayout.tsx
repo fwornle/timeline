@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import TopBar from '../components/TopBar';
 import BottomBar from '../components/BottomBar';
@@ -66,6 +66,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [timelineEndDate, setTimelineEndDate] = useState<Date | undefined>(undefined);
   const [timelineLength, setTimelineLength] = useState(100);
 
+  // Create a ref to track if we've loaded from preferences
+  const hasLoadedFromPreferencesRef = useRef(false);
+
   // Debug mode effect
   useEffect(() => {
     console.log('MainLayout: Debug mode effect triggered, debugMode is:', debugMode);
@@ -79,7 +82,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Load camera state from preferences on startup - this can be removed since we're initializing in the useState above
   useEffect(() => {
-    if (preferences.cameraState) {
+    // Only load from preferences once during initial mount
+    if (preferences.cameraState && !hasLoadedFromPreferencesRef.current) {
+      hasLoadedFromPreferencesRef.current = true;
       try {
         // Convert the stored camera state back to a proper CameraState object
         const storedState = preferences.cameraState;
@@ -111,7 +116,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         logger.error('Failed to load camera state from preferences', { error });
       }
     }
-  }, [preferences.cameraState]);
+  }, []); // Run only on mount, not when preferences changes
 
   // Update preferences when state changes
   useEffect(() => {
@@ -295,21 +300,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setCameraPosition(pos);
               },
               onCameraStateChange: (state: CameraState) => {
-                console.log('[MainLayout] Received camera state:', {
-                  id: Date.now(),
-                  position: { 
-                    x: state.position.x.toFixed(2), 
-                    y: state.position.y.toFixed(2), 
-                    z: state.position.z.toFixed(2) 
-                  },
-                  target: { 
-                    x: state.target.x.toFixed(2), 
-                    y: state.target.y.toFixed(2), 
-                    z: state.target.z.toFixed(2) 
-                  },
-                  zoom: state.zoom.toFixed(2),
-                  type: state.constructor?.name || typeof state
-                });
+                // Only log in debug mode
+                if (debugMode) {
+                  console.log('[MainLayout] Received camera state:', {
+                    id: Date.now(),
+                    position: { 
+                      x: state.position.x.toFixed(2), 
+                      y: state.position.y.toFixed(2), 
+                      z: state.position.z.toFixed(2) 
+                    },
+                    target: { 
+                      x: state.target.x.toFixed(2), 
+                      y: state.target.y.toFixed(2), 
+                      z: state.target.z.toFixed(2) 
+                    },
+                    zoom: state.zoom.toFixed(2),
+                    type: state.constructor?.name || typeof state
+                  });
+                }
                 
                 // DIRECT VALUE EXTRACTION - don't rely on Vector3 methods or properties
                 // This eliminates any issues with Vector3 object references or methods
@@ -327,20 +335,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   zoom: Number(state.zoom)
                 };
                 
-                console.log('[MainLayout] Processed camera state for BottomBar:', {
-                  id: Date.now(),
-                  position: { 
-                    x: newState.position.x.toFixed(2), 
-                    y: newState.position.y.toFixed(2), 
-                    z: newState.position.z.toFixed(2) 
-                  },
-                  target: { 
-                    x: newState.target.x.toFixed(2), 
-                    y: newState.target.y.toFixed(2), 
-                    z: newState.target.z.toFixed(2) 
-                  },
-                  zoom: newState.zoom.toFixed(2)
-                });
+                // Only log in debug mode
+                if (debugMode) {
+                  console.log('[MainLayout] Processed camera state for BottomBar:', {
+                    id: Date.now(),
+                    position: { 
+                      x: newState.position.x.toFixed(2), 
+                      y: newState.position.y.toFixed(2), 
+                      z: newState.position.z.toFixed(2) 
+                    },
+                    target: { 
+                      x: newState.target.x.toFixed(2), 
+                      y: newState.target.y.toFixed(2), 
+                      z: newState.target.z.toFixed(2) 
+                    },
+                    zoom: newState.zoom.toFixed(2)
+                  });
+                }
                 
                 // Force state update by creating a completely new state object
                 setCameraState(newState);
@@ -402,27 +413,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Debug logging for BottomBar props
   useEffect(() => {
-    console.log('BottomBar props updated:', {
-      cameraPosition: {
-        x: cameraPosition.x.toFixed(1),
-        y: cameraPosition.y.toFixed(1),
-        z: cameraPosition.z.toFixed(1)
-      },
-      cameraState: cameraState ? {
-        position: {
-          x: cameraState.position.x.toFixed(1),
-          y: cameraState.position.y.toFixed(1),
-          z: cameraState.position.z.toFixed(1)
+    // Only log in debug mode
+    if (debugMode) {
+      console.log('BottomBar props updated:', {
+        cameraPosition: {
+          x: cameraPosition.x.toFixed(1),
+          y: cameraPosition.y.toFixed(1),
+          z: cameraPosition.z.toFixed(1)
         },
-        target: {
-          x: cameraState.target.x.toFixed(1),
-          y: cameraState.target.y.toFixed(1),
-          z: cameraState.target.z.toFixed(1)
-        },
-        zoom: cameraState.zoom.toFixed(1)
-      } : 'null',
-      debugMode
-    });
+        cameraState: cameraState ? {
+          position: {
+            x: cameraState.position.x.toFixed(1),
+            y: cameraState.position.y.toFixed(1),
+            z: cameraState.position.z.toFixed(1)
+          },
+          target: {
+            x: cameraState.target.x.toFixed(1),
+            y: cameraState.target.y.toFixed(1),
+            z: cameraState.target.z.toFixed(1)
+          },
+          zoom: cameraState.zoom.toFixed(1)
+        } : 'null',
+        debugMode
+      });
+    }
   }, [cameraPosition, cameraState, debugMode]);
 
   return (
