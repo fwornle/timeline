@@ -5,6 +5,7 @@ import BottomBar from '../components/BottomBar';
 import { usePreferences } from '../context/PreferencesContext';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import type { CameraState } from '../components/three/TimelineCamera';
+import type { StoredCameraState } from '../services/storage';
 import { Vector3 } from 'three';
 
 const API_BASE_URL = 'http://localhost:3030/api/v1';
@@ -24,7 +25,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGitHistoryMocked, setIsGitHistoryMocked] = useState(false);
   const [isSpecHistoryMocked, setIsSpecHistoryMocked] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState(0);
+  const [currentPosition, setCurrentPosition] = useState(() => {
+    // Load marker position from preferences
+    return preferences.markerPosition || 0;
+  });
   const [cameraPosition, setCameraPosition] = useState({ x: -35, y: 30, z: -50 }); // Initialize with default camera position
 
   // Initialize with default camera state
@@ -120,14 +124,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Update preferences when state changes
   useEffect(() => {
+    // Convert Vector3 objects to plain objects for storage
+    const storedCameraState: StoredCameraState = {
+      position: {
+        x: cameraState.position.x,
+        y: cameraState.position.y,
+        z: cameraState.position.z
+      },
+      target: {
+        x: cameraState.target.x,
+        y: cameraState.target.y,
+        z: cameraState.target.z
+      },
+      zoom: cameraState.zoom
+    };
+
     setPreferences({
       ...preferences,
       repoUrl,
       animationSpeed,
       autoDrift,
-      cameraState: cameraState
+      cameraState: storedCameraState,
+      markerPosition: currentPosition
     });
-  }, [repoUrl, animationSpeed, autoDrift, cameraState]);
+
+    logger.info('Saved camera state and marker position to preferences', { storedCameraState, markerPosition: currentPosition });
+  }, [repoUrl, animationSpeed, autoDrift, cameraState, currentPosition]);
 
   // Handle repository URL change
   const handleRepoUrlChange = useCallback((url: string) => {
@@ -267,6 +289,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onCameraPositionChange?: (position: { x: number, y: number, z: number }) => void;
           onCameraStateChange?: (state: CameraState) => void;
           initialCameraState?: CameraState;
+          initialMarkerPosition?: number;
           onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
           onTimelineLengthChange?: (timelineLength: number) => void;
           forceReload?: boolean;
@@ -295,7 +318,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setIsGitHistoryMocked(gitMocked);
                 setIsSpecHistoryMocked(specMocked);
               },
-              onPositionChange: (pos: number) => setCurrentPosition(pos),
+              onPositionChange: (pos: number) => {
+                setCurrentPosition(pos);
+                logger.info('Marker position changed', { position: pos });
+              },
               onCameraPositionChange: (pos: { x: number, y: number, z: number }) => {
                 setCameraPosition(pos);
               },
@@ -364,6 +390,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 });
               },
               initialCameraState: cameraState,
+              initialMarkerPosition: currentPosition,
               onTimelineDatesChange: (startDate: Date, endDate: Date) => {
                 setTimelineStartDate(startDate);
                 setTimelineEndDate(endDate);

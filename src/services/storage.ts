@@ -22,6 +22,9 @@ export type Preferences = {
 
   // Camera state
   cameraState?: StoredCameraState;
+
+  // Timeline marker position
+  markerPosition?: number;
 }
 
 // Simple obfuscation (not real encryption)

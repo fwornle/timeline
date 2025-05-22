@@ -110,7 +110,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
   // Handle pointer move over the timeline to show a hover indicator
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
-    // Get the hovered position along the Z axis
+    console.log('Timeline axis pointer move', { isHovering, point: e.point });
+
+    // Get the hovered position along the Z axis (timeline runs along Z)
     const hoveredPosition = e.point.z;
 
     // Limit position to timeline bounds
@@ -118,6 +120,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     const maxPos = length / 2;
     const clampedPosition = Math.max(minPos, Math.min(maxPos, hoveredPosition));
 
+    console.log('Setting hover position:', clampedPosition);
     // Update hover position
     setHoverPosition(clampedPosition);
   };
@@ -125,9 +128,10 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   // Handle click on the timeline axis to move the marker
   const handleAxisClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    console.log('Timeline axis clicked!', { point: e.point, position: e.point.z });
+
     if (onPositionChange) {
-      // Get the clicked position along the Z axis
-      // In Three.js, the event contains a point property with the intersection point
+      // Get the clicked position along the Z axis (timeline runs along Z)
       const clickedPosition = e.point.z;
 
       // Limit position to timeline bounds
@@ -135,6 +139,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       const maxPos = length / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, clickedPosition));
 
+      console.log('Moving marker to position:', clampedPosition);
       // Update position through callback
       onPositionChange(clampedPosition);
     }
@@ -146,30 +151,47 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       <mesh
         position={[0, 2, 0]}
         rotation={[Math.PI / 2, 0, 0]}
+        renderOrder={1000}
         onClick={handleAxisClick}
-        onPointerEnter={() => setIsHovering(true)}
+        onPointerEnter={() => {
+          console.log('Timeline axis pointer enter');
+          setIsHovering(true);
+        }}
         onPointerLeave={() => {
+          console.log('Timeline axis pointer leave');
           setIsHovering(false);
           setHoverPosition(null);
         }}
         onPointerMove={handlePointerMove}
       >
-        <planeGeometry args={[10, length]} /> {/* Wider plane for easier clicking */}
+        <planeGeometry args={[25, length]} /> {/* Much wider plane for easier detection */}
         <meshBasicMaterial visible={false} transparent={true} opacity={0} />
       </mesh>
 
-      {/* Hover indicator */}
+      {/* Hover indicator - line and ball */}
       {isHovering && hoverPosition !== null && (
-        <Line
-          points={[
-            [0, 1.5, hoverPosition] as [number, number, number],
-            [0, 2.5, hoverPosition] as [number, number, number],
-          ]}
-          color="#aaaaaa"
-          lineWidth={2}
-          transparent
-          opacity={0.5}
-        />
+        <group renderOrder={200}>
+          {/* Hover line indicator */}
+          <Line
+            points={[
+              [0, 0, hoverPosition] as [number, number, number],
+              [0, 3, hoverPosition] as [number, number, number],
+            ]}
+            color="#ffaa00"
+            lineWidth={5}
+            transparent
+            opacity={0.9}
+          />
+          {/* Hover ball indicator */}
+          <mesh position={[0, 3.5, hoverPosition]} renderOrder={201}>
+            <sphereGeometry args={[0.25, 12, 12]} />
+            <meshBasicMaterial
+              color="#ffaa00"
+              transparent
+              opacity={0.8}
+            />
+          </mesh>
+        </group>
       )}
 
       <Line

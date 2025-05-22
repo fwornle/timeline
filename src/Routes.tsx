@@ -15,6 +15,7 @@ interface AppRoutesProps {
     onCameraPositionChange?: (position: Vector3) => void;
     onCameraStateChange?: (state: CameraState) => void;
     initialCameraState?: CameraState;
+    initialMarkerPosition?: number;
     onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
     onTimelineLengthChange?: (timelineLength: number) => void;
     forceReload?: boolean;

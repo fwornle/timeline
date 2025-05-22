@@ -59,13 +59,13 @@ const calculateViewAllPosition = (_target: Vector3, events: TimelineEvent[] = []
 // Calculate a position that focuses on the current time point
 const calculateFocusPosition = (target: Vector3): Vector3 => {
   // Position camera to look along the time axis diagonally - closer to axis, lower height
-  // This creates a diagonal view where the axis runs diagonally across the screen
+  // Position in front of the marker so we can see the cards from their front
   const distance = 15; // Closer distance to the axis
 
   return new Vector3(
     -distance * 0.4,  // Closer to the axis (less side offset)
     distance * 0.4,   // Lower height - closer to the timeline level
-    target.z - 8      // Position behind the target to look along the axis
+    target.z + 8      // Position in front of the target to see cards from front
   );
 };
 
@@ -362,18 +362,27 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       });
     }
     else if (focusCurrentMode) {
-      // Focus on current time point
-      const newPosition = calculateFocusPosition(target);
+      // Focus on current time point with 4x zoom
+      const desiredZoom = 4.0;
+
+      // Get the direction from the basic focus position
+      const basicFocusPosition = calculateFocusPosition(target);
+      const direction = basicFocusPosition.clone().sub(target).normalize();
+
+      // Calculate the position that will give us exactly 4x zoom
+      const newPosition = getPositionForZoom(target, direction, desiredZoom);
 
       updateCameraState({
         position: newPosition,
         target: target.clone(),
-        zoom: camera.zoom
+        zoom: desiredZoom // This will be recalculated but should match
       }, 'mode');
 
       logger.info('Setting camera to focus mode', {
         position: { x: newPosition.x, y: newPosition.y, z: newPosition.z },
-        target: { x: target.x, y: target.y, z: target.z }
+        target: { x: target.x, y: target.y, z: target.z },
+        desiredZoom,
+        calculatedDistance: newPosition.distanceTo(target)
       });
     }
   }, [viewAllMode, focusCurrentMode, target, initialized, events]);

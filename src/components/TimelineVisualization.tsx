@@ -25,6 +25,7 @@ interface TimelineVisualizationProps {
   onCameraPositionChange?: (position: Vector3) => void;
   onCameraStateChange?: (state: CameraState) => void;
   initialCameraState?: CameraState;
+  initialMarkerPosition?: number;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
@@ -100,6 +101,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   onCameraPositionChange,
   onCameraStateChange,
   initialCameraState,
+  initialMarkerPosition = 0,
   forceReload = false,
   viewAllMode: externalViewAllMode = false,
   focusCurrentMode: externalFocusCurrentMode = false,
@@ -191,6 +193,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   } = useTimelineAnimation({
     enableAutoScroll: autoDrift,
     initialScrollSpeed: animationSpeed,
+    initialMarkerPosition: initialMarkerPosition,
   });
 
   // Determine which view to show based on state - with stable error handling

@@ -13,6 +13,7 @@ interface HomeProps {
   onCameraPositionChange?: (position: Vector3) => void;
   onCameraStateChange?: (state: CameraState) => void;
   initialCameraState?: CameraState;
+  initialMarkerPosition?: number;
   onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
   onTimelineLengthChange?: (timelineLength: number) => void;
   forceReload?: boolean;
@@ -29,6 +30,7 @@ const Home: React.FC<HomeProps> = ({
   onCameraPositionChange,
   onCameraStateChange,
   initialCameraState,
+  initialMarkerPosition = 0,
   onTimelineDatesChange,
   onTimelineLengthChange,
   forceReload = false,
@@ -105,6 +107,7 @@ const Home: React.FC<HomeProps> = ({
         focusCurrentMode={focusCurrentMode}
         debugMode={debugMode}
         initialCameraState={initialCameraState}
+        initialMarkerPosition={initialMarkerPosition}
         onCameraPositionChange={onCameraPositionChange}
         onCameraStateChange={onCameraStateChange}
         onDataLoaded={(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked) => {

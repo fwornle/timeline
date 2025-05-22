@@ -16,6 +16,7 @@ interface TimelineAnimationConfig {
   enableAutoScroll?: boolean;
   initialScrollSpeed?: number;
   springConfig?: SpringConfig;
+  initialMarkerPosition?: number;
 }
 
 export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
@@ -23,6 +24,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     enableAutoScroll = false,
     initialScrollSpeed = DEFAULTS.SCROLL.SPEED,
     springConfig = SPRING_CONFIG.GENTLE,
+    initialMarkerPosition = 0,
   } = config;
 
   // Animation state
@@ -31,7 +33,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     scrollSpeed: initialScrollSpeed,
     selectedCardId: null,
     hoveredCardId: null,
-    cameraTarget: new THREE.Vector3(0, 0, 0),
+    cameraTarget: new THREE.Vector3(0, 0, initialMarkerPosition),
   });
 
   // Animation frame tracking
