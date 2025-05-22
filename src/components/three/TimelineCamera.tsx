@@ -6,17 +6,7 @@ import { useLogger } from '../../utils/logging/hooks/useLogger';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
-// Define DEBUG_POSITIONS array with improved positions for better timeline viewing
-const DEBUG_POSITIONS = [
-  { position: new Vector3(-50, 70, -50), name: "Preferred View" },      // Preferred view from above with timeline from top-left to bottom-right
-  { position: new Vector3(-40, 35, -30), name: "Timeline Overview" },   // Good position to see entire timeline
-  { position: new Vector3(-30, 25, 0), name: "Timeline Middle" },       // View from the middle
-  { position: new Vector3(-20, 15, 30), name: "Timeline End" },         // View from the end
-  { position: new Vector3(-35, 30, -50), name: "Timeline Start" },      // View from the start
-  { position: new Vector3(0, 50, 0), name: "Top Down" },                // Bird's eye view
-  { position: new Vector3(-50, 40, -40), name: "Far Overview" }         // Far back view to see everything
-];
-
+// Define camera states interface
 export interface CameraState {
   position: Vector3;
   target: Vector3;
@@ -89,419 +79,271 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   initialCameraState,
 }) => {
   const { camera } = useThree();
-  const [initialPositionSet, setInitialPositionSet] = useState(false);
   const logger = useLogger({ component: 'TimelineCamera', topic: 'ui' });
-  const lastViewModeRef = useRef({ viewAll: false, focusCurrent: false });
-  const userControlledRef = useRef(false);
   const orbitControlsRef = useRef<OrbitControlsImpl>(null);
-  const lastCameraStateRef = useRef<CameraState | null>(null);
-  const originalPositionRef = useRef<Vector3 | null>(null);
   
-  // Add flags to track state origin and prevent oscillation
-  const initialStateAppliedRef = useRef(false);
-  const lastUpdateSourceRef = useRef<'initial' | 'user' | 'frame' | 'view' | null>(null);
-  const preventUpdateRef = useRef(false);
+  // Create a single source of truth for camera state
+  const [cameraState, setCameraState] = useState<CameraState>(() => {
+    // Initialize with initialCameraState if provided, otherwise use default
+    if (initialCameraState) {
+      // Create a new state object with pristine Vector3 instances
+      return {
+        position: new Vector3(
+          Number(initialCameraState.position.x),
+          Number(initialCameraState.position.y),
+          Number(initialCameraState.position.z)
+        ),
+        target: new Vector3(
+          Number(initialCameraState.target.x),
+          Number(initialCameraState.target.y),
+          Number(initialCameraState.target.z)
+        ),
+        zoom: Number(initialCameraState.zoom)
+      };
+    }
+    
+    // Default initial state
+    return {
+      position: new Vector3(-35, 30, -50),
+      target: target.clone() || new Vector3(0, 0, 0),
+      zoom: 1.0
+    };
+  });
   
-  // Log state changes with source
-  const logCameraStateChange = (state: CameraState, source: 'initial' | 'user' | 'frame' | 'view') => {
-    lastUpdateSourceRef.current = source;
+  // Track when initialization is complete
+  const [initialized, setInitialized] = useState(false);
+  
+  // Track the source of state changes to prevent loops
+  const stateChangeSourceRef = useRef<'init' | 'controls' | 'mode' | 'frame' | null>(null);
+  
+  // Track user interaction
+  const userInteractingRef = useRef(false);
+  
+  // Helper to update camera state in a single place
+  const updateCameraState = (
+    newState: CameraState, 
+    source: 'init' | 'controls' | 'mode' | 'frame'
+  ) => {
+    // Skip updates from specific sources during initialization
+    if (!initialized && source !== 'init') return;
+    
+    // Skip redundant updates (no actual change)
+    const positionEqual = newState.position.distanceTo(cameraState.position) < 0.1;
+    const targetEqual = newState.target.distanceTo(cameraState.target) < 0.1;
+    const zoomEqual = Math.abs(newState.zoom - cameraState.zoom) < 0.05;
+    
+    if (positionEqual && targetEqual && zoomEqual) {
+      return;
+    }
+    
+    // Update local state
+    setCameraState({
+      position: newState.position.clone(),
+      target: newState.target.clone(),
+      zoom: newState.zoom
+    });
+    
+    // Mark the source of this state change
+    stateChangeSourceRef.current = source;
+    
+    // Notify parent components
+    if (onCameraStateChange) {
+      console.log('[TimelineCamera] Sending state to parent:', {
+        id: Date.now(),
+        source,
+        position: {
+          x: newState.position.x.toFixed(2),
+          y: newState.position.y.toFixed(2),
+          z: newState.position.z.toFixed(2)
+        },
+        target: {
+          x: newState.target.x.toFixed(2),
+          y: newState.target.y.toFixed(2),
+          z: newState.target.z.toFixed(2)
+        },
+        zoom: newState.zoom.toFixed(2),
+        isClone: newState.position !== newState.position.clone()
+      });
+      onCameraStateChange(newState);
+    }
+    
+    if (onCameraPositionChange) {
+      onCameraPositionChange(newState.position);
+    }
     
     if (debugMode) {
       console.log(`Camera state updated from ${source}:`, {
         position: {
-          x: state.position.x.toFixed(1),
-          y: state.position.y.toFixed(1),
-          z: state.position.z.toFixed(1)
+          x: newState.position.x.toFixed(1),
+          y: newState.position.y.toFixed(1),
+          z: newState.position.z.toFixed(1)
         },
         target: {
-          x: state.target.x.toFixed(1),
-          y: state.target.y.toFixed(1),
-          z: state.target.z.toFixed(1)
+          x: newState.target.x.toFixed(1),
+          y: newState.target.y.toFixed(1),
+          z: newState.target.z.toFixed(1)
         },
-        zoom: state.zoom.toFixed(1)
+        zoom: newState.zoom.toFixed(1)
       });
     }
   };
-
-  // Debug the orbit controls reference
-  useEffect(() => {
-    if (debugMode && orbitControlsRef.current) {
-      logger.debug('OrbitControls reference set', {
-        target: orbitControlsRef.current.target,
-        hasRef: !!orbitControlsRef.current
-      });
-    }
-  }, [orbitControlsRef.current, debugMode, logger]);
-
-  // Handle initial camera setup - only once
-  useEffect(() => {
-    if (initialPositionSet || initialStateAppliedRef.current) return;
+  
+  // Apply camera state to Three.js camera and controls
+  const applyCameraState = (state: CameraState) => {
+    // Apply position
+    camera.position.copy(state.position);
     
-    // Mark as applied to prevent re-initialization
-    initialStateAppliedRef.current = true;
-    console.log('Applying initial camera state - FIRST TIME ONLY');
-
-    // Use initialCameraState if provided, otherwise use default position
-    if (initialCameraState) {
-      // Temporarily prevent updates during initialization
-      preventUpdateRef.current = true;
-      
-      // Set camera position
-      camera.position.copy(initialCameraState.position);
-
-      // Set orbit controls target
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(initialCameraState.target);
-      }
-
-      // Set camera look direction
-      camera.lookAt(initialCameraState.target);
-
-      // Set zoom level
-      camera.zoom = initialCameraState.zoom;
-      camera.updateProjectionMatrix();
-
-      // Update controls if available
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.update();
-      }
-
-      // Update last position and target references
-      lastPositionRef.current.copy(camera.position);
-      lastTargetRef.current.copy(initialCameraState.target);
-
-      // Update last camera state reference
-      lastCameraStateRef.current = initialCameraState;
-      
-      // Log the source of this update
-      logCameraStateChange(initialCameraState, 'initial');
-
-      // Notify parent components of the applied state
-      if (onCameraPositionChange) {
-        onCameraPositionChange(initialCameraState.position);
-      }
-
-      if (onCameraStateChange) {
-        onCameraStateChange(initialCameraState);
-      }
-
-      logger.info('Initial camera state restored from saved settings', {
-        position: {
-          x: initialCameraState.position.x,
-          y: initialCameraState.position.y,
-          z: initialCameraState.position.z
-        },
-        target: {
-          x: initialCameraState.target.x,
-          y: initialCameraState.target.y,
-          z: initialCameraState.target.z
-        },
-        zoom: initialCameraState.zoom
-      });
-      
-      // Re-enable updates after a brief delay
-      setTimeout(() => {
-        preventUpdateRef.current = false;
-      }, 500);
-    } else {
-      // Set initial camera position to look at the timeline from above
-      // This position shows the timeline stretching from top left to bottom right corner
-      // with cards facing into the camera
-      const initialPosition = new Vector3(-35, 30, -50);
-      camera.position.copy(initialPosition);
-
-      // Use the provided target or default to origin
-      const initialTarget = target || new Vector3(0, 0, 0);
-      camera.lookAt(initialTarget);
-
-      // Update the orbit controls target if available
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(initialTarget);
-        orbitControlsRef.current.update();
-      }
-
-      // Update last target reference
-      lastTargetRef.current.copy(initialTarget);
-      
-      // Create and log initial state
-      const initialState: CameraState = {
-        position: initialPosition.clone(),
-        target: initialTarget.clone(),
-        zoom: camera.zoom
-      };
-      
-      // Log the source of this update
-      logCameraStateChange(initialState, 'initial');
-      
-      // Update the state reference
-      lastCameraStateRef.current = initialState;
-
-      logger.info('Initial camera position set to default', {
-        position: { x: initialPosition.x, y: initialPosition.y, z: initialPosition.z },
-        target: { x: initialTarget.x, y: initialTarget.y, z: initialTarget.z }
-      });
+    // Apply target to orbit controls
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.target.copy(state.target);
     }
-
-    setInitialPositionSet(true);
-  }, [camera, initialCameraState, initialPositionSet, logger]);
-
+    
+    // Apply zoom
+    camera.zoom = state.zoom;
+    camera.updateProjectionMatrix();
+    
+    // Update controls if available
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.update();
+    }
+  };
+  
+  // Initial setup - Apply initial camera state once
+  useEffect(() => {
+    if (initialized) return;
+    
+    // Apply the initial state to the camera
+    applyCameraState(cameraState);
+    
+    // Mark as initialized
+    setInitialized(true);
+    
+    logger.info('Initial camera state applied', {
+      position: {
+        x: cameraState.position.x,
+        y: cameraState.position.y,
+        z: cameraState.position.z
+      },
+      target: {
+        x: cameraState.target.x,
+        y: cameraState.target.y,
+        z: cameraState.target.z
+      },
+      zoom: cameraState.zoom
+    });
+  }, [cameraState, initialized]);
+  
+  // Update camera when cameraState changes (only after initialization)
+  useEffect(() => {
+    if (!initialized) return;
+    
+    // Apply the state
+    applyCameraState(cameraState);
+    
+  }, [cameraState, initialized]);
+  
   // Handle view mode changes (viewAllMode or focusCurrentMode)
   useEffect(() => {
-    // Don't run this during initialization phase or if updates are prevented
-    if (!initialPositionSet || preventUpdateRef.current) return;
+    if (!initialized) return;
     
-    // Check if view mode has changed from the previous state
-    const viewModeChanged =
-      viewAllMode !== lastViewModeRef.current.viewAll ||
-      focusCurrentMode !== lastViewModeRef.current.focusCurrent;
-      
-    if (!viewModeChanged) return;
-
+    // Skip if user is currently interacting
+    if (userInteractingRef.current) return;
+    
     if (viewAllMode) {
       // View all events
-      const newCameraPosition = calculateViewAllPosition(target, events);
-      camera.position.copy(newCameraPosition);
-      camera.lookAt(target);
-
-      // Update orbit controls target
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(target);
-        orbitControlsRef.current.update();
-      }
-
-      // Update last target reference
-      lastTargetRef.current.copy(target);
-
-      userControlledRef.current = false;
+      const newPosition = calculateViewAllPosition(target, events);
       
-      // Create and log view mode state
-      const viewState: CameraState = {
-        position: newCameraPosition.clone(),
+      updateCameraState({
+        position: newPosition,
         target: target.clone(),
         zoom: camera.zoom
-      };
+      }, 'mode');
       
-      // Log the source of this update
-      logCameraStateChange(viewState, 'view');
-      
-      // Update the state reference
-      lastCameraStateRef.current = viewState;
-
       logger.info('Setting camera to view all mode', {
-        position: { x: newCameraPosition.x, y: newCameraPosition.y, z: newCameraPosition.z },
-        target: { x: target.x, y: target.y, z: target.z },
-        changed: viewModeChanged
+        position: { x: newPosition.x, y: newPosition.y, z: newPosition.z },
+        target: { x: target.x, y: target.y, z: target.z }
       });
     }
     else if (focusCurrentMode) {
       // Focus on current time point
-      const newCameraPosition = calculateFocusPosition(target);
-      camera.position.copy(newCameraPosition);
-      camera.lookAt(target);
-
-      // Update orbit controls target
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(target);
-        orbitControlsRef.current.update();
-      }
-
-      // Update last target reference
-      lastTargetRef.current.copy(target);
-
-      userControlledRef.current = false;
+      const newPosition = calculateFocusPosition(target);
       
-      // Create and log focus mode state
-      const focusState: CameraState = {
-        position: newCameraPosition.clone(),
+      updateCameraState({
+        position: newPosition,
         target: target.clone(),
         zoom: camera.zoom
+      }, 'mode');
+      
+      logger.info('Setting camera to focus mode', {
+        position: { x: newPosition.x, y: newPosition.y, z: newPosition.z },
+        target: { x: target.x, y: target.y, z: target.z }
+      });
+    }
+  }, [viewAllMode, focusCurrentMode, target, initialized, events]);
+  
+  // Update when target changes (for timeline movement)
+  useEffect(() => {
+    if (!initialized) return;
+    
+    // Skip if user is currently interacting or in specific view modes
+    if (userInteractingRef.current || viewAllMode || focusCurrentMode) return;
+    
+    // Only update the target component of the state
+    updateCameraState({
+      ...cameraState,
+      target: target.clone()
+    }, 'frame');
+    
+  }, [target, initialized]);
+  
+  // Monitor camera changes from OrbitControls using useFrame
+  useFrame(() => {
+    if (!initialized || userInteractingRef.current) return;
+    
+    // Skip if the source was controls (to avoid feedback loops)
+    if (stateChangeSourceRef.current === 'controls') {
+      stateChangeSourceRef.current = null;
+      return;
+    }
+    
+    // Check for changes directly from Three.js camera/controls
+    const currentPosition = camera.position.clone();
+    const currentTarget = orbitControlsRef.current?.target.clone() || target.clone();
+    const currentZoom = camera.zoom;
+    
+    // Detect changes - use more sensitive thresholds for zoom and target
+    const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.2;
+    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.1;
+    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.01;
+    
+    // Only update state if actual changes detected
+    if (positionChanged || targetChanged || zoomChanged) {
+      // Create new Vector3 instances to avoid reference issues
+      const newState: CameraState = {
+        position: new Vector3(
+          currentPosition.x,
+          currentPosition.y,
+          currentPosition.z
+        ),
+        target: new Vector3(
+          currentTarget.x,
+          currentTarget.y,
+          currentTarget.z
+        ),
+        zoom: currentZoom
       };
       
-      // Log the source of this update
-      logCameraStateChange(focusState, 'view');
-      
-      // Update the state reference
-      lastCameraStateRef.current = focusState;
-
-      logger.info('Setting camera to focus mode', {
-        position: { x: newCameraPosition.x, y: newCameraPosition.y, z: newCameraPosition.z },
-        target: { x: target.x, y: target.y, z: target.z },
-        changed: viewModeChanged
-      });
-    }
-
-    // Update the last view mode
-    lastViewModeRef.current = { viewAll: viewAllMode, focusCurrent: focusCurrentMode };
-  }, [viewAllMode, focusCurrentMode, target, camera, logger, events, initialPositionSet]);
-
-  // Track camera state changes and notify parent component
-  const lastPositionRef = useRef(new Vector3());
-
-  // Track the last frame time to limit update frequency
-  const lastUpdateTimeRef = useRef(0);
-  const lastTargetRef = useRef(new Vector3());
-
-  // Optimize the useFrame hook to reduce console spam
-  useFrame(({ clock }) => {
-    // Skip camera updates completely in debug mode or during initialization
-    if (debugMode || !initialPositionSet || preventUpdateRef.current) {
-      return; // Let the debug cycling handle camera positioning
-    }
-    
-    // Only update at most 5 times per second to reduce console spam
-    const currentTime = clock.getElapsedTime();
-    const shouldUpdate = currentTime - lastUpdateTimeRef.current > 0.5; // 500ms between updates - increased from 200ms
-    
-    if (!shouldUpdate) {
-      return; // Skip this frame to reduce overhead
-    }
-    
-    // Update last update time
-    lastUpdateTimeRef.current = currentTime;
-
-    // Get the current target from OrbitControls
-    let currentTarget: Vector3;
-
-    if (orbitControlsRef.current) {
-      // Use the orbit controls target if available
-      currentTarget = new Vector3().copy(orbitControlsRef.current.target);
-    } else if (target) {
-      // Fallback to the provided target prop if orbit controls not available
-      currentTarget = new Vector3().copy(target);
-
-      if (debugMode && shouldUpdate) {
-        logger.debug('Using fallback target (no orbit controls)', {
-          target: { x: target.x, y: target.y, z: target.z }
-        });
-      }
-    } else {
-      // Last resort fallback
-      currentTarget = new Vector3(0, 0, 0);
-
-      if (debugMode && shouldUpdate) {
-        logger.debug('Using default target (0,0,0) - no valid target available');
-      }
-    }
-
-    // Check if position, target, or zoom has changed
-    const positionChanged = camera.position.distanceTo(lastPositionRef.current) > 0.5; // Increased threshold
-    const targetChanged = currentTarget.distanceTo(lastTargetRef.current) > 0.5; // Increased threshold
-    const zoomChanged = Math.abs(camera.zoom - (lastCameraStateRef.current?.zoom || 1)) > 0.1; // Increased threshold
-
-    // Check for user interaction 
-    const userInteracted = userControlledRef.current;
-
-    // Log changes less frequently to avoid flooding console
-    const shouldLog = debugMode && shouldUpdate && 
-                     (positionChanged || targetChanged || zoomChanged || userInteracted);
-                     
-    if (shouldLog) {
-      // Using console.debug instead of console.log for less intrusive logging
-      console.debug('Camera state change detected in useFrame:', {
-        positionChanged,
-        targetChanged,
-        zoomChanged,
-        userInteracted,
-        position: { 
-          x: camera.position.x.toFixed(2), 
-          y: camera.position.y.toFixed(2), 
-          z: camera.position.z.toFixed(2) 
-        },
-        target: { 
-          x: currentTarget.x.toFixed(2), 
-          y: currentTarget.y.toFixed(2), 
-          z: currentTarget.z.toFixed(2) 
-        },
-        zoom: camera.zoom.toFixed(2)
-      });
-    }
-
-    // Only update state if significant changes detected or user interacted
-    if ((positionChanged || targetChanged || zoomChanged || userInteracted)) {
-      // Reset the user interaction flag after applying the update
-      if (userInteracted) {
-        userControlledRef.current = false;
-      }
-
-      // Create a new Vector3 to avoid reference issues
-      const currentPosition = new Vector3(
-        Math.round(camera.position.x * 100) / 100,
-        Math.round(camera.position.y * 100) / 100,
-        Math.round(camera.position.z * 100) / 100
-      );
-
-      // Round target values for consistency
-      const roundedTarget = new Vector3(
-        Math.round(currentTarget.x * 100) / 100,
-        Math.round(currentTarget.y * 100) / 100,
-        Math.round(currentTarget.z * 100) / 100
-      );
-
-      // Get current zoom level
-      const currentZoom = Math.round(camera.zoom * 100) / 100;
-
-      // Check if the new state is significantly different from the last sent state
-      // to avoid small oscillating updates
-      const significantChange = !lastCameraStateRef.current ||
-        currentPosition.distanceTo(lastCameraStateRef.current.position) > 1.0 || // Increased from 0.1
-        roundedTarget.distanceTo(lastCameraStateRef.current.target) > 1.0 || // Increased from 0.1
-        Math.abs(currentZoom - lastCameraStateRef.current.zoom) > 0.2; // Increased from 0.1
-
-      if ((significantChange || userInteracted) && lastUpdateSourceRef.current !== 'initial') {
-        // Create full camera state
-        const cameraState: CameraState = {
-          position: currentPosition,
-          target: roundedTarget,
-          zoom: currentZoom
-        };
-
-        // Update last position and target references
-        lastPositionRef.current.copy(camera.position);
-        lastTargetRef.current.copy(currentTarget);
-
-        // Update last camera state reference
-        lastCameraStateRef.current = cameraState;
-        
-        // Log the source of this update
-        logCameraStateChange(cameraState, 'frame');
-
-        // Call position change callback if provided
-        if (onCameraPositionChange) {
-          onCameraPositionChange(currentPosition);
-        }
-
-        // Call state change callback if provided
-        if (onCameraStateChange) {
-          onCameraStateChange(cameraState);
-        }
-      }
+      updateCameraState(newState, 'frame');
     }
   });
-
-  // Ensure the target is properly initialized
-  useEffect(() => {
-    if (orbitControlsRef.current && target) {
-      // Update the orbit controls target when the target prop changes
-      orbitControlsRef.current.target.copy(target);
-
-      // Also update the last target reference
-      lastTargetRef.current.copy(target);
-
-      if (debugMode) {
-        logger.debug('Updated orbit controls target from prop', {
-          target: { x: target.x, y: target.y, z: target.z }
-        });
-      }
-    }
-  }, [target, debugMode, logger]);
-
+  
   return (
     <OrbitControls
       ref={orbitControlsRef}
       makeDefault
-      target={target}
+      target={cameraState.target}
       enablePan={!debugMode}
-      enableZoom={!debugMode}
+      enableZoom={true}
       enableRotate={!debugMode}
       minDistance={5}
       maxDistance={150}
@@ -516,68 +358,71 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       panSpeed={0.8}
       autoRotate={false}
       onStart={() => {
-        // Set user controlled flag at start of interaction
-        userControlledRef.current = true;
+        userInteractingRef.current = true;
         
-        console.log('User interaction started with OrbitControls');
         if (debugMode) {
-          logger.debug('TimelineCamera: User interaction started');
+          console.log('User interaction started with OrbitControls');
         }
       }}
       onChange={() => {
-        // Flag that user is controlling camera
-        userControlledRef.current = true;
+        if (!userInteractingRef.current) return;
         
-        // Don't trigger frequent updates during drag - just mark as user controlled
-        // The useFrame hook will handle the updates at a reasonable rate
-      }}
-      onEnd={() => {
-        // Ensure final state is captured at end of interaction
-        console.log('User interaction ended with OrbitControls');
-        if (onCameraStateChange && orbitControlsRef.current) {
-          const currentPosition = new Vector3(
-            Math.round(camera.position.x * 100) / 100,
-            Math.round(camera.position.y * 100) / 100,
-            Math.round(camera.position.z * 100) / 100
-          );
-
-          const currentTarget = new Vector3().copy(orbitControlsRef.current.target);
-          currentTarget.x = Math.round(currentTarget.x * 100) / 100;
-          currentTarget.y = Math.round(currentTarget.y * 100) / 100;
-          currentTarget.z = Math.round(currentTarget.z * 100) / 100;
-
-          // Get current zoom level
-          const currentZoom = Math.round(camera.zoom * 100) / 100;
-
-          const cameraState: CameraState = {
+        // Get current camera state - use direct property access to ensure fresh values
+        const currentPosition = new Vector3(
+          camera.position.x,
+          camera.position.y,
+          camera.position.z
+        );
+        
+        const currentTarget = orbitControlsRef.current ? new Vector3(
+          orbitControlsRef.current.target.x,
+          orbitControlsRef.current.target.y,
+          orbitControlsRef.current.target.z
+        ) : new Vector3(0, 0, 0);
+        
+        const currentZoom = camera.zoom;
+        
+        // Only send occasional updates during continuous interaction
+        if (Date.now() % 3 === 0) { // Throttle updates
+          const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,
             zoom: currentZoom
           };
           
-          // Log the final camera state
-          console.log('Final camera state from user interaction:', {
-            position: { x: currentPosition.x, y: currentPosition.y, z: currentPosition.z },
-            target: { x: currentTarget.x, y: currentTarget.y, z: currentTarget.z },
-            zoom: currentZoom
-          });
-          
-          if (debugMode) {
-            logger.debug('TimelineCamera: User interaction ended', {
-              position: { x: currentPosition.x, y: currentPosition.y, z: currentPosition.z },
-              target: { x: currentTarget.x, y: currentTarget.y, z: currentTarget.z },
-              zoom: currentZoom
-            });
-          }
-          
-          // Update last state references
-          lastPositionRef.current.copy(currentPosition);
-          lastTargetRef.current.copy(currentTarget);
-          lastCameraStateRef.current = cameraState;
-
-          // Notify parent components with final state
-          console.log('Calling onCameraStateChange from onEnd handler');
-          onCameraStateChange(cameraState);
+          updateCameraState(newState, 'controls');
+        }
+      }}
+      onEnd={() => {
+        // Get final camera state after interaction - create fresh Vector3 instances
+        const currentPosition = new Vector3(
+          camera.position.x,
+          camera.position.y,
+          camera.position.z
+        );
+        
+        const currentTarget = orbitControlsRef.current ? new Vector3(
+          orbitControlsRef.current.target.x,
+          orbitControlsRef.current.target.y,
+          orbitControlsRef.current.target.z
+        ) : new Vector3(0, 0, 0);
+        
+        const currentZoom = camera.zoom;
+        
+        // Ensure a final update with precise values
+        const finalState: CameraState = {
+          position: currentPosition,
+          target: currentTarget,
+          zoom: currentZoom
+        };
+        
+        updateCameraState(finalState, 'controls');
+        
+        // Reset interaction flag
+        userInteractingRef.current = false;
+        
+        if (debugMode) {
+          console.log('User interaction ended with OrbitControls');
         }
       }}
     />

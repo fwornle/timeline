@@ -295,7 +295,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 setCameraPosition(pos);
               },
               onCameraStateChange: (state: CameraState) => {
-                console.log('MainLayout received camera state change:', {
+                console.log('[MainLayout] Received camera state:', {
+                  id: Date.now(),
                   position: { 
                     x: state.position.x.toFixed(2), 
                     y: state.position.y.toFixed(2), 
@@ -306,35 +307,51 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     y: state.target.y.toFixed(2), 
                     z: state.target.z.toFixed(2) 
                   },
-                  zoom: state.zoom.toFixed(2)
+                  zoom: state.zoom.toFixed(2),
+                  type: state.constructor?.name || typeof state,
+                  isVectorClone: state.position !== state.position.clone()
                 });
                 
-                // Prevent oscillation by checking if the new state is significantly different
-                if (cameraState) {
-                  const positionDiff = Math.sqrt(
-                    Math.pow(state.position.x - cameraState.position.x, 2) +
-                    Math.pow(state.position.y - cameraState.position.y, 2) +
-                    Math.pow(state.position.z - cameraState.position.z, 2)
-                  );
-                  
-                  const targetDiff = Math.sqrt(
-                    Math.pow(state.target.x - cameraState.target.x, 2) +
-                    Math.pow(state.target.y - cameraState.target.y, 2) +
-                    Math.pow(state.target.z - cameraState.target.z, 2)
-                  );
-                  
-                  const zoomDiff = Math.abs(state.zoom - cameraState.zoom);
-                  
-                  // Only update if significant change or in debug mode
-                  if (positionDiff > 0.2 || targetDiff > 0.2 || zoomDiff > 0.1 || debugMode) {
-                    setCameraState(state);
-                    console.log('Camera state updated due to significant change');
-                  }
-                } else {
-                  // Always update if no previous state
-                  setCameraState(state);
-                  console.log('Initial camera state set');
-                }
+                // Directly create a new state object with pristine Vector3 instances
+                // This ensures no reference issues or unexpected behavior
+                const newState: CameraState = {
+                  position: new Vector3(
+                    Number(state.position.x), 
+                    Number(state.position.y), 
+                    Number(state.position.z)
+                  ),
+                  target: new Vector3(
+                    Number(state.target.x), 
+                    Number(state.target.y), 
+                    Number(state.target.z)
+                  ),
+                  zoom: Number(state.zoom)
+                };
+                
+                console.log('[MainLayout] Created new state:', {
+                  id: Date.now(),
+                  position: { 
+                    x: newState.position.x.toFixed(2), 
+                    y: newState.position.y.toFixed(2), 
+                    z: newState.position.z.toFixed(2) 
+                  },
+                  target: { 
+                    x: newState.target.x.toFixed(2), 
+                    y: newState.target.y.toFixed(2), 
+                    z: newState.target.z.toFixed(2) 
+                  },
+                  zoom: newState.zoom.toFixed(2)
+                });
+                
+                // Always update the camera state - no filtering to avoid missing updates
+                setCameraState(newState);
+                
+                // Also update the legacy camera position for backwards compatibility
+                setCameraPosition({
+                  x: state.position.x,
+                  y: state.position.y,
+                  z: state.position.z
+                });
               },
               initialCameraState: cameraState,
               onTimelineDatesChange: (startDate: Date, endDate: Date) => {

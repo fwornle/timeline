@@ -425,6 +425,23 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             }
           }}
           onCameraStateChange={(state) => {
+            console.log('[TimelineVisualization] Passing camera state:', {
+              id: Date.now(),
+              position: { 
+                x: state.position.x.toFixed(2), 
+                y: state.position.y.toFixed(2), 
+                z: state.position.z.toFixed(2) 
+              },
+              target: { 
+                x: state.target.x.toFixed(2), 
+                y: state.target.y.toFixed(2), 
+                z: state.target.z.toFixed(2) 
+              },
+              zoom: state.zoom.toFixed(2),
+              targetIsZero: state.target.x === 0 && state.target.y === 0 && state.target.z === 0,
+              zoomIsOne: state.zoom === 1
+            });
+            
             if (onCameraStateChange) {
               onCameraStateChange(state);
             }

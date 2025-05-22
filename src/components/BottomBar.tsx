@@ -2,6 +2,7 @@ import React from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
 import type { CameraState } from './three/TimelineCamera';
+import { Vector3 } from 'three';
 
 interface BottomBarProps {
   gitCount?: number;
@@ -57,7 +58,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
   // Log when camera state changes (for debugging)
   React.useEffect(() => {
     if (cameraState) {
-      console.log('BottomBar received updated camera state:', {
+      console.log('[BottomBar] Camera state received:', {
+        id: Date.now(), // Unique ID to track updates
         position: { 
           x: cameraState.position.x.toFixed(2), 
           y: cameraState.position.y.toFixed(2), 
@@ -68,7 +70,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
           y: cameraState.target.y.toFixed(2), 
           z: cameraState.target.z.toFixed(2) 
         },
-        zoom: cameraState.zoom.toFixed(2)
+        zoom: cameraState.zoom.toFixed(2),
+        isZoomDefault: cameraState.zoom === 1,
+        isTargetZero: cameraState.target.x === 0 && cameraState.target.y === 0 && cameraState.target.z === 0
       });
     }
   }, [cameraState]);
@@ -195,7 +199,21 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   }}
                   onClick={() => {
                     if (cameraState && onSaveCameraState) {
-                      onSaveCameraState(cameraState);
+                      // Create a new camera state object with pristine Vector3 instances
+                      const stateToSave: CameraState = {
+                        position: new Vector3(
+                          cameraState.position.x,
+                          cameraState.position.y,
+                          cameraState.position.z
+                        ),
+                        target: new Vector3(
+                          cameraState.target.x,
+                          cameraState.target.y,
+                          cameraState.target.z
+                        ),
+                        zoom: cameraState.zoom
+                      };
+                      onSaveCameraState(stateToSave);
                     } else {
                       alert('Cannot save camera view - no camera state available.');
                     }
