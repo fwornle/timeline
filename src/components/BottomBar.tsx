@@ -34,7 +34,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   isGitHistoryMocked = false,
   isSpecHistoryMocked = false,
   currentPosition = 0,
-  cameraPosition = { x: -60, y: 70, z: -50 }, // Default camera position
+  cameraPosition = { x: -35, y: 30, z: -50 }, // Default camera position
   cameraState,
   animationSpeed = 1,
   autoDrift = false,

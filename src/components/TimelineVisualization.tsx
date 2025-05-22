@@ -108,6 +108,16 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   // Always initialize hooks regardless of repoUrl to maintain hook order
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
 
+  // Log received props for camera state callbacks
+  useEffect(() => {
+    console.log('TimelineVisualization received camera props:', {
+      hasOnCameraPositionChange: !!onCameraPositionChange,
+      hasOnCameraStateChange: !!onCameraStateChange,
+      hasInitialCameraState: !!initialCameraState,
+      debugMode
+    });
+  }, [onCameraPositionChange, onCameraStateChange, initialCameraState, debugMode]);
+
   // Component state
   const [showWelcome, setShowWelcome] = useState(!repoUrl);
   const [showLoading, setShowLoading] = useState(false);

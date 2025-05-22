@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
 import { TimelineVisualization } from '../components/TimelineVisualization';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+import type { CameraState } from '../components/three/TimelineCamera';
+import { Vector3 } from 'three';
 
 interface HomeProps {
   onLoadingChange?: (loading: boolean) => void;
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
   onMockStatusChange?: (isGitHistoryMocked: boolean, isSpecHistoryMocked: boolean) => void;
   onPositionChange?: (position: number) => void;
+  onCameraPositionChange?: (position: Vector3) => void;
+  onCameraStateChange?: (state: CameraState) => void;
+  initialCameraState?: CameraState;
   onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
   onTimelineLengthChange?: (timelineLength: number) => void;
   forceReload?: boolean;
@@ -21,6 +26,9 @@ const Home: React.FC<HomeProps> = ({
   onEventCountsChange,
   onMockStatusChange,
   onPositionChange,
+  onCameraPositionChange,
+  onCameraStateChange,
+  initialCameraState,
   onTimelineDatesChange,
   onTimelineLengthChange,
   forceReload = false,
@@ -40,6 +48,9 @@ const Home: React.FC<HomeProps> = ({
         hasOnEventCountsChange: !!onEventCountsChange,
         hasOnMockStatusChange: !!onMockStatusChange,
         hasOnPositionChange: !!onPositionChange,
+        hasOnCameraPositionChange: !!onCameraPositionChange,
+        hasOnCameraStateChange: !!onCameraStateChange,
+        hasInitialCameraState: !!initialCameraState,
         hasOnTimelineDatesChange: !!onTimelineDatesChange,
         hasOnTimelineLengthChange: !!onTimelineLengthChange,
         forceReload,
@@ -49,8 +60,9 @@ const Home: React.FC<HomeProps> = ({
     }
   }, [
     onLoadingChange, onEventCountsChange, onMockStatusChange,
-    onPositionChange, onTimelineDatesChange, onTimelineLengthChange, forceReload, viewAllMode,
-    focusCurrentMode, debugMode, logger
+    onPositionChange, onCameraPositionChange, onCameraStateChange,
+    initialCameraState, onTimelineDatesChange, onTimelineLengthChange,
+    forceReload, viewAllMode, focusCurrentMode, debugMode, logger
   ]);
 
   // Log error state changes
@@ -92,6 +104,9 @@ const Home: React.FC<HomeProps> = ({
         viewAllMode={viewAllMode}
         focusCurrentMode={focusCurrentMode}
         debugMode={debugMode}
+        initialCameraState={initialCameraState}
+        onCameraPositionChange={onCameraPositionChange}
+        onCameraStateChange={onCameraStateChange}
         onDataLoaded={(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked) => {
           if (debugMode) {
             logger.debug('Home.onDataLoaded called', {

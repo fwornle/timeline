@@ -8,6 +8,7 @@ import { Vector3 } from 'three';
 import { useEffect, useMemo } from 'react';
 import { clearAllCardHovers } from './TimelineCard';
 import type { CameraState } from './TimelineCamera';
+import { useLogger } from '../../utils/logging/hooks/useLogger';
 
 export interface TimelineSceneProps {
   events: TimelineEvent[];
@@ -53,6 +54,26 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   initialCameraState,
   debugMode = false
 }) => {
+  const logger = useLogger({ component: 'TimelineScene', topic: 'ui' });
+
+  // Log camera callback props
+  useEffect(() => {
+    if (debugMode) {
+      logger.debug('TimelineScene camera callbacks:', {
+        hasOnCameraPositionChange: !!onCameraPositionChange,
+        hasOnCameraStateChange: !!onCameraStateChange,
+        hasInitialCameraState: !!initialCameraState
+      });
+    } else {
+      console.log('TimelineScene camera callbacks:', {
+        hasOnCameraPositionChange: !!onCameraPositionChange,
+        hasOnCameraStateChange: !!onCameraStateChange,
+        hasInitialCameraState: !!initialCameraState,
+        debugMode
+      });
+    }
+  }, [onCameraPositionChange, onCameraStateChange, initialCameraState, debugMode, logger]);
+
   // Calculate the date range from events
   const getDateRange = (): { startDate: Date | undefined, endDate: Date | undefined } => {
     if (events.length === 0) {
@@ -106,7 +127,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     <div className="w-full h-full" style={{ height: '100%' }}>
       <Canvas
         shadows
-        camera={{ position: [-60, 70, -50], fov: 45 }}
+        camera={{ position: [-35, 30, -50], fov: 45 }}
         style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
       >
         {/* Background click handler */}

@@ -25,7 +25,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isGitHistoryMocked, setIsGitHistoryMocked] = useState(false);
   const [isSpecHistoryMocked, setIsSpecHistoryMocked] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
-  const [cameraPosition, setCameraPosition] = useState({ x: -60, y: 70, z: -50 }); // Initialize with default camera position
+  const [cameraPosition, setCameraPosition] = useState({ x: -35, y: 30, z: -50 }); // Initialize with default camera position
 
   // Initialize with default camera state
   const [cameraState, setCameraState] = useState<CameraState>(() => {
@@ -53,7 +53,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     
     // Default state if not available in preferences
     return {
-      position: new Vector3(-60, 70, -50),
+      position: new Vector3(-35, 30, -50),
       target: new Vector3(0, 0, 0),
       zoom: 1
     };
@@ -357,6 +357,31 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     isLoading, isGitHistoryMocked, isSpecHistoryMocked, currentPosition,
     timelineLength, debugMode, logger
   ]);
+
+  // Debug logging for BottomBar props
+  useEffect(() => {
+    console.log('BottomBar props updated:', {
+      cameraPosition: {
+        x: cameraPosition.x.toFixed(1),
+        y: cameraPosition.y.toFixed(1),
+        z: cameraPosition.z.toFixed(1)
+      },
+      cameraState: cameraState ? {
+        position: {
+          x: cameraState.position.x.toFixed(1),
+          y: cameraState.position.y.toFixed(1),
+          z: cameraState.position.z.toFixed(1)
+        },
+        target: {
+          x: cameraState.target.x.toFixed(1),
+          y: cameraState.target.y.toFixed(1),
+          z: cameraState.target.z.toFixed(1)
+        },
+        zoom: cameraState.zoom.toFixed(1)
+      } : 'null',
+      debugMode
+    });
+  }, [cameraPosition, cameraState, debugMode]);
 
   return (
     <div className="d-flex flex-column vh-100 p-0 m-0 overflow-hidden">

@@ -2,6 +2,8 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import About from './pages/About';
+import type { CameraState } from './components/three/TimelineCamera';
+import { Vector3 } from 'three';
 
 // Define the props that will be passed through the router
 interface AppRoutesProps {
@@ -10,6 +12,9 @@ interface AppRoutesProps {
     onEventCountsChange?: (gitCount: number, specCount: number) => void;
     onMockStatusChange?: (isGitHistoryMocked: boolean, isSpecHistoryMocked: boolean) => void;
     onPositionChange?: (pos: number) => void;
+    onCameraPositionChange?: (position: Vector3) => void;
+    onCameraStateChange?: (state: CameraState) => void;
+    initialCameraState?: CameraState;
     onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
     onTimelineLengthChange?: (timelineLength: number) => void;
     forceReload?: boolean;

@@ -8,7 +8,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 // Define DEBUG_POSITIONS array with improved positions for better timeline viewing
 const DEBUG_POSITIONS = [
-  { position: new Vector3(-60, 70, -50), name: "Preferred View" },      // Preferred view from above with timeline from top-left to bottom-right
+  { position: new Vector3(-50, 70, -50), name: "Preferred View" },      // Preferred view from above with timeline from top-left to bottom-right
   { position: new Vector3(-40, 35, -30), name: "Timeline Overview" },   // Good position to see entire timeline
   { position: new Vector3(-30, 25, 0), name: "Timeline Middle" },       // View from the middle
   { position: new Vector3(-20, 15, 30), name: "Timeline End" },         // View from the end
@@ -59,8 +59,8 @@ const calculateViewAllPosition = (_target: Vector3, events: TimelineEvent[] = []
 
   // Fallback for when we don't have events or can't calculate bounds
   return new Vector3(
-    -60, // Position further to the left
-    70,  // Position higher above for a more top-down view
+    -35, // Position further to the left
+    30,  // Position higher above for a more top-down view
     -50  // Position further toward the start of the timeline
   );
 };
@@ -166,7 +166,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       // Set initial camera position to look at the timeline from above
       // This position shows the timeline stretching from top left to bottom right corner
       // with cards facing into the camera
-      const initialPosition = new Vector3(-60, 70, -50);
+      const initialPosition = new Vector3(-35, 30, -50);
       camera.position.copy(initialPosition);
 
       // Use the provided target or default to origin
@@ -341,7 +341,35 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         
         // Notify parent components
         if (onCameraStateChange) {
-          console.log('[DEBUG CYCLING] Notifying of position change');
+          console.log('[DEBUG CYCLING] Notifying of position change', {
+            position: {
+              x: position.x.toFixed(1),
+              y: position.y.toFixed(1),
+              z: position.z.toFixed(1)
+            },
+            target: {
+              x: target.x.toFixed(1),
+              y: target.y.toFixed(1),
+              z: target.z.toFixed(1)
+            },
+            zoom: camera.zoom.toFixed(1)
+          });
+          
+          // Log what's being sent out
+          console.log('[DEBUG CYCLING] newState object being sent:', JSON.stringify({
+            position: {
+              x: newState.position.x,
+              y: newState.position.y,
+              z: newState.position.z
+            },
+            target: {
+              x: newState.target.x,
+              y: newState.target.y,
+              z: newState.target.z
+            },
+            zoom: newState.zoom
+          }));
+          
           onCameraStateChange(newState);
         }
       }, 2000);
