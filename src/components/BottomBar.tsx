@@ -60,15 +60,15 @@ const BottomBar: React.FC<BottomBarProps> = ({
     if (cameraState && debugMode) {
       console.log('[BottomBar] Camera state received:', {
         id: Date.now(),
-        position: { 
-          x: cameraState.position.x.toFixed(2), 
-          y: cameraState.position.y.toFixed(2), 
-          z: cameraState.position.z.toFixed(2) 
+        position: {
+          x: cameraState.position.x.toFixed(2),
+          y: cameraState.position.y.toFixed(2),
+          z: cameraState.position.z.toFixed(2)
         },
-        target: { 
-          x: cameraState.target.x.toFixed(2), 
-          y: cameraState.target.y.toFixed(2), 
-          z: cameraState.target.z.toFixed(2) 
+        target: {
+          x: cameraState.target.x.toFixed(2),
+          y: cameraState.target.y.toFixed(2),
+          z: cameraState.target.z.toFixed(2)
         },
         zoom: cameraState.zoom.toFixed(2),
         isZoomDefault: cameraState.zoom === 1,
@@ -164,6 +164,46 @@ const BottomBar: React.FC<BottomBarProps> = ({
     }
   };
 
+  // Helper function to convert camera target position to a date
+  const targetPositionToDate = (targetZ: number): string => {
+    if (!startDate || !endDate) {
+      return `Z: ${targetZ.toFixed(2)}`;
+    }
+
+    try {
+      // Get the full time range of the timeline
+      const startTimestamp = startDate.getTime();
+      const endTimestamp = endDate.getTime();
+      const timeRange = endTimestamp - startTimestamp;
+
+      // Estimate timeline bounds (same logic as positionToDate)
+      const estimatedTimelineStartZ = -timelineLength / 2;
+      const estimatedTimelineEndZ = timelineLength / 2;
+
+      // Calculate the position's normalized location on the timeline (0 to 1)
+      // Clamp value between 0 and 1 to handle edge cases
+      const normalizedPosition = Math.max(0, Math.min(1,
+        (targetZ - estimatedTimelineStartZ) / (estimatedTimelineEndZ - estimatedTimelineStartZ)
+      ));
+
+      // Map the normalized position to a timestamp
+      const currentTimestamp = startTimestamp + (normalizedPosition * timeRange);
+      const currentDate = new Date(currentTimestamp);
+
+      // Format the date
+      return currentDate.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      console.error('Error calculating date from target position:', e);
+      return `Z: ${targetZ.toFixed(2)}`;
+    }
+  };
+
   const [showCameraDetails, setShowCameraDetails] = useState(false);
 
   // Close popover when clicking outside
@@ -171,8 +211,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       const popover = document.getElementById('camera-details-popover');
       const button = document.getElementById('camera-details-button');
-      if (popover && button && 
-          !popover.contains(event.target as Node) && 
+      if (popover && button &&
+          !popover.contains(event.target as Node) &&
           !button.contains(event.target as Node)) {
         setShowCameraDetails(false);
       }
@@ -279,14 +319,14 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   className={`btn btn-sm ${debugMode ? 'btn-danger' : 'btn-outline-danger'}`}
                   onClick={handleDebugModeChange}
                   title="Toggle camera debug mode"
-                  style={{ 
+                  style={{
                     position: 'relative',
                     overflow: 'visible'
                   }}
                 >
                   <i className="bi bi-bug"></i>
                   {debugMode && (
-                    <span 
+                    <span
                       style={{
                         position: 'absolute',
                         top: '-8px',
@@ -342,6 +382,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                           <>
                             <div><small><b>Pos:</b> {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
                             <div><small><b>Look:</b> {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
+                            <div><small><b>Target Date:</b> {targetPositionToDate(cameraState.target.z)}</small></div>
                             <div><small><b>Zoom:</b> {cameraState.zoom.toFixed(2)}x</small></div>
                             <div style={{ marginTop: 10, color: '#0d6efd', display: 'flex', alignItems: 'center', gap: 6 }}>
                               <i className="bi bi-info-circle"></i>

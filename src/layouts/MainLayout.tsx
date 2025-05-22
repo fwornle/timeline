@@ -50,7 +50,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         console.error('Failed to load camera state from preferences', error);
       }
     }
-    
+
     // Default state if not available in preferences
     return {
       position: new Vector3(-35, 30, -50),
@@ -72,7 +72,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   // Debug mode effect
   useEffect(() => {
     console.log('MainLayout: Debug mode effect triggered, debugMode is:', debugMode);
-    
+
     // Force camera state updates when debug mode is enabled
     if (debugMode) {
       // This will help with debug mode cycling
@@ -304,58 +304,58 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 if (debugMode) {
                   console.log('[MainLayout] Received camera state:', {
                     id: Date.now(),
-                    position: { 
-                      x: state.position.x.toFixed(2), 
-                      y: state.position.y.toFixed(2), 
-                      z: state.position.z.toFixed(2) 
+                    position: {
+                      x: state.position.x.toFixed(2),
+                      y: state.position.y.toFixed(2),
+                      z: state.position.z.toFixed(2)
                     },
-                    target: { 
-                      x: state.target.x.toFixed(2), 
-                      y: state.target.y.toFixed(2), 
-                      z: state.target.z.toFixed(2) 
+                    target: {
+                      x: state.target.x.toFixed(2),
+                      y: state.target.y.toFixed(2),
+                      z: state.target.z.toFixed(2)
                     },
                     zoom: state.zoom.toFixed(2),
                     type: state.constructor?.name || typeof state
                   });
                 }
-                
+
                 // DIRECT VALUE EXTRACTION - don't rely on Vector3 methods or properties
                 // This eliminates any issues with Vector3 object references or methods
                 const newState: CameraState = {
                   position: new Vector3(
-                    Number(state.position.x), 
-                    Number(state.position.y), 
+                    Number(state.position.x),
+                    Number(state.position.y),
                     Number(state.position.z)
                   ),
                   target: new Vector3(
-                    Number(state.target.x), 
-                    Number(state.target.y), 
+                    Number(state.target.x),
+                    Number(state.target.y),
                     Number(state.target.z)
                   ),
                   zoom: Number(state.zoom)
                 };
-                
+
                 // Only log in debug mode
                 if (debugMode) {
                   console.log('[MainLayout] Processed camera state for BottomBar:', {
                     id: Date.now(),
-                    position: { 
-                      x: newState.position.x.toFixed(2), 
-                      y: newState.position.y.toFixed(2), 
-                      z: newState.position.z.toFixed(2) 
+                    position: {
+                      x: newState.position.x.toFixed(2),
+                      y: newState.position.y.toFixed(2),
+                      z: newState.position.z.toFixed(2)
                     },
-                    target: { 
-                      x: newState.target.x.toFixed(2), 
-                      y: newState.target.y.toFixed(2), 
-                      z: newState.target.z.toFixed(2) 
+                    target: {
+                      x: newState.target.x.toFixed(2),
+                      y: newState.target.y.toFixed(2),
+                      z: newState.target.z.toFixed(2)
                     },
                     zoom: newState.zoom.toFixed(2)
                   });
                 }
-                
+
                 // Force state update by creating a completely new state object
                 setCameraState(newState);
-                
+
                 // Also update the legacy camera position for backwards compatibility
                 setCameraPosition({
                   x: newState.position.x,
@@ -473,7 +473,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           console.log('MainLayout: Debug mode change requested from BottomBar:', enabled);
           // Immediately update the state
           setDebugMode(enabled);
-          
+
           // If enabling debug mode, force a camera state update
           if (enabled && cameraState) {
             console.log('Forcing camera state update due to debug mode activation');
@@ -493,19 +493,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             };
             setCameraState(refreshedState);
           }
-          
+
           // Log again to verify state update
           setTimeout(() => {
             console.log('MainLayout: Debug mode updated to:', enabled);
           }, 10);
         }}
         onResetTimeline={handleRefreshTimeline}
-        onSaveCameraState={(state) => {
-          setCameraState(state);
-
-          // Show a confirmation message
-          alert('Camera view saved! This view will be restored when you restart the app.');
-        }}
       />
     </div>
   );

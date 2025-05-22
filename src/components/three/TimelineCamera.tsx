@@ -58,14 +58,14 @@ const calculateViewAllPosition = (_target: Vector3, events: TimelineEvent[] = []
 
 // Calculate a position that focuses on the current time point
 const calculateFocusPosition = (target: Vector3): Vector3 => {
-  // Position camera closer to the target for a focused view
-  // Use a consistent distance for better user experience
-  const distance = 15; // Closer distance for better focus
+  // Position camera above the timeline, offset to the side, facing the cards
+  // This provides a good reading angle for the cards while keeping the timeline visible
+  const distance = 20; // Distance from target
 
   return new Vector3(
-    -distance * 0.8,  // Position to the left
-    distance * 1.2,   // Position higher above for a more top-down view
-    target.z - 5      // Stay at target's Z position but slightly offset to see more context
+    -distance * 0.6,  // Position to the left side for better card readability
+    distance * 0.8,   // Position above the timeline but not too high
+    target.z + 8      // Position slightly forward of the target for better perspective
   );
 };
 
