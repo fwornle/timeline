@@ -86,6 +86,14 @@ function getPositionForZoom(target: Vector3, direction: Vector3, zoom: number) {
   return target.clone().add(direction.clone().setLength(distance));
 }
 
+// Debug camera positions for cycling
+const DEBUG_CAMERA_POSITIONS = [
+  { position: new Vector3(-35, 30, -50), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(-20, 40, -30), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(-50, 20, -70), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(-30, 50, -40), target: new Vector3(0, 0, 0) },
+];
+
 export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
   viewAllMode = false,
@@ -139,6 +147,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   
   // Track user interaction
   const userInteractingRef = useRef(false);
+  
+  // Add debug cycling state
+  const debugCycleTimer = useRef<number | null>(null);
   
   // Expose camera details to help debugging
   useEffect(() => {
@@ -452,6 +463,38 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       updateCameraState(newState, 'frame');
     }
   });
+  
+  // Debug camera cycling effect
+  useEffect(() => {
+    if (debugMode && !userInteractingRef.current) {
+      // Start cycling through debug positions
+      debugCycleTimer.current = window.setInterval(() => {
+        const currentIndex = DEBUG_CAMERA_POSITIONS.findIndex(
+          pos => pos.position.distanceTo(camera.position) < 0.1
+        );
+        const nextIndex = (currentIndex + 1) % DEBUG_CAMERA_POSITIONS.length;
+        const debugPos = DEBUG_CAMERA_POSITIONS[nextIndex];
+        
+        updateCameraState({
+          position: debugPos.position.clone(),
+          target: debugPos.target.clone(),
+          zoom: camera.zoom
+        }, 'mode');
+      }, 2000); // Cycle every 2 seconds
+    } else {
+      // Clear cycling timer when debug mode is disabled
+      if (debugCycleTimer.current) {
+        window.clearInterval(debugCycleTimer.current);
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (debugCycleTimer.current) {
+        window.clearInterval(debugCycleTimer.current);
+      }
+    };
+  }, [debugMode, camera]);
   
   return (
     <OrbitControls

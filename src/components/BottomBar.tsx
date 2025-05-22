@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
 import type { CameraState } from './three/TimelineCamera';
-import { Vector3 } from 'three';
 
 interface BottomBarProps {
   gitCount?: number;
@@ -25,7 +24,6 @@ interface BottomBarProps {
   onFocusCurrentClick?: () => void;
   onDebugModeChange?: (enabled: boolean) => void;
   onResetTimeline?: () => void;
-  onSaveCameraState?: (state: CameraState) => void;
 }
 
 const BottomBar: React.FC<BottomBarProps> = ({
@@ -48,8 +46,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   onViewAllClick,
   onFocusCurrentClick,
   onDebugModeChange,
-  onResetTimeline,
-  onSaveCameraState
+  onResetTimeline
 }) => {
   const { preferences } = usePreferences();
   const repoUrl = preferences.repoUrl || '';
@@ -168,6 +165,24 @@ const BottomBar: React.FC<BottomBarProps> = ({
   };
 
   const [showCameraDetails, setShowCameraDetails] = useState(false);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const popover = document.getElementById('camera-details-popover');
+      const button = document.getElementById('camera-details-button');
+      if (popover && button && 
+          !popover.contains(event.target as Node) && 
+          !button.contains(event.target as Node)) {
+        setShowCameraDetails(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="bg-light border-top py-2">
@@ -289,9 +304,10 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 {/* Camera indicator - far right */}
                 <div style={{ position: 'relative', marginLeft: '12px' }}>
                   <button
+                    id="camera-details-button"
                     className="btn btn-sm btn-outline-primary"
                     style={{ minWidth: '40px' }}
-                    onClick={() => setShowCameraDetails((v) => !v)}
+                    onClick={() => setShowCameraDetails(!showCameraDetails)}
                     title="Show camera view details"
                   >
                     <i className="bi bi-camera"></i>
@@ -303,6 +319,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   </button>
                   {showCameraDetails && (
                     <div
+                      id="camera-details-popover"
                       style={{
                         position: 'absolute',
                         right: 0,
@@ -313,40 +330,22 @@ const BottomBar: React.FC<BottomBarProps> = ({
                         borderRadius: 8,
                         boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                         padding: 12,
-                        minWidth: 220,
+                        minWidth: 240,
                         zIndex: 1000
                       }}
                     >
-                      <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 600, fontSize: '1.05em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <i className="bi bi-camera"></i> Camera View Details
+                      </div>
+                      <div style={{ textAlign: 'left', fontSize: '0.97em' }}>
                         {cameraState ? (
                           <>
-                            <div><small>Pos: {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
-                            <div><small>Look: {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
-                            <div><small>Zoom: {cameraState.zoom.toFixed(2)}x</small></div>
-                            <div>
-                              <button
-                                className="btn btn-sm btn-success mt-2"
-                                onClick={() => {
-                                  if (cameraState && onSaveCameraState) {
-                                    const stateToSave: CameraState = {
-                                      position: new Vector3(
-                                        cameraState.position.x,
-                                        cameraState.position.y,
-                                        cameraState.position.z
-                                      ),
-                                      target: new Vector3(
-                                        cameraState.target.x,
-                                        cameraState.target.y,
-                                        cameraState.target.z
-                                      ),
-                                      zoom: cameraState.zoom
-                                    };
-                                    onSaveCameraState(stateToSave);
-                                  } else {
-                                    alert('Cannot save camera view - no camera state available.');
-                                  }
-                                }}
-                              >Save current view</button>
+                            <div><small><b>Pos:</b> {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
+                            <div><small><b>Look:</b> {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
+                            <div><small><b>Zoom:</b> {cameraState.zoom.toFixed(2)}x</small></div>
+                            <div style={{ marginTop: 10, color: '#0d6efd', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <i className="bi bi-info-circle"></i>
+                              <span style={{ fontSize: '0.97em' }}>View is auto-saved and restored on restart.</span>
                             </div>
                           </>
                         ) : (
