@@ -308,12 +308,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     z: state.target.z.toFixed(2) 
                   },
                   zoom: state.zoom.toFixed(2),
-                  type: state.constructor?.name || typeof state,
-                  isVectorClone: state.position !== state.position.clone()
+                  type: state.constructor?.name || typeof state
                 });
                 
-                // Directly create a new state object with pristine Vector3 instances
-                // This ensures no reference issues or unexpected behavior
+                // DIRECT VALUE EXTRACTION - don't rely on Vector3 methods or properties
+                // This eliminates any issues with Vector3 object references or methods
                 const newState: CameraState = {
                   position: new Vector3(
                     Number(state.position.x), 
@@ -328,7 +327,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   zoom: Number(state.zoom)
                 };
                 
-                console.log('[MainLayout] Created new state:', {
+                console.log('[MainLayout] Processed camera state for BottomBar:', {
                   id: Date.now(),
                   position: { 
                     x: newState.position.x.toFixed(2), 
@@ -343,14 +342,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   zoom: newState.zoom.toFixed(2)
                 });
                 
-                // Always update the camera state - no filtering to avoid missing updates
+                // Force state update by creating a completely new state object
                 setCameraState(newState);
                 
                 // Also update the legacy camera position for backwards compatibility
                 setCameraPosition({
-                  x: state.position.x,
-                  y: state.position.y,
-                  z: state.position.z
+                  x: newState.position.x,
+                  y: newState.position.y,
+                  z: newState.position.z
                 });
               },
               initialCameraState: cameraState,

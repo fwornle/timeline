@@ -72,7 +72,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
         },
         zoom: cameraState.zoom.toFixed(2),
         isZoomDefault: cameraState.zoom === 1,
-        isTargetZero: cameraState.target.x === 0 && cameraState.target.y === 0 && cameraState.target.z === 0
+        isTargetZero: cameraState.target.x === 0 && cameraState.target.y === 0 && cameraState.target.z === 0,
+        hasPosition: !!cameraState.position,
+        hasTarget: !!cameraState.target
       });
     }
   }, [cameraState]);

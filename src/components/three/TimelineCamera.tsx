@@ -206,6 +206,22 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     if (orbitControlsRef.current) {
       orbitControlsRef.current.update();
     }
+    
+    // Log the state that was applied to help with debugging
+    console.log(`[TimelineCamera] Applied state to camera:`, {
+      position: { 
+        x: state.position.x.toFixed(2), 
+        y: state.position.y.toFixed(2), 
+        z: state.position.z.toFixed(2) 
+      },
+      target: { 
+        x: state.target.x.toFixed(2), 
+        y: state.target.y.toFixed(2), 
+        z: state.target.z.toFixed(2) 
+      },
+      zoom: state.zoom.toFixed(2),
+      cameraDotZoom: camera.zoom.toFixed(2)
+    });
   };
   
   // Initial setup - Apply initial camera state once
@@ -307,18 +323,45 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
     
     // Check for changes directly from Three.js camera/controls
-    const currentPosition = camera.position.clone();
-    const currentTarget = orbitControlsRef.current?.target.clone() || target.clone();
+    const currentPosition = new Vector3(
+      camera.position.x,
+      camera.position.y,
+      camera.position.z
+    );
+    
+    const currentTarget = orbitControlsRef.current ? new Vector3(
+      orbitControlsRef.current.target.x,
+      orbitControlsRef.current.target.y,
+      orbitControlsRef.current.target.z
+    ) : new Vector3(0, 0, 0);
+    
     const currentZoom = camera.zoom;
     
-    // Detect changes - use more sensitive thresholds for zoom and target
-    const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.2;
-    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.1;
-    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.01;
+    // Debug output to see actual camera values
+    if (debugMode && Date.now() % 60 === 0) { // Only log occasionally
+      console.log(`[TimelineCamera] Camera actual values:`, {
+        position: { 
+          x: currentPosition.x.toFixed(2), 
+          y: currentPosition.y.toFixed(2), 
+          z: currentPosition.z.toFixed(2) 
+        },
+        target: { 
+          x: currentTarget.x.toFixed(2), 
+          y: currentTarget.y.toFixed(2), 
+          z: currentTarget.z.toFixed(2) 
+        },
+        zoom: currentZoom.toFixed(2)
+      });
+    }
+    
+    // Detect changes - even more sensitive thresholds
+    const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.1;
+    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.05;
+    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.001; // Ultra sensitive
     
     // Only update state if actual changes detected
     if (positionChanged || targetChanged || zoomChanged) {
-      // Create new Vector3 instances to avoid reference issues
+      // Create new state object with fresh values
       const newState: CameraState = {
         position: new Vector3(
           currentPosition.x,
@@ -332,6 +375,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         ),
         zoom: currentZoom
       };
+      
+      // Log when zoom changes to debug
+      if (zoomChanged) {
+        console.log(`[TimelineCamera] Zoom changed:`, {
+          old: cameraState.zoom.toFixed(4),
+          new: currentZoom.toFixed(4),
+          diff: (currentZoom - cameraState.zoom).toFixed(4)
+        });
+      }
       
       updateCameraState(newState, 'frame');
     }
@@ -367,7 +419,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       onChange={() => {
         if (!userInteractingRef.current) return;
         
-        // Get current camera state - use direct property access to ensure fresh values
+        // Get current camera state with direct property access
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
@@ -382,8 +434,25 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         
         const currentZoom = camera.zoom;
         
-        // Only send occasional updates during continuous interaction
-        if (Date.now() % 3 === 0) { // Throttle updates
+        // ALWAYS update immediately on zoom changes to capture them
+        if (Math.abs(currentZoom - cameraState.zoom) > 0.001) {
+          console.log(`[TimelineCamera] Zoom changed during user interaction:`, {
+            old: cameraState.zoom.toFixed(4),
+            new: currentZoom.toFixed(4)
+          });
+          
+          const newState: CameraState = {
+            position: currentPosition,
+            target: currentTarget,
+            zoom: currentZoom
+          };
+          
+          updateCameraState(newState, 'controls');
+          return;
+        }
+        
+        // For other changes, throttle updates to avoid flooding
+        if (Date.now() % 5 === 0) {
           const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,
@@ -394,7 +463,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         }
       }}
       onEnd={() => {
-        // Get final camera state after interaction - create fresh Vector3 instances
+        // Get final camera state after interaction with direct property access
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
@@ -409,7 +478,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         
         const currentZoom = camera.zoom;
         
-        // Ensure a final update with precise values
+        // Log the zoom at the end of interaction
+        console.log(`[TimelineCamera] Interaction ended with zoom:`, currentZoom.toFixed(4));
+        
+        // ALWAYS send a final update with the latest state
         const finalState: CameraState = {
           position: currentPosition,
           target: currentTarget,
@@ -418,7 +490,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         
         updateCameraState(finalState, 'controls');
         
-        // Reset interaction flag
+        // Reset interaction flag after the update
         userInteractingRef.current = false;
         
         if (debugMode) {

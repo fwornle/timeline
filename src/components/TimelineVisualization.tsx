@@ -443,7 +443,22 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             });
             
             if (onCameraStateChange) {
-              onCameraStateChange(state);
+              // Create a clean state object with proper Vector3 instances before passing up
+              const cleanState: CameraState = {
+                position: new Vector3(
+                  Number(state.position.x),
+                  Number(state.position.y),
+                  Number(state.position.z)
+                ),
+                target: new Vector3(
+                  Number(state.target.x),
+                  Number(state.target.y),
+                  Number(state.target.z)
+                ),
+                zoom: Number(state.zoom)
+              };
+              
+              onCameraStateChange(cleanState);
             }
           }}
           initialCameraState={initialCameraState}
