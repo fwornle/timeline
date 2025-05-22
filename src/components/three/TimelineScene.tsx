@@ -187,6 +187,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onPositionUpdate={onCardPositionUpdate}
           getAnimationProps={getCardAnimationProps}
           currentPosition={currentPosition}
+          isMarkerDragging={isMarkerDragging}
         />
 
         {/* Environment & Helpers */}

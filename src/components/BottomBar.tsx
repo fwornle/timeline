@@ -370,7 +370,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                         borderRadius: 8,
                         boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                         padding: 12,
-                        minWidth: 240,
+                        minWidth: 320,
                         zIndex: 99999,
                       }}
                     >

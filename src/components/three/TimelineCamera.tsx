@@ -58,14 +58,14 @@ const calculateViewAllPosition = (_target: Vector3, events: TimelineEvent[] = []
 
 // Calculate a position that focuses on the current time point
 const calculateFocusPosition = (target: Vector3): Vector3 => {
-  // Position camera above the timeline, offset to the side, facing the cards
-  // This provides a good reading angle for the cards while keeping the timeline visible
-  const distance = 20; // Distance from target
+  // Position camera to look along the time axis diagonally - closer to axis, lower height
+  // This creates a diagonal view where the axis runs diagonally across the screen
+  const distance = 15; // Closer distance to the axis
 
   return new Vector3(
-    -distance * 0.6,  // Position to the left side for better card readability
-    distance * 0.8,   // Position above the timeline but not too high
-    target.z + 8      // Position slightly forward of the target for better perspective
+    -distance * 0.4,  // Closer to the axis (less side offset)
+    distance * 0.4,   // Lower height - closer to the timeline level
+    target.z - 8      // Position behind the target to look along the axis
   );
 };
 
@@ -382,8 +382,12 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   useEffect(() => {
     if (!initialized) return;
 
-    // Skip if user is currently interacting or in specific view modes
-    if (userInteractingRef.current || viewAllMode || focusCurrentMode) return;
+    // Skip if user is currently interacting with camera controls (but not if controls are disabled)
+    // This allows marker dragging to update the camera state even when controls are disabled
+    if (userInteractingRef.current && !disableControls) return;
+
+    // Skip if in specific view modes
+    if (viewAllMode || focusCurrentMode) return;
 
     // Only update the target component of the state
     updateCameraState({
@@ -391,7 +395,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       target: target.clone()
     }, 'frame');
 
-  }, [target, initialized]);
+  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode]);
 
   // Monitor camera changes from OrbitControls using useFrame
   useFrame(() => {

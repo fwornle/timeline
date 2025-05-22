@@ -19,6 +19,7 @@ interface TimelineCardProps {
     springConfig: SpringConfig;
   };
   wiggle?: boolean;
+  isMarkerDragging?: boolean;
 }
 
 // Global state to ensure only one card can be hovered at a time
@@ -96,7 +97,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     positionY: 0,
     springConfig: { mass: 1, tension: 170, friction: 26 }
   },
-  wiggle = false
+  wiggle = false,
+  isMarkerDragging = false
 }) => {
   // Logging disabled to improve performance
   // Get camera for proper rotation calculation and movement tracking
@@ -487,6 +489,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
+    // If marker is being dragged, ignore hover events
+    if (isMarkerDragging) {
+      console.debug(`Ignoring hover on ${event.id}, marker is being dragged`);
+      return;
+    }
+
     // If camera is moving, ignore hover events
     if (hoverDebounce.isCameraMoving) {
       console.debug(`Ignoring hover on ${event.id}, camera is moving`);
@@ -503,10 +511,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // Clear any existing hover state first
-    if (globalHoveredCardId.current !== null && onHover) {
+    // Clear any existing hover state first - ensure only one card can be hovered at a time
+    if (globalHoveredCardId.current !== null && globalHoveredCardId.current !== event.id && onHover) {
       console.debug(`Clearing previous hover on ${globalHoveredCardId.current} before setting new hover`);
       onHover(null);
+      // Force clear the global state immediately
+      globalHoveredCardId.current = null;
     }
 
     // Check debounce conditions
