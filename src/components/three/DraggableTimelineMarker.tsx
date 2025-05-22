@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Group } from 'three';
+import { Group, Vector3, Vector2, Raycaster } from 'three';
 
 interface DraggableTimelineMarkerProps {
   position: number;
@@ -25,7 +25,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const { camera, gl } = useThree();
   const markerRef = useRef<Group>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartPointRef = useRef<{ mouseX: number; mouseY: number } | null>(null);
+  const raycasterRef = useRef(new Raycaster());
   const initialPositionRef = useRef<number>(position);
 
   // Update the marker position when the prop changes from outside
@@ -37,22 +37,47 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
   // Global pointer move handler for when dragging
   const handleGlobalPointerMove = (e: PointerEvent) => {
-    if (!isDragging || !dragStartPointRef.current) return;
+    if (!isDragging) return;
 
     // Calculate mouse position in normalized device coordinates (-1 to +1)
     const rect = gl.domElement.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // Try a simpler approach: map horizontal mouse movement directly to timeline position
-    // Calculate the change in mouse X position since drag started
-    const mouseDeltaX = mouseX - (dragStartPointRef.current ?
-      dragStartPointRef.current.mouseX : 0);
+    // Cast a ray from the camera through the mouse position
+    raycasterRef.current.setFromCamera(new Vector2(mouseX, mouseY), camera);
 
-    // Map mouse movement to timeline movement
-    // Assuming the timeline spans the visible width, map mouse delta to timeline delta
-    const timelineDelta = mouseDeltaX * timelineLength * 0.5; // Scale factor for sensitivity
-    const newPosition = initialPositionRef.current + timelineDelta;
+    // Define the timeline axis as a line along the Z-axis at Y=2
+    const timelineStart = new Vector3(0, 2, -timelineLength / 2);
+    const timelineDirection = new Vector3(0, 0, 1); // Z-axis direction
+
+    // Find the closest point on the timeline axis to the ray
+    const rayOrigin = raycasterRef.current.ray.origin;
+    const rayDirection = raycasterRef.current.ray.direction;
+
+    // Calculate the closest point on the timeline axis to the ray
+    // Using the formula for closest point between two lines in 3D
+    const w0 = rayOrigin.clone().sub(timelineStart);
+    const a = rayDirection.dot(rayDirection);
+    const b = rayDirection.dot(timelineDirection);
+    const c = timelineDirection.dot(timelineDirection);
+    const d = rayDirection.dot(w0);
+    const dotE = timelineDirection.dot(w0);
+
+    const denominator = a * c - b * b;
+    let t = 0; // Parameter along timeline axis
+
+    if (Math.abs(denominator) > 1e-6) {
+      // Lines are not parallel
+      t = (a * dotE - b * d) / denominator;
+    } else {
+      // Lines are parallel, use projection
+      t = dotE / c;
+    }
+
+    // Calculate the position on the timeline axis
+    const closestPoint = timelineStart.clone().add(timelineDirection.clone().multiplyScalar(t));
+    const newPosition = closestPoint.z;
 
     // Limit position to timeline bounds
     const minPos = -timelineLength / 2;
@@ -69,7 +94,6 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
     // End dragging state
     setIsDragging(false);
     document.body.style.cursor = 'auto';
-    dragStartPointRef.current = null;
 
     // Notify parent that dragging ended
     if (onDragStateChange) {
@@ -98,11 +122,6 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
 
-    // Calculate initial mouse position
-    const rect = gl.domElement.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
     // Set dragging state
     setIsDragging(true);
 
@@ -116,9 +135,6 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
     // Store initial position for reference
     initialPositionRef.current = position;
-
-    // Store the mouse position where dragging started
-    dragStartPointRef.current = { mouseX, mouseY };
   };
 
   // Create a marker for the current position
