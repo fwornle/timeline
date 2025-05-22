@@ -123,6 +123,24 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     setState(prev => ({ ...prev, scrollSpeed: speed }));
   }, []);
 
+  // Update camera target position (for marker dragging)
+  const setCameraTarget = useCallback((position: THREE.Vector3) => {
+    setState(prev => ({
+      ...prev,
+      cameraTarget: position.clone(),
+      isAutoScrolling: false // Stop auto-scrolling when manually positioning
+    }));
+  }, []);
+
+  // Update camera target Z position only (for marker dragging)
+  const setCameraTargetZ = useCallback((z: number) => {
+    setState(prev => ({
+      ...prev,
+      cameraTarget: new THREE.Vector3(prev.cameraTarget.x, prev.cameraTarget.y, z),
+      isAutoScrolling: false // Stop auto-scrolling when manually positioning
+    }));
+  }, []);
+
   // Animation loop
   const animate = useCallback((time: number) => {
     const deltaTime = (time - lastTimeRef.current) / 1000;
@@ -168,5 +186,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     setHoveredCard,
     toggleAutoScroll,
     setScrollSpeed,
+    setCameraTarget,
+    setCameraTargetZ,
   };
 }

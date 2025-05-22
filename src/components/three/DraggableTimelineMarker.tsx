@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { Vector3, Vector2, Raycaster, Plane, Group } from 'three';
@@ -28,40 +28,14 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const dragStartPointRef = useRef<Vector3 | null>(null);
   const initialPositionRef = useRef<number>(position);
 
-  // Handle pointer down event to start dragging
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.stopPropagation();
-
-    // Set dragging state
-    setIsDragging(true);
-
-    // Store initial position for reference
-    initialPositionRef.current = position;
-
-    // Set up the drag plane perpendicular to the camera
-    const normal = new Vector3(0, 0, 1); // Z-axis is our timeline axis
-    dragPlaneRef.current.setFromNormalAndCoplanarPoint(
-      normal,
-      new Vector3(0, 2, position) // Use current marker position
-    );
-
-    // Store the point where dragging started
-    dragStartPointRef.current = new Vector3(0, 2, position);
-
-    // Capture pointer to track movement even outside the canvas
-    gl.domElement.setPointerCapture(e.pointerId);
-
-    // Marker drag started
-  };
-
-  // Handle pointer move event during dragging
-  const handlePointerMove = (e: React.PointerEvent) => {
+  // Global pointer move handler for when dragging
+  const handleGlobalPointerMove = (e: PointerEvent) => {
     if (!isDragging) return;
-    e.stopPropagation(); // Make sure to stop propagation
 
     // Calculate mouse position in normalized device coordinates (-1 to +1)
-    const mouseX = (e.clientX / gl.domElement.clientWidth) * 2 - 1;
-    const mouseY = -(e.clientY / gl.domElement.clientHeight) * 2 + 1;
+    const rect = gl.domElement.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
     // Update the raycaster with the mouse position and camera
     raycasterRef.current.setFromCamera(new Vector2(mouseX, mouseY), camera);
@@ -82,16 +56,48 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
     }
   };
 
-  // Handle pointer up event to end dragging
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const handleGlobalPointerUp = () => {
     if (!isDragging) return;
 
     // End dragging state
     setIsDragging(false);
     dragStartPointRef.current = null;
+  };
 
-    // Release pointer capture
-    gl.domElement.releasePointerCapture(e.pointerId);
+  // Add global event listeners when dragging starts
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('pointermove', handleGlobalPointerMove);
+      document.addEventListener('pointerup', handleGlobalPointerUp);
+      document.addEventListener('pointercancel', handleGlobalPointerUp);
+
+      return () => {
+        document.removeEventListener('pointermove', handleGlobalPointerMove);
+        document.removeEventListener('pointerup', handleGlobalPointerUp);
+        document.removeEventListener('pointercancel', handleGlobalPointerUp);
+      };
+    }
+  }, [isDragging, camera, gl.domElement, timelineLength, onPositionChange]);
+
+  // Handle pointer down event to start dragging
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+
+    // Set dragging state
+    setIsDragging(true);
+
+    // Store initial position for reference
+    initialPositionRef.current = position;
+
+    // Set up the drag plane perpendicular to the camera
+    const normal = new Vector3(0, 0, 1); // Z-axis is our timeline axis
+    dragPlaneRef.current.setFromNormalAndCoplanarPoint(
+      normal,
+      new Vector3(0, 2, position) // Use current marker position
+    );
+
+    // Store the point where dragging started
+    dragStartPointRef.current = new Vector3(0, 2, position);
   };
 
   // Create a marker for the current position
@@ -100,13 +106,13 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
       ref={markerRef}
       position={[0, 2, position]}
       onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-      onPointerCancel={handlePointerUp}
     >
       {/* Transparent vertical plane - stands up perpendicular to the time axis (Z) */}
-      <mesh rotation={[0, 0, 0]} position={[0, 0, 0]}>
+      <mesh
+        rotation={[0, 0, 0]}
+        position={[0, 0, 0]}
+        onPointerDown={handlePointerDown}
+      >
         {/* Plane is perpendicular to Z (time axis), covers the timeline height */}
         <planeGeometry args={[4, 2]} />
         {/* Custom shader material for edge fade */}

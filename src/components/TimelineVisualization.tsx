@@ -187,6 +187,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     setHoveredCard,
     toggleAutoScroll,
     setScrollSpeed,
+    setCameraTargetZ,
   } = useTimelineAnimation({
     enableAutoScroll: autoDrift,
     initialScrollSpeed: animationSpeed,
@@ -413,7 +414,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           currentPosition={cameraTarget.z}
           onMarkerPositionChange={(position) => {
             // Update camera target Z position when marker is moved
-            cameraTarget.z = position;
+            setCameraTargetZ(position);
             // Also notify parent component
             if (onPositionUpdate) {
               onPositionUpdate(position);
@@ -429,22 +430,22 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             if (debugMode) {
               console.log('[TimelineVisualization] Passing camera state:', {
                 id: Date.now(),
-                position: { 
-                  x: state.position.x.toFixed(2), 
-                  y: state.position.y.toFixed(2), 
-                  z: state.position.z.toFixed(2) 
+                position: {
+                  x: state.position.x.toFixed(2),
+                  y: state.position.y.toFixed(2),
+                  z: state.position.z.toFixed(2)
                 },
-                target: { 
-                  x: state.target.x.toFixed(2), 
-                  y: state.target.y.toFixed(2), 
-                  z: state.target.z.toFixed(2) 
+                target: {
+                  x: state.target.x.toFixed(2),
+                  y: state.target.y.toFixed(2),
+                  z: state.target.z.toFixed(2)
                 },
                 zoom: state.zoom.toFixed(2),
                 targetIsZero: state.target.x === 0 && state.target.y === 0 && state.target.z === 0,
                 zoomIsOne: state.zoom === 1
               });
             }
-            
+
             if (onCameraStateChange) {
               // Create a clean state object with proper Vector3 instances before passing up
               const cleanState: CameraState = {
@@ -460,7 +461,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
                 ),
                 zoom: Number(state.zoom)
               };
-              
+
               onCameraStateChange(cleanState);
             }
           }}
