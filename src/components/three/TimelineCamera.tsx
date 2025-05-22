@@ -96,6 +96,32 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   const orbitControlsRef = useRef<OrbitControlsImpl>(null);
   const lastCameraStateRef = useRef<CameraState | null>(null);
   const originalPositionRef = useRef<Vector3 | null>(null);
+  
+  // Add flags to track state origin and prevent oscillation
+  const initialStateAppliedRef = useRef(false);
+  const lastUpdateSourceRef = useRef<'initial' | 'user' | 'frame' | 'view' | null>(null);
+  const preventUpdateRef = useRef(false);
+  
+  // Log state changes with source
+  const logCameraStateChange = (state: CameraState, source: 'initial' | 'user' | 'frame' | 'view') => {
+    lastUpdateSourceRef.current = source;
+    
+    if (debugMode) {
+      console.log(`Camera state updated from ${source}:`, {
+        position: {
+          x: state.position.x.toFixed(1),
+          y: state.position.y.toFixed(1),
+          z: state.position.z.toFixed(1)
+        },
+        target: {
+          x: state.target.x.toFixed(1),
+          y: state.target.y.toFixed(1),
+          z: state.target.z.toFixed(1)
+        },
+        zoom: state.zoom.toFixed(1)
+      });
+    }
+  };
 
   // Debug the orbit controls reference
   useEffect(() => {
@@ -109,10 +135,17 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
   // Handle initial camera setup - only once
   useEffect(() => {
-    if (initialPositionSet) return;
+    if (initialPositionSet || initialStateAppliedRef.current) return;
+    
+    // Mark as applied to prevent re-initialization
+    initialStateAppliedRef.current = true;
+    console.log('Applying initial camera state - FIRST TIME ONLY');
 
     // Use initialCameraState if provided, otherwise use default position
     if (initialCameraState) {
+      // Temporarily prevent updates during initialization
+      preventUpdateRef.current = true;
+      
       // Set camera position
       camera.position.copy(initialCameraState.position);
 
@@ -133,12 +166,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         orbitControlsRef.current.update();
       }
 
-      // Update last position and target references for tracking changes
+      // Update last position and target references
       lastPositionRef.current.copy(camera.position);
       lastTargetRef.current.copy(initialCameraState.target);
 
       // Update last camera state reference
       lastCameraStateRef.current = initialCameraState;
+      
+      // Log the source of this update
+      logCameraStateChange(initialCameraState, 'initial');
 
       // Notify parent components of the applied state
       if (onCameraPositionChange) {
@@ -162,6 +198,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         },
         zoom: initialCameraState.zoom
       });
+      
+      // Re-enable updates after a brief delay
+      setTimeout(() => {
+        preventUpdateRef.current = false;
+      }, 500);
     } else {
       // Set initial camera position to look at the timeline from above
       // This position shows the timeline stretching from top left to bottom right corner
@@ -181,6 +222,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
       // Update last target reference
       lastTargetRef.current.copy(initialTarget);
+      
+      // Create and log initial state
+      const initialState: CameraState = {
+        position: initialPosition.clone(),
+        target: initialTarget.clone(),
+        zoom: camera.zoom
+      };
+      
+      // Log the source of this update
+      logCameraStateChange(initialState, 'initial');
+      
+      // Update the state reference
+      lastCameraStateRef.current = initialState;
 
       logger.info('Initial camera position set to default', {
         position: { x: initialPosition.x, y: initialPosition.y, z: initialPosition.z },
@@ -193,10 +247,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
   // Handle view mode changes (viewAllMode or focusCurrentMode)
   useEffect(() => {
+    // Don't run this during initialization phase or if updates are prevented
+    if (!initialPositionSet || preventUpdateRef.current) return;
+    
     // Check if view mode has changed from the previous state
     const viewModeChanged =
       viewAllMode !== lastViewModeRef.current.viewAll ||
       focusCurrentMode !== lastViewModeRef.current.focusCurrent;
+      
+    if (!viewModeChanged) return;
 
     if (viewAllMode) {
       // View all events
@@ -214,6 +273,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       lastTargetRef.current.copy(target);
 
       userControlledRef.current = false;
+      
+      // Create and log view mode state
+      const viewState: CameraState = {
+        position: newCameraPosition.clone(),
+        target: target.clone(),
+        zoom: camera.zoom
+      };
+      
+      // Log the source of this update
+      logCameraStateChange(viewState, 'view');
+      
+      // Update the state reference
+      lastCameraStateRef.current = viewState;
 
       logger.info('Setting camera to view all mode', {
         position: { x: newCameraPosition.x, y: newCameraPosition.y, z: newCameraPosition.z },
@@ -237,6 +309,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       lastTargetRef.current.copy(target);
 
       userControlledRef.current = false;
+      
+      // Create and log focus mode state
+      const focusState: CameraState = {
+        position: newCameraPosition.clone(),
+        target: target.clone(),
+        zoom: camera.zoom
+      };
+      
+      // Log the source of this update
+      logCameraStateChange(focusState, 'view');
+      
+      // Update the state reference
+      lastCameraStateRef.current = focusState;
 
       logger.info('Setting camera to focus mode', {
         position: { x: newCameraPosition.x, y: newCameraPosition.y, z: newCameraPosition.z },
@@ -247,7 +332,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
     // Update the last view mode
     lastViewModeRef.current = { viewAll: viewAllMode, focusCurrent: focusCurrentMode };
-  }, [viewAllMode, focusCurrentMode, target, camera, logger, events]);
+  }, [viewAllMode, focusCurrentMode, target, camera, logger, events, initialPositionSet]);
 
   // Track camera state changes and notify parent component
   const lastPositionRef = useRef(new Vector3());
@@ -256,180 +341,16 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   const lastUpdateTimeRef = useRef(0);
   const lastTargetRef = useRef(new Vector3());
 
-  // Rewrite the debug mode cycling effect to be more robust
-  useEffect(() => {
-    console.log('[DEBUG CYCLING] Effect triggered with debugMode:', debugMode);
-    
-    // Clear any existing interval - IMPORTANT
-    let cycleInterval: number | undefined;
-    
-    // If entering debug mode, store original position
-    if (debugMode && camera) {
-      console.log('[DEBUG CYCLING] Debug mode activated');
-      
-      // Store original position only when first entering debug mode
-      if (!originalPositionRef.current) {
-        originalPositionRef.current = camera.position.clone();
-        console.log('[DEBUG CYCLING] Stored original camera position:', originalPositionRef.current);
-      }
-      
-      // Simple non-React-state-dependent position cycling
-      let posIndex = 0;
-      
-      // Move to first position immediately
-      const firstPosition = DEBUG_POSITIONS[posIndex];
-      console.log(`[DEBUG CYCLING] Moving to initial position "${firstPosition.name}"`);
-      
-      // Direct camera manipulation
-      camera.position.copy(firstPosition.position);
-      camera.lookAt(target);
-      
-      // Update orbit controls if they exist
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(target);
-        orbitControlsRef.current.update();
-      }
-      
-      // Create camera state for notification
-      const newState: CameraState = {
-        position: firstPosition.position.clone(),
-        target: target.clone(),
-        zoom: camera.zoom
-      };
-      
-      // Update refs
-      lastPositionRef.current.copy(firstPosition.position);
-      lastTargetRef.current.copy(target);
-      lastCameraStateRef.current = newState;
-      
-      // Notify parent components
-      if (onCameraStateChange) {
-        console.log('[DEBUG CYCLING] Notifying of initial debug position state');
-        onCameraStateChange(newState);
-      }
-      
-      // Set up cycling interval that DOESN'T depend on React state
-      cycleInterval = window.setInterval(() => {
-        // Increment position index
-        posIndex = (posIndex + 1) % DEBUG_POSITIONS.length;
-        
-        // Get new position
-        const { position, name } = DEBUG_POSITIONS[posIndex];
-        console.log(`[DEBUG CYCLING] Cycling to position "${name}" (index ${posIndex})`);
-        
-        // Direct camera manipulation
-        camera.position.copy(position);
-        camera.lookAt(target);
-        
-        // Update orbit controls if they exist
-        if (orbitControlsRef.current) {
-          orbitControlsRef.current.target.copy(target);
-          orbitControlsRef.current.update();
-        }
-        
-        // Create camera state for notification
-        const newState: CameraState = {
-          position: position.clone(),
-          target: target.clone(),
-          zoom: camera.zoom
-        };
-        
-        // Update refs
-        lastPositionRef.current.copy(position);
-        lastTargetRef.current.copy(target);
-        lastCameraStateRef.current = newState;
-        
-        // Notify parent components
-        if (onCameraStateChange) {
-          console.log('[DEBUG CYCLING] Notifying of position change', {
-            position: {
-              x: position.x.toFixed(1),
-              y: position.y.toFixed(1),
-              z: position.z.toFixed(1)
-            },
-            target: {
-              x: target.x.toFixed(1),
-              y: target.y.toFixed(1),
-              z: target.z.toFixed(1)
-            },
-            zoom: camera.zoom.toFixed(1)
-          });
-          
-          // Log what's being sent out
-          console.log('[DEBUG CYCLING] newState object being sent:', JSON.stringify({
-            position: {
-              x: newState.position.x,
-              y: newState.position.y,
-              z: newState.position.z
-            },
-            target: {
-              x: newState.target.x,
-              y: newState.target.y,
-              z: newState.target.z
-            },
-            zoom: newState.zoom
-          }));
-          
-          onCameraStateChange(newState);
-        }
-      }, 2000);
-      
-      console.log('[DEBUG CYCLING] Interval set with ID:', cycleInterval);
-    } else if (!debugMode && originalPositionRef.current) {
-      // Restore original position when exiting debug mode
-      console.log('[DEBUG CYCLING] Debug mode deactivated, restoring original position');
-      
-      // Restore camera position
-      camera.position.copy(originalPositionRef.current);
-      camera.lookAt(target);
-      
-      // Update orbit controls if they exist
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(target);
-        orbitControlsRef.current.update();
-      }
-      
-      // Create camera state for notification
-      const restoredState: CameraState = {
-        position: originalPositionRef.current.clone(),
-        target: target.clone(),
-        zoom: camera.zoom
-      };
-      
-      // Update refs
-      lastPositionRef.current.copy(originalPositionRef.current);
-      lastTargetRef.current.copy(target);
-      lastCameraStateRef.current = restoredState;
-      
-      // Notify parent components
-      if (onCameraStateChange) {
-        console.log('[DEBUG CYCLING] Notifying of restored original position');
-        onCameraStateChange(restoredState);
-      }
-      
-      // Clear the stored original position
-      originalPositionRef.current = null;
-    }
-    
-    // Cleanup function
-    return () => {
-      if (cycleInterval) {
-        console.log('[DEBUG CYCLING] Clearing interval:', cycleInterval);
-        window.clearInterval(cycleInterval);
-      }
-    };
-  }, [debugMode, camera, target]);
-
   // Optimize the useFrame hook to reduce console spam
   useFrame(({ clock }) => {
-    // Skip camera updates completely in debug mode
-    if (debugMode) {
+    // Skip camera updates completely in debug mode or during initialization
+    if (debugMode || !initialPositionSet || preventUpdateRef.current) {
       return; // Let the debug cycling handle camera positioning
     }
     
     // Only update at most 5 times per second to reduce console spam
     const currentTime = clock.getElapsedTime();
-    const shouldUpdate = currentTime - lastUpdateTimeRef.current > 0.2; // 200ms between updates
+    const shouldUpdate = currentTime - lastUpdateTimeRef.current > 0.5; // 500ms between updates - increased from 200ms
     
     if (!shouldUpdate) {
       return; // Skip this frame to reduce overhead
@@ -463,9 +384,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
 
     // Check if position, target, or zoom has changed
-    const positionChanged = camera.position.distanceTo(lastPositionRef.current) > 0.01;
-    const targetChanged = currentTarget.distanceTo(lastTargetRef.current) > 0.01;
-    const zoomChanged = Math.abs(camera.zoom - (lastCameraStateRef.current?.zoom || 1)) > 0.01;
+    const positionChanged = camera.position.distanceTo(lastPositionRef.current) > 0.5; // Increased threshold
+    const targetChanged = currentTarget.distanceTo(lastTargetRef.current) > 0.5; // Increased threshold
+    const zoomChanged = Math.abs(camera.zoom - (lastCameraStateRef.current?.zoom || 1)) > 0.1; // Increased threshold
 
     // Check for user interaction 
     const userInteracted = userControlledRef.current;
@@ -495,8 +416,8 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       });
     }
 
-    // Only update state if something changed
-    if (positionChanged || targetChanged || zoomChanged || userInteracted) {
+    // Only update state if significant changes detected or user interacted
+    if ((positionChanged || targetChanged || zoomChanged || userInteracted)) {
       // Reset the user interaction flag after applying the update
       if (userInteracted) {
         userControlledRef.current = false;
@@ -519,28 +440,40 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       // Get current zoom level
       const currentZoom = Math.round(camera.zoom * 100) / 100;
 
-      // Create full camera state
-      const cameraState: CameraState = {
-        position: currentPosition,
-        target: roundedTarget,
-        zoom: currentZoom
-      };
+      // Check if the new state is significantly different from the last sent state
+      // to avoid small oscillating updates
+      const significantChange = !lastCameraStateRef.current ||
+        currentPosition.distanceTo(lastCameraStateRef.current.position) > 1.0 || // Increased from 0.1
+        roundedTarget.distanceTo(lastCameraStateRef.current.target) > 1.0 || // Increased from 0.1
+        Math.abs(currentZoom - lastCameraStateRef.current.zoom) > 0.2; // Increased from 0.1
 
-      // Update last position and target references
-      lastPositionRef.current.copy(camera.position);
-      lastTargetRef.current.copy(currentTarget);
+      if ((significantChange || userInteracted) && lastUpdateSourceRef.current !== 'initial') {
+        // Create full camera state
+        const cameraState: CameraState = {
+          position: currentPosition,
+          target: roundedTarget,
+          zoom: currentZoom
+        };
 
-      // Update last camera state reference
-      lastCameraStateRef.current = cameraState;
+        // Update last position and target references
+        lastPositionRef.current.copy(camera.position);
+        lastTargetRef.current.copy(currentTarget);
 
-      // Call position change callback if provided
-      if (onCameraPositionChange) {
-        onCameraPositionChange(currentPosition);
-      }
+        // Update last camera state reference
+        lastCameraStateRef.current = cameraState;
+        
+        // Log the source of this update
+        logCameraStateChange(cameraState, 'frame');
 
-      // Call state change callback if provided
-      if (onCameraStateChange) {
-        onCameraStateChange(cameraState);
+        // Call position change callback if provided
+        if (onCameraPositionChange) {
+          onCameraPositionChange(currentPosition);
+        }
+
+        // Call state change callback if provided
+        if (onCameraStateChange) {
+          onCameraStateChange(cameraState);
+        }
       }
     }
   });
@@ -577,7 +510,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       maxAzimuthAngle={Infinity}
       minAzimuthAngle={-Infinity}
       enableDamping={true}
-      dampingFactor={0.2}
+      dampingFactor={0.3}
       rotateSpeed={0.8}
       zoomSpeed={1.0}
       panSpeed={0.8}
@@ -594,60 +527,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       onChange={() => {
         // Flag that user is controlling camera
         userControlledRef.current = true;
-        console.log('OrbitControls onChange triggered');
-
-        // Immediately update camera state when user interacts with controls
-        if (onCameraStateChange && orbitControlsRef.current) {
-          const currentPosition = new Vector3(
-            Math.round(camera.position.x * 100) / 100,
-            Math.round(camera.position.y * 100) / 100,
-            Math.round(camera.position.z * 100) / 100
-          );
-
-          const currentTarget = new Vector3().copy(orbitControlsRef.current.target);
-          currentTarget.x = Math.round(currentTarget.x * 100) / 100;
-          currentTarget.y = Math.round(currentTarget.y * 100) / 100;
-          currentTarget.z = Math.round(currentTarget.z * 100) / 100;
-
-          // Get current zoom level
-          const currentZoom = Math.round(camera.zoom * 100) / 100;
-
-          const cameraState: CameraState = {
-            position: currentPosition,
-            target: currentTarget,
-            zoom: currentZoom
-          };
-
-          console.log('Camera state from user interaction:', {
-            position: { x: currentPosition.x, y: currentPosition.y, z: currentPosition.z },
-            target: { x: currentTarget.x, y: currentTarget.y, z: currentTarget.z },
-            zoom: currentZoom
-          });
-
-          // Only log in debug mode
-          if (debugMode) {
-            logger.debug('TimelineCamera: Controls changed', {
-              position: { x: currentPosition.x, y: currentPosition.y, z: currentPosition.z },
-              target: { x: currentTarget.x, y: currentTarget.y, z: currentTarget.z },
-              zoom: currentZoom
-            });
-          }
-          
-          // Update last state references
-          lastPositionRef.current.copy(currentPosition);
-          lastTargetRef.current.copy(currentTarget);
-          lastCameraStateRef.current = cameraState;
-
-          // Notify parent components
-          console.log('Calling onCameraStateChange from onChange handler');
-          onCameraStateChange(cameraState);
-
-          // Also update position for backward compatibility
-          if (onCameraPositionChange) {
-            console.log('Calling onCameraPositionChange from onChange handler');
-            onCameraPositionChange(currentPosition);
-          }
-        }
+        
+        // Don't trigger frequent updates during drag - just mark as user controlled
+        // The useFrame hook will handle the updates at a reasonable rate
       }}
       onEnd={() => {
         // Ensure final state is captured at end of interaction

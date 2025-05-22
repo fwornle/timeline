@@ -308,7 +308,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   },
                   zoom: state.zoom.toFixed(2)
                 });
-                setCameraState(state);
+                
+                // Prevent oscillation by checking if the new state is significantly different
+                if (cameraState) {
+                  const positionDiff = Math.sqrt(
+                    Math.pow(state.position.x - cameraState.position.x, 2) +
+                    Math.pow(state.position.y - cameraState.position.y, 2) +
+                    Math.pow(state.position.z - cameraState.position.z, 2)
+                  );
+                  
+                  const targetDiff = Math.sqrt(
+                    Math.pow(state.target.x - cameraState.target.x, 2) +
+                    Math.pow(state.target.y - cameraState.target.y, 2) +
+                    Math.pow(state.target.z - cameraState.target.z, 2)
+                  );
+                  
+                  const zoomDiff = Math.abs(state.zoom - cameraState.zoom);
+                  
+                  // Only update if significant change or in debug mode
+                  if (positionDiff > 0.2 || targetDiff > 0.2 || zoomDiff > 0.1 || debugMode) {
+                    setCameraState(state);
+                    console.log('Camera state updated due to significant change');
+                  }
+                } else {
+                  // Always update if no previous state
+                  setCameraState(state);
+                  console.log('Initial camera state set');
+                }
               },
               initialCameraState: cameraState,
               onTimelineDatesChange: (startDate: Date, endDate: Date) => {
