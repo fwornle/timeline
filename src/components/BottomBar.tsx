@@ -323,7 +323,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       style={{
                         position: 'absolute',
                         right: 0,
-                        top: '110%',
+                        bottom: 'calc(100% + 8px)',
                         background: 'white',
                         color: '#222',
                         border: '1px solid #ddd',
@@ -331,7 +331,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                         boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                         padding: 12,
                         minWidth: 240,
-                        zIndex: 1000
+                        zIndex: 99999,
                       }}
                     >
                       <div style={{ fontWeight: 600, fontSize: '1.05em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
