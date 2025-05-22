@@ -153,13 +153,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         shadows
         camera={{ position: [-35, 30, -50], fov: 45 }}
         style={{ background: 'linear-gradient(to bottom, #0f172a, #1e293b)', height: '100%' }}
-        onWheel={(e) => {
-          // Log wheel events to debug zoom behavior
-          console.log(`[DEBUG] Canvas wheel event:`, {
-            deltaY: e.deltaY,
-            // Access camera safely without relying on internal React properties
-            timestamp: Date.now()
-          });
+        onWheel={() => {
+          // Wheel events are handled by OrbitControls
+          // Removed debug logging to reduce console spam
         }}
       >
         {/* Background click handler */}
