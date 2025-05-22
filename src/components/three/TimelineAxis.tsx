@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { DraggableTimelineMarker } from './DraggableTimelineMarker';
+import { ThreeEvent } from '@react-three/fiber';
 
 interface TimelineAxisProps {
   length?: number;
@@ -23,6 +24,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   currentPosition = 0,
   onPositionChange,
 }) => {
+  const [isHovering, setIsHovering] = useState(false);
+  const [hoverPosition, setHoverPosition] = useState<number | null>(null);
+
   // Generate axis points - centered around z=0
   const axisPoints = [
     [0, 2, -length / 2] as [number, number, number],
@@ -102,8 +106,22 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     }
   };
 
+  // Handle pointer move over the timeline to show a hover indicator
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+    // Get the hovered position along the Z axis
+    const hoveredPosition = e.point.z;
+    
+    // Limit position to timeline bounds
+    const minPos = -length / 2;
+    const maxPos = length / 2;
+    const clampedPosition = Math.max(minPos, Math.min(maxPos, hoveredPosition));
+    
+    // Update hover position
+    setHoverPosition(clampedPosition);
+  };
+
   // Handle click on the timeline axis to move the marker
-  const handleAxisClick = (e: any) => {
+  const handleAxisClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     if (onPositionChange) {
       // Get the clicked position along the Z axis
@@ -127,10 +145,30 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         position={[0, 2, 0]}
         rotation={[Math.PI / 2, 0, 0]}
         onClick={handleAxisClick}
+        onPointerEnter={() => setIsHovering(true)}
+        onPointerLeave={() => {
+          setIsHovering(false);
+          setHoverPosition(null);
+        }}
+        onPointerMove={handlePointerMove}
       >
-        <planeGeometry args={[8, length]} /> {/* Wider plane for easier clicking */}
+        <planeGeometry args={[10, length]} /> {/* Wider plane for easier clicking */}
         <meshBasicMaterial visible={false} transparent={true} opacity={0} />
       </mesh>
+
+      {/* Hover indicator */}
+      {isHovering && hoverPosition !== null && (
+        <Line
+          points={[
+            [0, 1.5, hoverPosition] as [number, number, number],
+            [0, 2.5, hoverPosition] as [number, number, number],
+          ]}
+          color="#aaaaaa"
+          lineWidth={2}
+          transparent
+          opacity={0.5}
+        />
+      )}
 
       <Line
         points={axisPoints}

@@ -28,6 +28,13 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const dragStartPointRef = useRef<Vector3 | null>(null);
   const initialPositionRef = useRef<number>(position);
 
+  // Update the marker position when the prop changes from outside
+  useEffect(() => {
+    if (!isDragging && initialPositionRef.current !== position) {
+      initialPositionRef.current = position;
+    }
+  }, [position, isDragging]);
+
   // Global pointer move handler for when dragging
   const handleGlobalPointerMove = (e: PointerEvent) => {
     if (!isDragging) return;
@@ -61,6 +68,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
     // End dragging state
     setIsDragging(false);
+    document.body.style.cursor = 'auto';
     dragStartPointRef.current = null;
   };
 
@@ -70,11 +78,13 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
       document.addEventListener('pointermove', handleGlobalPointerMove);
       document.addEventListener('pointerup', handleGlobalPointerUp);
       document.addEventListener('pointercancel', handleGlobalPointerUp);
+      document.body.style.cursor = 'ew-resize'; // Use east-west cursor to indicate horizontal dragging
 
       return () => {
         document.removeEventListener('pointermove', handleGlobalPointerMove);
         document.removeEventListener('pointerup', handleGlobalPointerUp);
         document.removeEventListener('pointercancel', handleGlobalPointerUp);
+        document.body.style.cursor = 'auto';
       };
     }
   }, [isDragging, camera, gl.domElement, timelineLength, onPositionChange]);
@@ -85,15 +95,20 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
     // Set dragging state
     setIsDragging(true);
+    
+    // Set the cursor style to indicate dragging
+    document.body.style.cursor = 'ew-resize';
 
     // Store initial position for reference
     initialPositionRef.current = position;
 
-    // Set up the drag plane perpendicular to the camera
-    const normal = new Vector3(0, 0, 1); // Z-axis is our timeline axis
+    // Create a drag plane aligned with the timeline (XY plane at the marker position)
+    // The normal of the plane should be perpendicular to the camera's view but aligned with the Z axis
+    // So we use the Z axis as the normal
+    const normal = new Vector3(0, 0, 1);
     dragPlaneRef.current.setFromNormalAndCoplanarPoint(
       normal,
-      new Vector3(0, 2, position) // Use current marker position
+      new Vector3(0, 2, position)
     );
 
     // Store the point where dragging started
