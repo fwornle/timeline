@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { DraggableTimelineMarker } from './DraggableTimelineMarker';
 import { ThreeEvent } from '@react-three/fiber';
+import * as THREE from 'three';
 
 interface TimelineAxisProps {
   length?: number;
@@ -153,6 +154,43 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     }
   };
 
+  // Create a custom shader material for fading effect
+  const fadingMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      transparent: true,
+      side: THREE.DoubleSide,
+      uniforms: {
+        color: { value: new THREE.Color('#00ff00') },
+        opacity: { value: 0.03 },
+        fadeWidth: { value: 25.0 }, // Width of the plane
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 color;
+        uniform float opacity;
+        uniform float fadeWidth;
+        varying vec2 vUv;
+
+        void main() {
+          // Calculate distance from center (0.5) along X axis
+          float distFromCenter = abs(vUv.x - 0.5) * 2.0; // 0 at center, 1 at edges
+
+          // Create smooth fade from center to edges
+          float alpha = 1.0 - smoothstep(0.0, 1.0, distFromCenter);
+          alpha = alpha * alpha; // Square for more dramatic fade
+
+          gl_FragColor = vec4(color, opacity * alpha);
+        }
+      `
+    });
+  }, []);
+
   // Debug logging for timeline axis
   console.log('🎯 TimelineAxis render:', {
     length,
@@ -165,9 +203,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     <group>
       {/* Invisible plane for click detection along the entire timeline */}
       <mesh
-        position={[0, 2, 0]}
+        position={[0, 1.9, 0]}
         rotation={[Math.PI / 2, 0, 0]}
-        renderOrder={1000}
+        renderOrder={900}
         onClick={handleAxisClick}
         onPointerEnter={(e) => {
           console.log('🎯 Timeline axis pointer enter', {
@@ -189,7 +227,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         onPointerMove={handlePointerMove}
       >
         <planeGeometry args={[25, length]} /> {/* Much wider plane for easier detection */}
-        <meshBasicMaterial visible={true} transparent={true} opacity={0.3} color="#00ff00" />
+        <primitive object={fadingMaterial} />
       </mesh>
 
       {/* Hover indicator - line and ball */}

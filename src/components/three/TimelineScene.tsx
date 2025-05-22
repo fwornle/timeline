@@ -102,6 +102,15 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     return Math.max(events.length * minSpacing, 100);
   }, [events]);
 
+  // Debug logging for Grid component
+  useEffect(() => {
+    console.log('🔷 TimelineScene rendering with Grid component', {
+      eventsCount: events.length,
+      timelineLength,
+      debugMode
+    });
+  }, [events.length, timelineLength, debugMode]);
+
   // Background click handler component - simplified to only handle document clicks outside canvas
   const BackgroundClickHandler: React.FC<{ onCardSelect: (id: string | null) => void }> = ({ onCardSelect }) => {
     const { gl } = useThree();
@@ -211,6 +220,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           fadeStrength={1.5}
           fadeDistance={100}
           position={[0, -0.01, 0]}
+          infiniteGrid={true}
+          followCamera={false}
+          onUpdate={() => console.log('🔷 Grid component updated')}
         />
         <Environment preset="city" />
       </Canvas>
