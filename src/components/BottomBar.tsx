@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
 import type { CameraState } from './three/TimelineCamera';
@@ -167,6 +167,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
     }
   };
 
+  const [showCameraDetails, setShowCameraDetails] = useState(false);
+
   return (
     <div className="bg-light border-top py-2">
       <Container fluid>
@@ -196,69 +198,13 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   <i className="bi bi-clock-history me-1"></i>
                   {positionToDate()}
                 </span>
-                <span
-                  className="badge bg-primary text-white"
-                  style={{
-                    cursor: 'pointer',
-                    padding: '8px',
-                    display: 'inline-block',
-                    lineHeight: '1.2',
-                    transition: 'all 0.2s ease',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}
-                  onClick={() => {
-                    if (cameraState && onSaveCameraState) {
-                      // Create a new camera state object with pristine Vector3 instances
-                      const stateToSave: CameraState = {
-                        position: new Vector3(
-                          cameraState.position.x,
-                          cameraState.position.y,
-                          cameraState.position.z
-                        ),
-                        target: new Vector3(
-                          cameraState.target.x,
-                          cameraState.target.y,
-                          cameraState.target.z
-                        ),
-                        zoom: cameraState.zoom
-                      };
-                      onSaveCameraState(stateToSave);
-                    } else {
-                      alert('Cannot save camera view - no camera state available.');
-                    }
-                  }}
-                  title="Click to save this camera view"
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0d6efd';
-                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '';
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  }}
-                >
-                  <i className="bi bi-camera me-1"></i>
-                  <div style={{ textAlign: 'left' }}>
-                    {cameraState ? (
-                      <>
-                        <div><small>Pos: {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
-                        <div><small>Look: {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
-                        <div><small>Zoom: {cameraState.zoom.toFixed(2)}x</small></div>
-                        <div><small style={{ color: '#aaffff' }}>Click to save view</small></div>
-                      </>
-                    ) : (
-                      <>XYZ: {cameraPosition?.x?.toFixed(1) || '0.0'}, {cameraPosition?.y?.toFixed(1) || '0.0'}, {cameraPosition?.z?.toFixed(1) || '0.0'}</>
-                    )}
-                  </div>
-                </span>
               </div>
             ) : (
               <span className="text-muted">Enter a repository URL to begin</span>
             )}
           </Col>
 
-          {/* Animation Controls (right) */}
+          {/* Animation Controls and Camera/Debug (right) */}
           {showControls && (
             <Col xs={12} md={6} className="text-md-end text-center mt-2 mt-md-0">
               <div className="d-flex align-items-center justify-content-md-end justify-content-center gap-3">
@@ -313,7 +259,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   <i className={`bi ${autoDrift ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
                 </button>
 
-                {/* Debug mode toggle */}
+                {/* Debug mode toggle - now a bug icon */}
                 <button
                   className={`btn btn-sm ${debugMode ? 'btn-danger' : 'btn-outline-danger'}`}
                   onClick={handleDebugModeChange}
@@ -323,7 +269,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     overflow: 'visible'
                   }}
                 >
-                  <i className="bi bi-camera"></i>
+                  <i className="bi bi-bug"></i>
                   {debugMode && (
                     <span 
                       style={{
@@ -339,6 +285,77 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     />
                   )}
                 </button>
+
+                {/* Camera indicator - far right */}
+                <div style={{ position: 'relative', marginLeft: '12px' }}>
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    style={{ minWidth: '40px' }}
+                    onClick={() => setShowCameraDetails((v) => !v)}
+                    title="Show camera view details"
+                  >
+                    <i className="bi bi-camera"></i>
+                    {cameraState && (
+                      <span style={{ marginLeft: 6, fontSize: '0.95em' }}>
+                        {cameraState.zoom.toFixed(2)}x
+                      </span>
+                    )}
+                  </button>
+                  {showCameraDetails && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '110%',
+                        background: 'white',
+                        color: '#222',
+                        border: '1px solid #ddd',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                        padding: 12,
+                        minWidth: 220,
+                        zIndex: 1000
+                      }}
+                    >
+                      <div style={{ textAlign: 'left' }}>
+                        {cameraState ? (
+                          <>
+                            <div><small>Pos: {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
+                            <div><small>Look: {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
+                            <div><small>Zoom: {cameraState.zoom.toFixed(2)}x</small></div>
+                            <div>
+                              <button
+                                className="btn btn-sm btn-success mt-2"
+                                onClick={() => {
+                                  if (cameraState && onSaveCameraState) {
+                                    const stateToSave: CameraState = {
+                                      position: new Vector3(
+                                        cameraState.position.x,
+                                        cameraState.position.y,
+                                        cameraState.position.z
+                                      ),
+                                      target: new Vector3(
+                                        cameraState.target.x,
+                                        cameraState.target.y,
+                                        cameraState.target.z
+                                      ),
+                                      zoom: cameraState.zoom
+                                    };
+                                    onSaveCameraState(stateToSave);
+                                  } else {
+                                    alert('Cannot save camera view - no camera state available.');
+                                  }
+                                }}
+                              >Save current view</button>
+                            </div>
+                          </>
+                        ) : (
+                          <>XYZ: {cameraPosition?.x?.toFixed(1) || '0.0'}, {cameraPosition?.y?.toFixed(1) || '0.0'}, {cameraPosition?.z?.toFixed(1) || '0.0'}</>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </Col>
           )}
