@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
-import { Vector3 } from 'three';
+import { Vector3, PerspectiveCamera, OrthographicCamera } from 'three';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -68,6 +68,24 @@ const calculateFocusPosition = (target: Vector3): Vector3 => {
   );
 };
 
+// --- Zoom factor logic for PerspectiveCamera ---
+const DEFAULT_CAMERA_DISTANCE = 84.24; // Set this to your initial camera-to-target distance (from debug logs)
+
+function getCameraDistance(position: Vector3, target: Vector3) {
+  return position.distanceTo(target);
+}
+
+function getZoomFactor(position: Vector3, target: Vector3) {
+  // For PerspectiveCamera: zoom = defaultDistance / currentDistance
+  return DEFAULT_CAMERA_DISTANCE / getCameraDistance(position, target);
+}
+
+function getPositionForZoom(target: Vector3, direction: Vector3, zoom: number) {
+  // For PerspectiveCamera: place camera at distance = defaultDistance / zoom from target, along direction
+  const distance = DEFAULT_CAMERA_DISTANCE / zoom;
+  return target.clone().add(direction.clone().setLength(distance));
+}
+
 export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
   viewAllMode = false,
@@ -110,6 +128,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     };
   });
   
+  // Add a dedicated zoom tracking state to ensure we capture it correctly
+  const [currentZoom, setCurrentZoom] = useState(initialCameraState?.zoom || 1.0);
+  
   // Track when initialization is complete
   const [initialized, setInitialized] = useState(false);
   
@@ -119,18 +140,40 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Track user interaction
   const userInteractingRef = useRef(false);
   
+  // Expose camera details to help debugging
+  useEffect(() => {
+    console.log('[DEBUG] Camera object details:', {
+      type: camera.type,
+      isPerspective: camera instanceof PerspectiveCamera,
+      isOrthographic: camera instanceof OrthographicCamera,
+      initialZoom: camera.zoom,
+      fov: 'fov' in camera ? camera.fov : 'N/A'
+    });
+  }, [camera]);
+  
   // Helper to update camera state in a single place
   const updateCameraState = (
     newState: CameraState, 
     source: 'init' | 'controls' | 'mode' | 'frame'
   ) => {
-    // Skip updates from specific sources during initialization
     if (!initialized && source !== 'init') return;
+
+    let zoom = newState.zoom;
+    if (camera instanceof PerspectiveCamera) {
+      zoom = getZoomFactor(newState.position, newState.target);
+    } else if (camera instanceof OrthographicCamera) {
+      zoom = camera.zoom;
+    }
+
+    const updatedState: CameraState = {
+      ...newState,
+      zoom,
+    };
     
     // Skip redundant updates (no actual change)
-    const positionEqual = newState.position.distanceTo(cameraState.position) < 0.1;
-    const targetEqual = newState.target.distanceTo(cameraState.target) < 0.1;
-    const zoomEqual = Math.abs(newState.zoom - cameraState.zoom) < 0.05;
+    const positionEqual = updatedState.position.distanceTo(cameraState.position) < 0.1;
+    const targetEqual = updatedState.target.distanceTo(cameraState.target) < 0.1;
+    const zoomEqual = Math.abs(updatedState.zoom - cameraState.zoom) < 0.05;
     
     if (positionEqual && targetEqual && zoomEqual) {
       return;
@@ -139,16 +182,16 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     // Create a fresh state object with direct values to ensure clean state
     const cleanState: CameraState = {
       position: new Vector3(
-        Number(newState.position.x),
-        Number(newState.position.y),
-        Number(newState.position.z)
+        Number(updatedState.position.x),
+        Number(updatedState.position.y),
+        Number(updatedState.position.z)
       ),
       target: new Vector3(
-        Number(newState.target.x),
-        Number(newState.target.y),
-        Number(newState.target.z)
+        Number(updatedState.target.x),
+        Number(updatedState.target.y),
+        Number(updatedState.target.z)
       ),
-      zoom: Number(newState.zoom)
+      zoom: Number(updatedState.zoom)
     };
     
     // Update local state
@@ -203,22 +246,32 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   
   // Apply camera state to Three.js camera and controls
   const applyCameraState = (state: CameraState) => {
-    // Apply position
-    camera.position.copy(state.position);
-    
-    // Apply target to orbit controls
+    if (camera instanceof PerspectiveCamera) {
+      // Move camera along its current direction to match the zoom factor
+      const direction = state.position.clone().sub(state.target).normalize();
+      const newPosition = getPositionForZoom(state.target, direction, state.zoom);
+      camera.position.copy(newPosition);
+    } else if (camera instanceof OrthographicCamera) {
+      camera.position.copy(state.position);
+      camera.zoom = state.zoom;
+      camera.updateProjectionMatrix();
+    }
     if (orbitControlsRef.current) {
       orbitControlsRef.current.target.copy(state.target);
-    }
-    
-    // Apply zoom
-    camera.zoom = state.zoom;
-    camera.updateProjectionMatrix();
-    
-    // Update controls if available
-    if (orbitControlsRef.current) {
       orbitControlsRef.current.update();
     }
+    setCurrentZoom(state.zoom);
+    
+    // Add detailed camera information logging
+    console.log(`[DEBUG] Camera details after applying state:`, {
+      type: camera.type,
+      zoom: camera.zoom,
+      stateZoom: state.zoom,
+      trackingZoom: currentZoom,
+      distanceToTarget: camera.position.distanceTo(
+        orbitControlsRef.current?.target || new Vector3()
+      )
+    });
     
     // Only log in debug mode to reduce console spam
     if (debugMode) {
@@ -330,42 +383,38 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Monitor camera changes from OrbitControls using useFrame
   useFrame(() => {
     if (!initialized || userInteractingRef.current) return;
-    
-    // Skip if the source was controls (to avoid feedback loops)
     if (stateChangeSourceRef.current === 'controls') {
       stateChangeSourceRef.current = null;
       return;
     }
-    
-    // Check for changes directly from Three.js camera/controls
     const currentPosition = new Vector3(
       camera.position.x,
       camera.position.y,
       camera.position.z
     );
-    
     const currentTarget = orbitControlsRef.current ? new Vector3(
       orbitControlsRef.current.target.x,
       orbitControlsRef.current.target.y,
       orbitControlsRef.current.target.z
     ) : new Vector3(0, 0, 0);
-    
-    const currentZoom = camera.zoom;
-    
-    // Debug output to see actual camera values
-    if (debugMode && Date.now() % 60 === 0) { // Only log occasionally
-      console.log(`[TimelineCamera] Camera actual values:`, {
-        position: { 
-          x: currentPosition.x.toFixed(2), 
-          y: currentPosition.y.toFixed(2), 
-          z: currentPosition.z.toFixed(2) 
+    let currentZoom = camera.zoom;
+    if (camera instanceof PerspectiveCamera) {
+      currentZoom = getZoomFactor(currentPosition, currentTarget);
+    }
+    // Every ~5 seconds, log the camera state regardless of changes
+    if (Date.now() % 5000 < 20) {
+      console.log(`[DEBUG] Periodic camera check:`, {
+        type: camera.type,
+        zoom: camera.zoom,
+        position: {
+          x: currentPosition.x.toFixed(2),
+          y: currentPosition.y.toFixed(2),
+          z: currentPosition.z.toFixed(2)
         },
-        target: { 
-          x: currentTarget.x.toFixed(2), 
-          y: currentTarget.y.toFixed(2), 
-          z: currentTarget.z.toFixed(2) 
-        },
-        zoom: currentZoom.toFixed(2)
+        stateZoom: cameraState.zoom.toFixed(4),
+        currentZoom: currentZoom.toFixed(4),
+        zoomDifference: Math.abs(currentZoom - cameraState.zoom).toFixed(4),
+        distanceToTarget: currentPosition.distanceTo(currentTarget).toFixed(2)
       });
     }
     
@@ -433,81 +482,65 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }}
       onChange={() => {
         if (!userInteractingRef.current) return;
-        
-        // Get current camera state with direct property access
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
           camera.position.z
         );
-        
         const currentTarget = orbitControlsRef.current ? new Vector3(
           orbitControlsRef.current.target.x,
           orbitControlsRef.current.target.y,
           orbitControlsRef.current.target.z
         ) : new Vector3(0, 0, 0);
-        
-        const currentZoom = camera.zoom;
-        
-        // ALWAYS update immediately on zoom changes to capture them
-        if (Math.abs(currentZoom - cameraState.zoom) > 0.001) {
-          console.log(`[TimelineCamera] Zoom changed during user interaction:`, {
-            old: cameraState.zoom.toFixed(4),
-            new: currentZoom.toFixed(4)
-          });
-          
+        let cameraZoom = camera.zoom;
+        if (camera instanceof PerspectiveCamera) {
+          cameraZoom = getZoomFactor(currentPosition, currentTarget);
+        }
+        setCurrentZoom(cameraZoom);
+        // ... rest unchanged ...
+        if (Math.abs(cameraZoom - cameraState.zoom) > 0.001) {
+          // ...
           const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,
-            zoom: currentZoom
+            zoom: cameraZoom
           };
-          
           updateCameraState(newState, 'controls');
           return;
         }
-        
-        // For other changes, throttle updates to avoid flooding
         if (Date.now() % 5 === 0) {
           const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,
-            zoom: currentZoom
+            zoom: cameraZoom
           };
-          
           updateCameraState(newState, 'controls');
         }
       }}
       onEnd={() => {
-        // Get final camera state after interaction with direct property access
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
           camera.position.z
         );
-        
         const currentTarget = orbitControlsRef.current ? new Vector3(
           orbitControlsRef.current.target.x,
           orbitControlsRef.current.target.y,
           orbitControlsRef.current.target.z
         ) : new Vector3(0, 0, 0);
-        
-        const currentZoom = camera.zoom;
-        
-        // Log the zoom at the end of interaction
-        console.log(`[TimelineCamera] Interaction ended with zoom:`, currentZoom.toFixed(4));
-        
-        // ALWAYS send a final update with the latest state
+        let cameraZoom = camera.zoom;
+        if (camera instanceof PerspectiveCamera) {
+          cameraZoom = getZoomFactor(currentPosition, currentTarget);
+        }
+        setCurrentZoom(cameraZoom);
+        // ...
         const finalState: CameraState = {
           position: currentPosition,
           target: currentTarget,
-          zoom: currentZoom
+          zoom: cameraZoom
         };
-        
         updateCameraState(finalState, 'controls');
-        
-        // Reset interaction flag after the update
         userInteractingRef.current = false;
-        
         if (debugMode) {
           console.log('User interaction ended with OrbitControls');
         }

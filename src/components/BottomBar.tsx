@@ -244,7 +244,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       <>
                         <div><small>Pos: {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
                         <div><small>Look: {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
-                        <div><small>Zoom: {cameraState.zoom.toFixed(1)}x</small></div>
+                        <div><small>Zoom: {cameraState.zoom.toFixed(2)}x</small></div>
                         <div><small style={{ color: '#aaffff' }}>Click to save view</small></div>
                       </>
                     ) : (
