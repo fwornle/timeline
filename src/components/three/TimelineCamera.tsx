@@ -401,22 +401,22 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     if (camera instanceof PerspectiveCamera) {
       currentZoom = getZoomFactor(currentPosition, currentTarget);
     }
-    // Every ~5 seconds, log the camera state regardless of changes
-    if (Date.now() % 5000 < 20) {
-      console.log(`[DEBUG] Periodic camera check:`, {
-        type: camera.type,
-        zoom: camera.zoom,
-        position: {
-          x: currentPosition.x.toFixed(2),
-          y: currentPosition.y.toFixed(2),
-          z: currentPosition.z.toFixed(2)
-        },
-        stateZoom: cameraState.zoom.toFixed(4),
-        currentZoom: currentZoom.toFixed(4),
-        zoomDifference: Math.abs(currentZoom - cameraState.zoom).toFixed(4),
-        distanceToTarget: currentPosition.distanceTo(currentTarget).toFixed(2)
-      });
-    }
+    // // Every ~5 seconds, log the camera state regardless of changes
+    // if (Date.now() % 5000 < 20) {
+    //   console.log(`[DEBUG] Periodic camera check:`, {
+    //     type: camera.type,
+    //     zoom: camera.zoom,
+    //     position: {
+    //       x: currentPosition.x.toFixed(2),
+    //       y: currentPosition.y.toFixed(2),
+    //       z: currentPosition.z.toFixed(2)
+    //     },
+    //     stateZoom: cameraState.zoom.toFixed(4),
+    //     currentZoom: currentZoom.toFixed(4),
+    //     zoomDifference: Math.abs(currentZoom - cameraState.zoom).toFixed(4),
+    //     distanceToTarget: currentPosition.distanceTo(currentTarget).toFixed(2)
+    //   });
+    // }
     
     // Detect changes - even more sensitive thresholds
     const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.1;
