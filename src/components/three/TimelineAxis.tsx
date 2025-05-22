@@ -128,7 +128,15 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   // Handle click on the timeline axis to move the marker
   const handleAxisClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    console.log('Timeline axis clicked!', { point: e.point, position: e.point.z });
+    console.log('🎯 Timeline axis clicked!', {
+      point: e.point,
+      position: e.point.z,
+      object: e.object,
+      eventType: e.type,
+      button: e.button,
+      buttons: e.buttons,
+      target: e.target
+    });
 
     if (onPositionChange) {
       // Get the clicked position along the Z axis (timeline runs along Z)
@@ -139,11 +147,19 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       const maxPos = length / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, clickedPosition));
 
-      console.log('Moving marker to position:', clampedPosition);
+      console.log('🎯 Moving marker to position:', clampedPosition);
       // Update position through callback
       onPositionChange(clampedPosition);
     }
   };
+
+  // Debug logging for timeline axis
+  console.log('🎯 TimelineAxis render:', {
+    length,
+    position: [0, 2, 0],
+    planeSize: [25, length],
+    currentPosition
+  });
 
   return (
     <group>
@@ -153,19 +169,27 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         rotation={[Math.PI / 2, 0, 0]}
         renderOrder={1000}
         onClick={handleAxisClick}
-        onPointerEnter={() => {
-          console.log('Timeline axis pointer enter');
+        onPointerEnter={(e) => {
+          console.log('🎯 Timeline axis pointer enter', {
+            point: e.point,
+            object: e.object,
+            target: e.target
+          });
           setIsHovering(true);
         }}
-        onPointerLeave={() => {
-          console.log('Timeline axis pointer leave');
+        onPointerLeave={(e) => {
+          console.log('🎯 Timeline axis pointer leave', {
+            point: e.point,
+            object: e.object,
+            target: e.target
+          });
           setIsHovering(false);
           setHoverPosition(null);
         }}
         onPointerMove={handlePointerMove}
       >
         <planeGeometry args={[25, length]} /> {/* Much wider plane for easier detection */}
-        <meshBasicMaterial visible={false} transparent={true} opacity={0} />
+        <meshBasicMaterial visible={true} transparent={true} opacity={0.3} color="#00ff00" />
       </mesh>
 
       {/* Hover indicator - line and ball */}

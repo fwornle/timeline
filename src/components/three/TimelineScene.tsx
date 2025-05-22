@@ -102,44 +102,25 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     return Math.max(events.length * minSpacing, 100);
   }, [events]);
 
-  // Background click handler component
+  // Background click handler component - simplified to only handle document clicks outside canvas
   const BackgroundClickHandler: React.FC<{ onCardSelect: (id: string | null) => void }> = ({ onCardSelect }) => {
     const { gl } = useThree();
 
     useEffect(() => {
-      const handleCanvasClick = (event: MouseEvent) => {
-        // Handle clicks on the canvas - this will catch clicks that don't hit any Three.js objects
-        console.log('Canvas click detected:', { target: event.target, canvas: gl.domElement });
-
-        // Deselect any selected card
-        onCardSelect(null);
-        // Also clear all card hovers
-        clearAllCardHovers();
-      };
-
-      // Add a more comprehensive click handler
+      // Only handle document clicks that are OUTSIDE the canvas
       const handleDocumentClick = (event: MouseEvent) => {
-        // Check if the click was on the canvas or its children
         const canvas = gl.domElement;
-        if (canvas.contains(event.target as Node)) {
-          // This is a click within the Three.js canvas area
-          // We'll let the individual components handle their own clicks
-          // and only clear hovers if no card was clicked
-          setTimeout(() => {
-            // Small delay to let card clicks register first
-            if (!event.defaultPrevented) {
-              console.log('Document click on canvas area - clearing hovers');
-              clearAllCardHovers();
-            }
-          }, 10);
+        // Only clear selections if the click was OUTSIDE the canvas
+        if (!canvas.contains(event.target as Node)) {
+          console.log('Document click outside canvas - clearing selections');
+          onCardSelect(null);
+          clearAllCardHovers();
         }
       };
 
-      gl.domElement.addEventListener('click', handleCanvasClick);
       document.addEventListener('click', handleDocumentClick);
 
       return () => {
-        gl.domElement.removeEventListener('click', handleCanvasClick);
         document.removeEventListener('click', handleDocumentClick);
       };
     }, [gl, onCardSelect]);
