@@ -5,7 +5,7 @@ import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { Vector3 } from 'three';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { clearAllCardHovers } from './TimelineCard';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
@@ -35,6 +35,7 @@ export interface TimelineSceneProps {
   onCameraStateChange?: (state: CameraState) => void;
   initialCameraState?: CameraState;
   debugMode?: boolean;
+  disableCameraControls?: boolean;
 }
 
 export const TimelineScene: React.FC<TimelineSceneProps> = ({
@@ -52,9 +53,11 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   onCameraPositionChange,
   onCameraStateChange,
   initialCameraState,
-  debugMode = false
+  debugMode = false,
+  disableCameraControls = false
 }) => {
   const logger = useLogger({ component: 'TimelineScene', topic: 'ui' });
+  const [isMarkerDragging, setIsMarkerDragging] = useState(false);
 
   // Log camera callback props
   useEffect(() => {
@@ -162,6 +165,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onCameraPositionChange={onCameraPositionChange}
           onCameraStateChange={onCameraStateChange}
           initialCameraState={initialCameraState}
+          disableControls={disableCameraControls || isMarkerDragging}
         />
         <TimelineAxis
           startDate={startDate}
@@ -171,6 +175,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           color="#aaaaaa"
           currentPosition={currentPosition}
           onPositionChange={onMarkerPositionChange}
+          onMarkerDragStateChange={(isDragging) => {
+            setIsMarkerDragging(isDragging);
+          }}
         />
         <TimelineEvents
           events={events}

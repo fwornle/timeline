@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Vector3, Vector2, Raycaster, Plane, Group } from 'three';
+import { Group } from 'three';
 
 interface DraggableTimelineMarkerProps {
   position: number;
@@ -10,6 +10,7 @@ interface DraggableTimelineMarkerProps {
   color?: string;
   showLabel?: boolean;
   labelText?: string;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = ({
@@ -19,13 +20,12 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   color = '#ff9800',
   showLabel = true,
   labelText = 'Current',
+  onDragStateChange,
 }) => {
   const { camera, gl } = useThree();
   const markerRef = useRef<Group>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragPlaneRef = useRef(new Plane(new Vector3(0, 0, 1), 0));
-  const raycasterRef = useRef(new Raycaster());
-  const dragStartPointRef = useRef<Vector3 | null>(null);
+  const dragStartPointRef = useRef<{ mouseX: number; mouseY: number } | null>(null);
   const initialPositionRef = useRef<number>(position);
 
   // Update the marker position when the prop changes from outside
@@ -37,30 +37,30 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
   // Global pointer move handler for when dragging
   const handleGlobalPointerMove = (e: PointerEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || !dragStartPointRef.current) return;
 
     // Calculate mouse position in normalized device coordinates (-1 to +1)
     const rect = gl.domElement.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // Update the raycaster with the mouse position and camera
-    raycasterRef.current.setFromCamera(new Vector2(mouseX, mouseY), camera);
+    // Try a simpler approach: map horizontal mouse movement directly to timeline position
+    // Calculate the change in mouse X position since drag started
+    const mouseDeltaX = mouseX - (dragStartPointRef.current ?
+      dragStartPointRef.current.mouseX : 0);
 
-    // Find the intersection point with the drag plane
-    const intersectionPoint = new Vector3();
-    if (raycasterRef.current.ray.intersectPlane(dragPlaneRef.current, intersectionPoint)) {
-      // Constrain movement to the Z axis only
-      const newPosition = intersectionPoint.z;
+    // Map mouse movement to timeline movement
+    // Assuming the timeline spans the visible width, map mouse delta to timeline delta
+    const timelineDelta = mouseDeltaX * timelineLength * 0.5; // Scale factor for sensitivity
+    const newPosition = initialPositionRef.current + timelineDelta;
 
-      // Limit position to timeline bounds
-      const minPos = -timelineLength / 2;
-      const maxPos = timelineLength / 2;
-      const clampedPosition = Math.max(minPos, Math.min(maxPos, newPosition));
+    // Limit position to timeline bounds
+    const minPos = -timelineLength / 2;
+    const maxPos = timelineLength / 2;
+    const clampedPosition = Math.max(minPos, Math.min(maxPos, newPosition));
 
-      // Update position through callback
-      onPositionChange(clampedPosition);
-    }
+    // Update position through callback
+    onPositionChange(clampedPosition);
   };
 
   const handleGlobalPointerUp = () => {
@@ -70,6 +70,11 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
     setIsDragging(false);
     document.body.style.cursor = 'auto';
     dragStartPointRef.current = null;
+
+    // Notify parent that dragging ended
+    if (onDragStateChange) {
+      onDragStateChange(false);
+    }
   };
 
   // Add global event listeners when dragging starts
@@ -93,26 +98,27 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
 
+    // Calculate initial mouse position
+    const rect = gl.domElement.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
     // Set dragging state
     setIsDragging(true);
-    
+
+    // Notify parent that dragging started
+    if (onDragStateChange) {
+      onDragStateChange(true);
+    }
+
     // Set the cursor style to indicate dragging
     document.body.style.cursor = 'ew-resize';
 
     // Store initial position for reference
     initialPositionRef.current = position;
 
-    // Create a drag plane aligned with the timeline (XY plane at the marker position)
-    // The normal of the plane should be perpendicular to the camera's view but aligned with the Z axis
-    // So we use the Z axis as the normal
-    const normal = new Vector3(0, 0, 1);
-    dragPlaneRef.current.setFromNormalAndCoplanarPoint(
-      normal,
-      new Vector3(0, 2, position)
-    );
-
-    // Store the point where dragging started
-    dragStartPointRef.current = new Vector3(0, 2, position);
+    // Store the mouse position where dragging started
+    dragStartPointRef.current = { mouseX, mouseY };
   };
 
   // Create a marker for the current position

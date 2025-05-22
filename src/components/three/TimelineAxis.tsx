@@ -12,6 +12,7 @@ interface TimelineAxisProps {
   endDate?: Date;
   currentPosition?: number;
   onPositionChange?: (position: number) => void;
+  onMarkerDragStateChange?: (isDragging: boolean) => void;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -23,6 +24,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   endDate,
   currentPosition = 0,
   onPositionChange,
+  onMarkerDragStateChange,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -110,12 +112,12 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     // Get the hovered position along the Z axis
     const hoveredPosition = e.point.z;
-    
+
     // Limit position to timeline bounds
     const minPos = -length / 2;
     const maxPos = length / 2;
     const clampedPosition = Math.max(minPos, Math.min(maxPos, hoveredPosition));
-    
+
     // Update hover position
     setHoverPosition(clampedPosition);
   };
@@ -185,6 +187,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           color="#ff9800"
           showLabel={true}
           labelText="Current"
+          onDragStateChange={onMarkerDragStateChange}
         />
       )}
     </group>
