@@ -163,6 +163,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
             }}
             wiggle={!!wiggleMap[event.id]}
             isMarkerDragging={isMarkerDragging}
+            isHovered={hoveredCardId === event.id}
           />
         );
       })}

@@ -4,7 +4,7 @@ import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
-import { dimensions, animation, threeColors, threeOpacities } from '../../config';
+import { dimensions, threeColors, threeOpacities } from '../../config';
 import {
   globalClickHandlers
 } from '../../utils/three/cardUtils';
@@ -24,6 +24,7 @@ interface TimelineCardProps {
   };
   wiggle?: boolean;
   isMarkerDragging?: boolean;
+  isHovered?: boolean; // Explicit hover state from parent
 }
 
 
@@ -51,7 +52,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     springConfig: { mass: 1, tension: 170, friction: 26 }
   },
   wiggle = false,
-  isMarkerDragging = false
+  isMarkerDragging = false,
+  isHovered = false
 }) => {
 
   // Get camera for proper rotation calculation and movement tracking
@@ -70,7 +72,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       cameraState.lastCameraMoveTime = performance.now();
 
       // If this card is hovered and camera is moving, clear hover state
-      if (isHovered.current && onHover) {
+      if (isHovered && onHover) {
         onHover(null);
       }
     } else {
@@ -88,7 +90,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
   // Refs for animation
   const groupRef = useRef<Group>(null);
-  const isHovered = useRef(false);
+  const prevHoveredRef = useRef(false);
 
   // Animation state
   const [animState, setAnimState] = useState({
@@ -240,12 +242,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
   // Update hover state when animation props change
   useEffect(() => {
-    const newIsHovered = animationProps.scale === animation.card.scale.hover;
+    // Use explicit hover state from parent instead of inferring from scale
+    const newIsHovered = isHovered;
 
     // Only trigger animation if hover state changed
-    if (newIsHovered !== isHovered.current) {
+    if (newIsHovered !== prevHoveredRef.current) {
       // Animation props changed
-      isHovered.current = newIsHovered;
+      prevHoveredRef.current = newIsHovered;
 
       // Store current values as starting point
       const currentRotationY = groupRef.current?.rotation.y || 0;
@@ -280,7 +283,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
         animationDuration, // Store the duration for use in the animation frame
       });
     }
-  }, [animationProps, position, camera, event.id, calculateCameraValues]);
+  }, [isHovered, position, camera, event.id, calculateCameraValues]);
 
   // Animation frame
   useFrame(() => {
@@ -288,7 +291,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // Recalculate camera values if card is hovered and not animating
     // This ensures the card stays properly oriented even when camera moves
-    if (isHovered.current && !animState.isAnimating) {
+    if (isHovered && !animState.isAnimating) {
       const { angle, zoomFactor, moveDistance } = calculateCameraValues();
 
       // Only start a new animation if values have changed significantly
