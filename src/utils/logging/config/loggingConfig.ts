@@ -1,6 +1,6 @@
 /**
  * loggingConfig.ts
- * 
+ *
  * Configuration for the Logger module.
  * Defines levels, categories, and their associated properties.
  */
@@ -63,7 +63,7 @@ export const levelsConfig = LOG_LEVELS;
 export const categoriesConfig = LOG_CATEGORIES;
 
 // Define initial active state separately - Logger will handle this internally
-export const initialActiveLevels = [LogLevels.ERROR, LogLevels.WARN, LogLevels.INFO]; // Default to INFO and above
+export const initialActiveLevels = [LogLevels.ERROR, LogLevels.WARN]; // Default to WARN and above only
 export const initialActiveCategories = Object.values(LogCategories); // Start with all active
 
 // Export types for TypeScript

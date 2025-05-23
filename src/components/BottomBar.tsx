@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { usePreferences } from '../context/PreferencesContext';
 import type { CameraState } from './three/TimelineCamera';
+import { useLogger } from '../utils/logging/hooks/useLogger';
 
 interface BottomBarProps {
   gitCount?: number;
@@ -48,6 +49,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   onDebugModeChange,
   onResetTimeline
 }) => {
+  const logger = useLogger({ component: 'BottomBar', topic: 'ui' });
   const { preferences } = usePreferences();
   const repoUrl = preferences.repoUrl || '';
   const showControls = !!repoUrl;
@@ -58,7 +60,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   // Log when camera state changes (for debugging)
   React.useEffect(() => {
     if (cameraState && debugMode) {
-      console.log('[BottomBar] Camera state received:', {
+      logger.debug('Camera state received:', {
         id: Date.now(),
         position: {
           x: cameraState.position.x.toFixed(2),
@@ -82,7 +84,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   // Log when debug mode changes
   React.useEffect(() => {
     if (debugMode) {
-      console.log('BottomBar: Debug mode changed to:', debugMode);
+      logger.debug('Debug mode changed to:', { debugMode });
     }
     // Force component re-render when debug mode changes
     setLastDebugModeChange(Date.now());
@@ -91,7 +93,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   // Conditional logging inside the component
   React.useEffect(() => {
     if (debugMode) {
-      console.log('BottomBar rendering with debugMode:', debugMode, 'lastChange:', lastDebugModeChange);
+      logger.debug('BottomBar rendering with debugMode:', { debugMode, lastChange: lastDebugModeChange });
     }
   }, [debugMode, lastDebugModeChange]);
 
@@ -134,7 +136,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
         minute: '2-digit'
       });
     } catch (e) {
-      console.error('Error calculating date from position:', e);
+      logger.error('Error calculating date from position:', { error: e });
       return `Position: ${currentPosition.toFixed(2)}`;
     }
   };
@@ -153,12 +155,12 @@ const BottomBar: React.FC<BottomBarProps> = ({
 
   const handleDebugModeChange = () => {
     if (debugMode) {
-      console.log('Debug mode change requested, current value:', debugMode);
+      logger.debug('Debug mode change requested, current value:', { debugMode });
     }
     if (onDebugModeChange) {
       const newValue = !debugMode;
       if (debugMode) {
-        console.log('Calling onDebugModeChange with new value:', newValue);
+        logger.debug('Calling onDebugModeChange with new value:', { newValue });
       }
       onDebugModeChange(newValue);
     }
@@ -199,7 +201,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
         minute: '2-digit'
       });
     } catch (e) {
-      console.error('Error calculating date from target position:', e);
+      logger.error('Error calculating date from target position:', { error: e });
       return `Z: ${targetZ.toFixed(2)}`;
     }
   };
