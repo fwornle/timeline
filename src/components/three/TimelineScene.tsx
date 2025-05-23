@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { clearAllCardHovers } from './TimelineCard';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
+import { threeColors } from '../../config';
 
 export interface TimelineSceneProps {
   events: TimelineEvent[];
@@ -174,8 +175,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           castShadow
           shadow-mapSize={2048}
         />
-        <pointLight position={[-10, 0, -20]} intensity={0.5} color="#4338ca" />
-        <pointLight position={[0, -10, 0]} intensity={0.5} color="#0ea5e9" />
+        <pointLight position={[-10, 0, -20]} intensity={0.5} color={threeColors.visualization.pointLight1} />
+        <pointLight position={[0, -10, 0]} intensity={0.5} color={threeColors.visualization.pointLight2} />
 
         {/* Core Components */}
         <TimelineCamera

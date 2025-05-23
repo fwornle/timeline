@@ -239,6 +239,8 @@ export const threeColors = {
       dragging: colorUtils.rgbaToHex(colors.visualization.marker.dragging),
     },
     background: colorUtils.rgbaToHex(colors.visualization.background),
+    pointLight1: colorUtils.rgbaToHex(colors.visualization.pointLight1),
+    pointLight2: colorUtils.rgbaToHex(colors.visualization.pointLight2),
   },
   warning: colorUtils.rgbaToHex(colors.warning),
 };

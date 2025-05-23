@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { Group, Vector3, Vector2, Raycaster } from 'three';
+import { threeColors } from '../../config';
 
 interface DraggableTimelineMarkerProps {
   position: number;
@@ -17,7 +18,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   position,
   onPositionChange,
   timelineLength,
-  color = '#ff9800',
+  color = threeColors.warning,
   showLabel = true,
   labelText = 'Current',
   onDragStateChange,

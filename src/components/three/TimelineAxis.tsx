@@ -3,7 +3,7 @@ import { Line, Text } from '@react-three/drei';
 import { DraggableTimelineMarker } from './DraggableTimelineMarker';
 import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { threeColors, threeOpacities } from '../../config';
+import { threeColors } from '../../config';
 
 interface TimelineAxisProps {
   length?: number;
@@ -20,7 +20,7 @@ interface TimelineAxisProps {
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   length = 100,
   tickInterval = 10,
-  color = '#666666',
+  color = threeColors.visualization.axis,
   showLabels = true,
   startDate,
   endDate,
@@ -269,7 +269,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           position={currentPosition}
           onPositionChange={handlePositionChange}
           timelineLength={length}
-          color="#ff9800"
+          color={threeColors.warning}
           showLabel={true}
           labelText="Current"
           onDragStateChange={onMarkerDragStateChange}

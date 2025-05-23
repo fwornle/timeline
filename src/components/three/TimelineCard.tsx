@@ -4,7 +4,7 @@ import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
-import { colors, dimensions, animation, threeColors, threeOpacities } from '../../config';
+import { dimensions, animation, threeColors, threeOpacities } from '../../config';
 
 interface TimelineCardProps {
   event: TimelineEvent;
@@ -788,7 +788,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
             cardHeight + dimensions.card.selection.padding,
             dimensions.card.selection.depth
           ]} />
-          <meshBasicMaterial color={colors.warning} />
+          <meshBasicMaterial color={threeColors.warning} />
         </mesh>
       )}
     </group>
