@@ -18,6 +18,7 @@ interface TimelineCameraProps {
   target: Vector3;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
+  droneMode?: boolean; // Enable drone-like camera movement during play mode
   events?: TimelineEvent[]; // For calculating the bounds of all events
   debugMode?: boolean; // Enable camera position cycling for debugging
   onCameraPositionChange?: (position: Vector3) => void; // Callback for camera position changes
@@ -100,6 +101,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
   viewAllMode = false,
   focusCurrentMode = false,
+  droneMode = false,
   events = [],
   debugMode = false,
   onCameraPositionChange,
@@ -153,6 +155,22 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
   // Add debug cycling state
   const debugCycleTimer = useRef<number | null>(null);
+
+  // Drone mode state for smooth random movement with free-flying around target
+  const droneStateRef = useRef({
+    offsetX: (Math.random() - 0.5) * 15, // Start with larger initial variation ±7.5 units
+    offsetY: (Math.random() - 0.5) * 10, // Start with larger initial variation ±5 units
+    offsetZ: Math.random() * 20 - 5, // Start with Z variation -5 to +15 units
+    distance: 10 + Math.random() * 8, // Start with random distance 10-18 units
+    targetOffsetX: (Math.random() - 0.5) * 30, // Initial target with full range ±15 units
+    targetOffsetY: (Math.random() - 0.5) * 20, // Initial target with full range ±10 units
+    targetOffsetZ: Math.random() * 40 - 10, // Initial target -10 to +30 units
+    targetDistance: 8 + Math.random() * 12, // Initial target 8-20 units
+    lastUpdateTime: 0,
+    changeInterval: 1500 + Math.random() * 3000, // Random initial interval
+    userInterrupted: false, // Track if user moved camera manually
+    userInterruptTime: 0, // When user last moved camera
+  });
 
   // Expose camera details to help debugging (only in debug mode)
   useEffect(() => {
@@ -463,6 +481,121 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     const now = performance.now();
     if (now - lastFrameUpdateRef.current < FRAME_UPDATE_THROTTLE) return;
     lastFrameUpdateRef.current = now;
+
+    // Handle drone mode - camera flies freely around marker like a bee
+    if (droneMode && !viewAllMode && !focusCurrentMode) {
+      const droneState = droneStateRef.current;
+
+      // Check if user has manually moved the camera (detect significant position changes)
+      const currentPos = cameraState.position;
+      const expectedPos = new Vector3().copy(target).add(
+        new Vector3(droneState.offsetX, droneState.offsetY, droneState.offsetZ).normalize().multiplyScalar(droneState.distance)
+      );
+      const positionDifference = currentPos.distanceTo(expectedPos);
+
+      // If camera position differs significantly from expected drone position, user interrupted
+      if (positionDifference > 5 && !droneState.userInterrupted) {
+        droneState.userInterrupted = true;
+        droneState.userInterruptTime = now;
+        if (debugMode) {
+          logger.debug('User interrupted drone mode - resuming from current position');
+        }
+      }
+
+      // If user interrupted, gradually return to target vicinity
+      if (droneState.userInterrupted) {
+        const timeSinceInterrupt = now - droneState.userInterruptTime;
+        if (timeSinceInterrupt > 2000) { // After 2 seconds, start returning to target
+          // Gradually move current offsets toward target vicinity
+          const returnSpeed = 0.002;
+          const targetDirection = new Vector3().subVectors(target, currentPos).normalize();
+          const desiredDistance = 15; // Return to moderate distance
+          const desiredPosition = new Vector3().copy(target).sub(targetDirection.multiplyScalar(desiredDistance));
+
+          // Update offsets to gradually approach desired position
+          droneState.offsetX += (desiredPosition.x - target.x - droneState.offsetX) * returnSpeed;
+          droneState.offsetY += (desiredPosition.y - target.y - droneState.offsetY) * returnSpeed;
+          droneState.offsetZ += (desiredPosition.z - target.z - droneState.offsetZ) * returnSpeed;
+          droneState.distance += (desiredDistance - droneState.distance) * returnSpeed;
+
+          // Once close enough, resume normal drone behavior
+          if (positionDifference < 8) {
+            droneState.userInterrupted = false;
+            if (debugMode) {
+              logger.debug('Resumed normal drone mode after user interaction');
+            }
+          }
+        }
+      }
+
+      // Update drone targets periodically (only if not interrupted by user)
+      if (!droneState.userInterrupted && now - droneState.lastUpdateTime > droneState.changeInterval) {
+        // Generate new random targets for free-flying bee-like movement around the target
+        droneState.targetOffsetX = (Math.random() - 0.5) * 30; // ±15 units left/right (full freedom)
+        droneState.targetOffsetY = (Math.random() - 0.5) * 20; // ±10 units up/down (including below)
+        droneState.targetOffsetZ = Math.random() * 40 - 10; // -10 to +30 units (mostly ahead, sometimes behind)
+        droneState.targetDistance = 8 + Math.random() * 12; // 8-20 units distance from target
+        droneState.lastUpdateTime = now;
+        droneState.changeInterval = 1500 + Math.random() * 3000; // 1.5-4.5 seconds between changes
+
+        if (debugMode) {
+          logger.debug('Drone mode: New FREE-FLYING targets generated', {
+            targetOffsetX: `${droneState.targetOffsetX.toFixed(2)} (range: ±15)`,
+            targetOffsetY: `${droneState.targetOffsetY.toFixed(2)} (range: ±10)`,
+            targetOffsetZ: `${droneState.targetOffsetZ.toFixed(2)} (range: -10/+30)`,
+            targetDistance: `${droneState.targetDistance.toFixed(2)} (range: 8-20)`,
+            nextChangeIn: `${droneState.changeInterval}ms`
+          });
+        }
+      }
+
+      // Smoothly interpolate to targets (slow drift)
+      const lerpFactor = 0.008; // Slightly faster interpolation for more noticeable movement
+      droneState.offsetX += (droneState.targetOffsetX - droneState.offsetX) * lerpFactor;
+      droneState.offsetY += (droneState.targetOffsetY - droneState.offsetY) * lerpFactor;
+      droneState.offsetZ += (droneState.targetOffsetZ - droneState.offsetZ) * lerpFactor;
+      droneState.distance += (droneState.targetDistance - droneState.distance) * lerpFactor;
+
+      // Calculate drone camera position - fly freely around the target like a bee
+      // Position camera at desired distance from target in the direction of current offsets
+      const offsetDirection = new Vector3(
+        droneState.offsetX, // Free left/right movement (±15 units)
+        droneState.offsetY, // Free up/down movement (±10 units, including below)
+        droneState.offsetZ  // Free forward/backward movement (-10 to +30 units)
+      ).normalize();
+
+      // Position camera at the desired distance from target in the offset direction
+      const dronePosition = new Vector3().copy(target).add(
+        offsetDirection.multiplyScalar(droneState.distance)
+      );
+
+      // Always look at the target (the marker we're following)
+      const droneTarget = new Vector3(
+        target.x,
+        target.y, // Look directly at the timeline marker
+        target.z
+      );
+
+      // Update camera state with drone position
+      updateCameraState({
+        position: dronePosition,
+        target: droneTarget,
+        zoom: getZoomFactor(dronePosition, droneTarget)
+      }, 'frame', true); // Skip callbacks to prevent circular updates
+
+      // Debug logging for drone mode (only occasionally to avoid spam)
+      if (debugMode && Math.random() < 0.01) { // Log ~1% of frames
+        logger.debug('FREE-FLYING Drone mode active', {
+          markerPos: `(${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`,
+          dronePos: `(${dronePosition.x.toFixed(1)}, ${dronePosition.y.toFixed(1)}, ${dronePosition.z.toFixed(1)})`,
+          offsets: `X:${droneState.offsetX.toFixed(2)} (±15), Y:${droneState.offsetY.toFixed(2)} (±10), Z:${droneState.offsetZ.toFixed(2)} (-10/+30)`,
+          distance: `${droneState.distance.toFixed(2)} (8-20 range)`,
+          direction: `(${offsetDirection.x.toFixed(2)}, ${offsetDirection.y.toFixed(2)}, ${offsetDirection.z.toFixed(2)})`
+        });
+      }
+
+      return; // Skip normal camera monitoring when in drone mode
+    }
 
     if (stateChangeSourceRef.current === 'controls') {
       stateChangeSourceRef.current = null;

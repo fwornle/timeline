@@ -435,6 +435,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           getCardAnimationProps={getCardAnimationProps}
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
+          droneMode={isAutoScrolling}
           currentPosition={cameraTarget.z}
           onMarkerPositionChange={(position) => {
             // Update camera target Z position when marker is moved

@@ -156,6 +156,18 @@ export const animation = {
     viewAll: {
       duration: 1200,
       easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+    },
+
+    // Drone camera movement in play mode (much more pronounced)
+    droneMode: {
+      baseDistance: 25,       // Base distance ahead of marker
+      baseHeight: 15,         // Base height above timeline
+      sideRange: 20,          // ±10 units left/right (much wider)
+      heightRange: 16,        // ±8 units up/down (much higher)
+      distanceRange: 4,       // 1.0-5.0 units distance variation (wider range)
+      changeInterval: [1500, 4500], // 1.5-4.5 seconds between changes
+      lerpFactor: 0.005,      // Interpolation speed
+      enabled: true
     }
   },
 

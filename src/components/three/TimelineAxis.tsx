@@ -150,7 +150,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       uniforms: {
         color: { value: new THREE.Color(threeColors.visualization.marker.default) },
         opacity: { value: 0.03 },
-        fadeWidth: { value: 25.0 }, // Width of the plane
+        fadeWidth: { value: 6.0 }, // Width of the plane (slightly wider)
       },
       vertexShader: `
         varying vec2 vUv;
@@ -198,7 +198,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         }}
         onPointerMove={handlePointerMove}
       >
-        <planeGeometry args={[25, length]} /> {/* Much wider plane for easier detection */}
+        <planeGeometry args={[6, length]} /> {/* Slightly wider plane for easier interaction */}
         <primitive object={fadingMaterial} />
       </mesh>
 

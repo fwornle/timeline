@@ -31,6 +31,7 @@ export interface TimelineSceneProps {
   };
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
+  droneMode?: boolean;
   currentPosition?: number;
   onMarkerPositionChange?: (position: number) => void;
   onCameraPositionChange?: (position: Vector3) => void;
@@ -50,6 +51,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   getCardAnimationProps,
   viewAllMode = false,
   focusCurrentMode = false,
+  droneMode = false,
   currentPosition = 0,
   onMarkerPositionChange,
   onCameraPositionChange,
@@ -190,6 +192,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           target={cameraTarget}
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
+          droneMode={droneMode}
           events={events}
           debugMode={debugMode}
           onCameraPositionChange={onCameraPositionChange}
