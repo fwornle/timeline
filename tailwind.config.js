@@ -1,3 +1,17 @@
+import { colors } from './src/config/colors.js';
+
+// Convert RGBA strings to hex for Tailwind compatibility
+const rgbaToHex = (rgba) => {
+  const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+  if (!match) return rgba;
+
+  const r = parseInt(match[1], 10);
+  const g = parseInt(match[2], 10);
+  const b = parseInt(match[3], 10);
+
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -11,40 +25,40 @@ export default {
       },
       colors: {
         primary: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
+          50: rgbaToHex(colors.primary[50]),
+          100: rgbaToHex(colors.primary[100]),
+          200: rgbaToHex(colors.primary[200]),
+          300: rgbaToHex(colors.primary[300]),
+          400: rgbaToHex(colors.primary[400]),
+          500: rgbaToHex(colors.primary[500]),
+          600: rgbaToHex(colors.primary[600]),
+          700: rgbaToHex(colors.primary[700]),
+          800: rgbaToHex(colors.primary[800]),
+          900: rgbaToHex(colors.primary[900]),
         },
         accent: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: rgbaToHex(colors.accent[50]),
+          100: rgbaToHex(colors.accent[100]),
+          200: rgbaToHex(colors.accent[200]),
+          300: rgbaToHex(colors.accent[300]),
+          400: rgbaToHex(colors.accent[400]),
+          500: rgbaToHex(colors.accent[500]),
+          600: rgbaToHex(colors.accent[600]),
+          700: rgbaToHex(colors.accent[700]),
+          800: rgbaToHex(colors.accent[800]),
+          900: rgbaToHex(colors.accent[900]),
         },
         surface: {
-          light: '#ffffff',
-          dark: '#0f172a',
+          light: rgbaToHex(colors.surface.light),
+          dark: rgbaToHex(colors.surface.dark),
           elevated: {
-            light: '#f8fafc',
-            dark: '#1e293b',
+            light: rgbaToHex(colors.surface.elevated.light),
+            dark: rgbaToHex(colors.surface.elevated.dark),
           }
         },
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
+        success: rgbaToHex(colors.success),
+        warning: rgbaToHex(colors.warning),
+        error: rgbaToHex(colors.error),
       },
       boxShadow: {
         'professional': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',

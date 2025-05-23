@@ -1,34 +1,37 @@
 /**
  * Default values for animation and UI elements
+ * @deprecated Use the new configuration system from src/config instead
  */
+import { animation, dimensions } from '../config';
+
 export const DEFAULTS = {
   CARD: {
     SCALE: {
-      DEFAULT: 1,
-      HOVER: 1.3,  // Increased for more noticeable hover effect
-      SELECTED: 1.5,  // Increased for more noticeable selection
+      DEFAULT: animation.card.scale.default,
+      HOVER: animation.card.scale.hover,
+      SELECTED: animation.card.scale.selected,
     },
     ROTATION: {
-      DEFAULT: [0, 0, 0] as const,
-      HOVER: [0, Math.PI * 2, 0] as const,  // Full 360-degree rotation
-      SELECTED: [0, 0, 0] as const,  // No rotation for selected state
+      DEFAULT: animation.card.rotation.default,
+      HOVER: animation.card.rotation.hover,
+      SELECTED: animation.card.rotation.selected,
     },
     POSITION_Y: {
-      DEFAULT: 0,
-      HOVER: 0.3,  // Increased to make it more visible
-      SELECTED: 0.5,
+      DEFAULT: animation.card.position.default,
+      HOVER: animation.card.position.hover,
+      SELECTED: animation.card.position.selected,
     },
   },
   SCROLL: {
-    SPEED: 2,
-    MIN_SPEED: 0.2,
-    MAX_SPEED: 10,
+    SPEED: animation.scroll.speed,
+    MIN_SPEED: animation.scroll.minSpeed,
+    MAX_SPEED: animation.scroll.maxSpeed,
   },
   CAMERA: {
-    POSITION: [10, 5, 10] as const,
-    FOV: 45,
-    NEAR: 0.1,
-    FAR: 1000,
+    POSITION: dimensions.visualization.camera.defaultPosition,
+    FOV: dimensions.visualization.camera.fov,
+    NEAR: dimensions.visualization.camera.near,
+    FAR: dimensions.visualization.camera.far,
   },
 };
 

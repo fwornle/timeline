@@ -4,7 +4,7 @@ import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
-import { DEFAULTS } from '../../animation/constants';
+import { colors, dimensions, animation, threeColors, threeOpacities } from '../../config';
 
 interface TimelineCardProps {
   event: TimelineEvent;
@@ -295,7 +295,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
   // Update hover state when animation props change
   useEffect(() => {
-    const newIsHovered = animationProps.scale === DEFAULTS.CARD.SCALE.HOVER;
+    const newIsHovered = animationProps.scale === animation.card.scale.hover;
 
     // Only trigger animation if hover state changed
     if (newIsHovered !== isHovered.current) {
@@ -602,10 +602,11 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
   };
 
-  // Professional color scheme based on our theme
-  const cardColor = event.type === 'git' ? '#334155' : '#475569'; // Primary-700 and Primary-600
-  const cardWidth = 3;
-  const cardHeight = 2.2; // Adjusted height for better proportions
+  // Get card colors and dimensions from configuration
+  const cardColors = event.type === 'git' ? threeColors.cards.git : threeColors.cards.spec;
+  const cardOpacities = event.type === 'git' ? threeOpacities.cards.git : threeOpacities.cards.spec;
+  const cardWidth = dimensions.card.width;
+  const cardHeight = dimensions.card.height;
 
   // We don't need this function anymore as we're rendering stats directly in the JSX
 
@@ -619,36 +620,40 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
     >
       {/* Card shadow */}
-      <mesh position={[0.08, -0.08, -0.05]} receiveShadow>
-        <boxGeometry args={[cardWidth, cardHeight, 0.05]} />
+      <mesh position={[
+        dimensions.card.shadowOffset.x,
+        dimensions.card.shadowOffset.y,
+        dimensions.card.shadowOffset.z
+      ]} receiveShadow>
+        <boxGeometry args={[cardWidth, cardHeight, dimensions.card.shadowDepth]} />
         <meshStandardMaterial
-          color="#000000"
+          color={cardColors.shadow}
           roughness={1}
           metalness={0}
           transparent
-          opacity={0.3}
+          opacity={cardOpacities.shadow}
         />
       </mesh>
 
       {/* Card background */}
       <mesh castShadow receiveShadow>
-        <boxGeometry args={[cardWidth, cardHeight, 0.1]} />
+        <boxGeometry args={[cardWidth, cardHeight, dimensions.card.depth]} />
         <meshStandardMaterial
-          color={cardColor}
+          color={cardColors.background}
           roughness={0.4}
           metalness={0.3}
           transparent
-          opacity={0.95}
+          opacity={cardOpacities.background}
         />
       </mesh>
 
       {/* Card content */}
-      <group position={[0, 0, 0.06]}>
+      <group position={[0, 0, dimensions.card.contentOffset.z]}>
         {/* Header bar */}
-        <mesh position={[0, 0.95, 0]}>
-          <planeGeometry args={[cardWidth, 0.3]} />
+        <mesh position={[0, dimensions.card.header.yPosition, 0]}>
+          <planeGeometry args={[cardWidth, dimensions.card.header.height]} />
           <meshBasicMaterial
-            color={event.type === 'git' ? '#2563eb' : '#3b82f6'}
+            color={cardColors.header}
             transparent
             opacity={0.9}
           />
@@ -656,9 +661,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
         {/* Header title */}
         <Text
-          position={[-1.35, 0.95, 0.01]}
-          fontSize={0.13}
-          color="#ffffff"
+          position={[
+            dimensions.typography.card.headerTitle.position.x,
+            dimensions.typography.card.headerTitle.position.y,
+            dimensions.typography.card.headerTitle.position.z
+          ]}
+          fontSize={dimensions.typography.card.headerTitle.fontSize}
+          color={cardColors.text}
           anchorX="left"
           anchorY="middle"
           fontWeight="bold"
@@ -694,9 +703,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
         {/* Type indicator - bottom left */}
         <Text
-          position={[-1.35, -0.95, 0.01]}
-          fontSize={0.14}
-          color={event.type === 'git' ? '#60a5fa' : '#93c5fd'}
+          position={[
+            dimensions.typography.card.typeIndicator.position.x,
+            dimensions.typography.card.typeIndicator.position.y,
+            dimensions.typography.card.typeIndicator.position.z
+          ]}
+          fontSize={dimensions.typography.card.typeIndicator.fontSize}
+          color={cardColors.accent}
           anchorX="left"
           anchorY="middle"
           fontWeight="bold"
@@ -753,9 +766,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
         {/* Date - bottom right */}
         <Text
-          position={[1.35, -0.95, 0.01]}
-          fontSize={0.12}
-          color="#e0e0e0"
+          position={[
+            dimensions.typography.card.dateText.position.x,
+            dimensions.typography.card.dateText.position.y,
+            dimensions.typography.card.dateText.position.z
+          ]}
+          fontSize={dimensions.typography.card.dateText.fontSize}
+          color={cardColors.text}
           anchorX="right"
           anchorY="middle"
         >
@@ -765,9 +782,13 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
       {/* Selection indicator */}
       {selected && (
-        <mesh position={[0, 0, -0.06]}>
-          <boxGeometry args={[cardWidth + 0.2, cardHeight + 0.2, 0.01]} />
-          <meshBasicMaterial color="#f1c40f" />
+        <mesh position={[0, 0, dimensions.card.selection.zOffset]}>
+          <boxGeometry args={[
+            cardWidth + dimensions.card.selection.padding,
+            cardHeight + dimensions.card.selection.padding,
+            dimensions.card.selection.depth
+          ]} />
+          <meshBasicMaterial color={colors.warning} />
         </mesh>
       )}
     </group>

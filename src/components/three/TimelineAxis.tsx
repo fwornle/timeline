@@ -3,6 +3,7 @@ import { Line, Text } from '@react-three/drei';
 import { DraggableTimelineMarker } from './DraggableTimelineMarker';
 import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
+import { threeColors, threeOpacities } from '../../config';
 
 interface TimelineAxisProps {
   length?: number;
@@ -160,7 +161,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       transparent: true,
       side: THREE.DoubleSide,
       uniforms: {
-        color: { value: new THREE.Color('#00ff00') },
+        color: { value: new THREE.Color(threeColors.visualization.marker.default) },
         opacity: { value: 0.03 },
         fadeWidth: { value: 25.0 }, // Width of the plane
       },
@@ -239,7 +240,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
               [0, 0, hoverPosition] as [number, number, number],
               [0, 3, hoverPosition] as [number, number, number],
             ]}
-            color="#ffaa00"
+            color={threeColors.warning}
             lineWidth={5}
             transparent
             opacity={0.9}
@@ -248,7 +249,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           <mesh position={[0, 3.5, hoverPosition]} renderOrder={201}>
             <sphereGeometry args={[0.25, 12, 12]} />
             <meshBasicMaterial
-              color="#ffaa00"
+              color={threeColors.warning}
               transparent
               opacity={0.8}
             />
