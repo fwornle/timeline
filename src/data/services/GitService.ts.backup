@@ -1,5 +1,5 @@
 import type { GitTimelineEvent } from '../types/TimelineEvent';
-import { Logger } from '../../utils/logging/Logger';
+import { logger } from '../../utils/logging/Logger';
 import { TimelineAPIError, ServerError, NotFoundError, NetworkError } from '../../utils/api/errors';
 
 interface GitCommitResponse {
@@ -62,7 +62,7 @@ export class GitService {
    */
   private async makeRequest<T>(url: string, init?: RequestInit): Promise<T> {
     // Log the full URL for debugging
-    Logger.info(Logger.Categories.DATA, 'Making API request', {
+    logger.info('data', 'Making API request', {
       url,
       baseUrl: this.baseUrl,
       repository: this.repository,
@@ -218,7 +218,7 @@ export class GitService {
 
       return event;
     } catch (error) {
-      Logger.error(Logger.Categories.DATA, 'Failed to parse git commit', {
+      logger.error('data', 'Failed to parse git commit', {
         data,
         error,
         repository: this.repository
@@ -244,7 +244,7 @@ export class GitService {
         params.append('endDate', endDate.toISOString());
       }
 
-      Logger.info(Logger.Categories.DATA, 'Fetching git history', { repository: this.repository, startDate, endDate });
+      logger.info('data', 'Fetching git history', { repository: this.repository, startDate, endDate });
 
       params.append('repository', this.repository);
       const response = await this.makeRequest<GitHistoryResponse>(
@@ -265,14 +265,14 @@ export class GitService {
 
       const mocked = response.mocked || false;
 
-      Logger.info(Logger.Categories.DATA, 'Successfully fetched git history', {
+      logger.info('data', 'Successfully fetched git history', {
         eventCount: events.length,
         mocked
       });
 
       return { events, mocked };
     } catch (error) {
-      Logger.error(Logger.Categories.DATA, 'Failed to fetch git history', {
+      logger.error('data', 'Failed to fetch git history', {
         error,
         repository: this.repository
       });
@@ -289,7 +289,7 @@ export class GitService {
         throw new TimelineAPIError('Invalid commit hash');
       }
 
-      Logger.info(Logger.Categories.DATA, 'Fetching commit details', { commitHash });
+      logger.info('data', 'Fetching commit details', { commitHash });
 
       const params = new URLSearchParams();
       params.append('repository', this.repository);
@@ -298,7 +298,7 @@ export class GitService {
       );
 
       const event = this.parseGitCommit(data);
-      Logger.info(Logger.Categories.DATA, 'Successfully fetched commit details', {
+      logger.info('data', 'Successfully fetched commit details', {
         commitHash,
         event
       });
@@ -306,10 +306,10 @@ export class GitService {
       return event;
     } catch (error) {
       if (error instanceof NotFoundError) {
-        Logger.warn(Logger.Categories.DATA, 'Commit not found', { commitHash });
+        logger.warn('data', 'Commit not found', { commitHash });
         return null;
       }
-      Logger.error(Logger.Categories.DATA, 'Failed to fetch commit details', {
+      logger.error('data', 'Failed to fetch commit details', {
         error,
         commitHash,
         repository: this.repository

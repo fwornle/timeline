@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { TimelineEvent, TimelinePeriod } from '../types/TimelineEvent';
 import { GitService } from '../services/GitService';
 import { SpecStoryService } from '../services/SpecStoryService';
-import { Logger } from '../../utils/logging/Logger';
+import { logger } from '../../utils/logging/Logger';
 
 interface DataSourceState {
   isLoading: boolean;
@@ -110,7 +110,7 @@ export function useTimelineData(repoUrl: string) {
 
       setHasInitialFetch(true);
     } catch (error) {
-      Logger.error(Logger.Categories.DATA, 'Failed to fetch timeline data', { error });
+      logger.error('data', 'Failed to fetch timeline data', { error });
       setState(prev => ({
         ...prev,
         sources: {
@@ -135,7 +135,7 @@ export function useTimelineData(repoUrl: string) {
       return;
     }
 
-    Logger.info(Logger.Categories.DATA, 'Initial fetch for repository', { repoUrl });
+    logger.info('data', 'Initial fetch for repository', { repoUrl });
 
     // Start the fetch process
     const doFetch = async () => {
@@ -171,7 +171,7 @@ export function useTimelineData(repoUrl: string) {
           }
         });
       } catch (error) {
-        Logger.error(Logger.Categories.DATA, 'Failed to fetch timeline data', { error });
+        logger.error('data', 'Failed to fetch timeline data', { error });
         setState(prev => ({
           ...prev,
           sources: {
@@ -204,7 +204,7 @@ export function useTimelineData(repoUrl: string) {
         timeoutPromise
       ]);
     } catch (error) {
-      Logger.error(Logger.Categories.DATA, 'Failed to fetch ${type} data', { error });
+      logger.error('data', `Failed to fetch ${type} data`, { error });
 
       // Create a mock result with empty data and mocked flag
       const mockResult = {
@@ -215,7 +215,7 @@ export function useTimelineData(repoUrl: string) {
       // Return mock data on error to prevent UI from hanging
       return mockResult;
     }
-  }, [gitService, specService]);
+  }, [gitService, specService, logger]);
 
   // Function to purge cache and reload data
   const purgeAndRefresh = useCallback(async (hardPurge = false) => {
@@ -225,7 +225,7 @@ export function useTimelineData(repoUrl: string) {
 
     // If already fetching, don't start another fetch
     if (isFetching) {
-      Logger.warn(Logger.Categories.DATA, 'Ignoring purgeAndRefresh request - already fetching data');
+      logger.warn('data', 'Ignoring purgeAndRefresh request - already fetching data');
       return;
     }
 
@@ -330,7 +330,7 @@ export function useTimelineData(repoUrl: string) {
             };
           });
         } catch (error) {
-          Logger.error(Logger.Categories.DATA, 'Failed to purge and refresh git data', { error });
+          logger.error('data', 'Failed to purge and refresh git data', { error });
           setState(prev => ({
             ...prev,
             sources: {
@@ -389,7 +389,7 @@ export function useTimelineData(repoUrl: string) {
             };
           });
         } catch (error) {
-          Logger.error(Logger.Categories.DATA, 'Failed to purge and refresh spec data', { error });
+          logger.error('data', 'Failed to purge and refresh spec data', { error });
           setState(prev => ({
             ...prev,
             sources: {
@@ -400,7 +400,7 @@ export function useTimelineData(repoUrl: string) {
         }
       }
     } catch (error) {
-      Logger.error(Logger.Categories.DATA, `Failed to ${hardPurge ? 'hard ' : ''}purge and refresh data`, { error });
+      logger.error('data', `Failed to ${hardPurge ? 'hard ' : ''}purge and refresh data`, { error });
       setState(prev => ({
         ...prev,
         sources: {

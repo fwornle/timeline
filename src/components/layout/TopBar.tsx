@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
 import AuthDialog from '../auth/AuthDialog';
+import { LoggingControl } from '../ui/LoggingControl';
 
 interface TopBarProps {
   className?: string;
@@ -17,6 +18,7 @@ export function TopBar({
   onRepoUrlChange,
 }: TopBarProps) {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [showLoggingControl, setShowLoggingControl] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -79,12 +81,27 @@ export function TopBar({
                   </Link>
                 </div>
 
-                {/* Settings Button */}
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                {/* Control Buttons */}
+                <div className="absolute inset-y-0 right-0 flex items-center space-x-2 pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                  {/* Logging Control Button */}
+                  <button
+                    type="button"
+                    className="rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
+                    onClick={() => setShowLoggingControl(true)}
+                    title="Logging Configuration"
+                  >
+                    <span className="sr-only">Open logging configuration</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+
+                  {/* Settings Button */}
                   <button
                     type="button"
                     className="rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
                     onClick={() => setShowAuthDialog(true)}
+                    title="Repository Settings"
                   >
                     <span className="sr-only">Open settings</span>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -124,6 +141,12 @@ export function TopBar({
         onSubmit={handleAuthSubmit}
         isLoading={authLoading}
         error={authError}
+      />
+
+      {/* Logging Control Dialog */}
+      <LoggingControl
+        isOpen={showLoggingControl}
+        onClose={() => setShowLoggingControl(false)}
       />
     </>
   );

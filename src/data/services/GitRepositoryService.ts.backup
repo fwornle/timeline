@@ -41,14 +41,14 @@ export class GitRepositoryService {
           timeoutPromise
         ]);
 
-        Logger.info(Logger.Categories.GIT, 'Repository cloned successfully', {
+        logger.info('git', 'Repository cloned successfully', {
           repoUrl: this.repoUrl,
           protocol: isHttps ? 'HTTPS' : 'SSH'
         });
       } catch (error: unknown) {
         // If directory exists, use it without trying to update from remote
         if (error instanceof Error && error.message.includes('already exists')) {
-          Logger.info(Logger.Categories.GIT, 'Using existing repository without remote fetch', { repoUrl: this.repoUrl });
+          logger.info('git', 'Using existing repository without remote fetch', { repoUrl: this.repoUrl });
         } else {
           throw error;
         }
@@ -109,14 +109,14 @@ export class GitRepositoryService {
       // Enhance commits with statistics
       const enhancedEvents = events.map(event => enhanceGitCommitWithStats(event));
 
-      Logger.info(Logger.Categories.GIT, 'Git history fetched successfully', {
+      logger.info('git', 'Git history fetched successfully', {
         repoUrl: this.repoUrl,
         commitCount: enhancedEvents.length
       });
 
       return enhancedEvents;
     } catch (error: unknown) {
-      Logger.error(Logger.Categories.GIT, 'Failed to get git history', {
+      logger.error('git', 'Failed to get git history', {
         repoUrl: this.repoUrl,
         error: error instanceof Error ? error.message : String(error)
       });

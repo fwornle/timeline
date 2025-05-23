@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Logger } from '../../utils/logging/Logger';
+import { logger } from '../../utils/logging/Logger';
 
 // Storage keys
 const REPO_URL_KEY = 'timeline-last-repo-url';
@@ -21,7 +21,7 @@ export function useRepositoryStorage() {
     try {
       return localStorage.getItem(REPO_URL_KEY) || '';
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Failed to load last repository URL', { error });
+      logger.error('storage', 'Failed to load last repository URL', { error });
       return '';
     }
   });
@@ -31,9 +31,9 @@ export function useRepositoryStorage() {
     try {
       localStorage.setItem(REPO_URL_KEY, url);
       setLastRepoUrl(url);
-      Logger.info(Logger.Categories.CACHE, 'Saved repository URL', { url });
+      logger.info('storage', 'Saved repository URL', { url });
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Failed to save repository URL', { error, url });
+      logger.error('storage', 'Failed to save repository URL', { error, url });
     }
   }, []);
 
@@ -65,14 +65,14 @@ export function useRepositoryStorage() {
       };
 
       localStorage.setItem(`${REPO_DATA_PREFIX}${url}`, JSON.stringify(data));
-      Logger.info(Logger.Categories.CACHE, 'Saved repository data', {
+      logger.info('storage', 'Saved repository data', {
         url,
         gitEventsCount: gitEvents.length,
         specEventsCount: specEvents.length,
         isMocked: data.isMocked
       });
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Failed to save repository data', { error, url });
+      logger.error('storage', 'Failed to save repository data', { error, url });
     }
   }, []);
 
@@ -88,12 +88,12 @@ export function useRepositoryStorage() {
 
       // Check if data is expired
       if (Date.now() - data.timestamp > CACHE_EXPIRATION) {
-        Logger.info(Logger.Categories.CACHE, 'Repository data is expired', { url });
+        logger.info('storage', 'Repository data is expired', { url });
         localStorage.removeItem(`${REPO_DATA_PREFIX}${url}`);
         return null;
       }
 
-      Logger.info(Logger.Categories.CACHE, 'Loaded repository data from cache', {
+      logger.info('storage', 'Loaded repository data from cache', {
         url,
         gitEventsCount: data.gitEvents.length,
         specEventsCount: data.specEvents.length,
@@ -107,7 +107,7 @@ export function useRepositoryStorage() {
         isMocked: data.isMocked
       };
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Failed to load repository data', { error, url });
+      logger.error('storage', 'Failed to load repository data', { error, url });
       return null;
     }
   }, []);
@@ -118,9 +118,9 @@ export function useRepositoryStorage() {
 
     try {
       localStorage.removeItem(`${REPO_DATA_PREFIX}${url}`);
-      Logger.info(Logger.Categories.CACHE, 'Cleared repository data', { url });
+      logger.info('storage', 'Cleared repository data', { url });
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Failed to clear repository data', { error, url });
+      logger.error('storage', 'Failed to clear repository data', { error, url });
     }
   }, []);
 
@@ -132,7 +132,7 @@ export function useRepositoryStorage() {
       // Get the existing data
       const dataStr = localStorage.getItem(`${REPO_DATA_PREFIX}${url}`);
       if (!dataStr) {
-        Logger.info(Logger.Categories.CACHE, 'No data to purge for repository', { url });
+        logger.info('storage', 'No data to purge for repository', { url });
         return;
       }
 
@@ -150,9 +150,9 @@ export function useRepositoryStorage() {
 
       // Save the updated data
       localStorage.setItem(`${REPO_DATA_PREFIX}${url}`, JSON.stringify(mockedData));
-      Logger.info(Logger.Categories.CACHE, 'Purged repository data and marked as mocked', { url });
+      logger.info('storage', 'Purged repository data and marked as mocked', { url });
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Failed to purge repository data', { error, url });
+      logger.error('storage', 'Failed to purge repository data', { error, url });
       // If there's an error, just remove the data completely
       clearRepoData(url);
     }
@@ -171,7 +171,7 @@ export function useRepositoryStorage() {
       const hasEvents = data.gitEvents?.length > 0 || data.specEvents?.length > 0;
       const isMocked = !!data.isMocked;
 
-      Logger.info(Logger.Categories.CACHE, 'Repository data cache status', {
+      logger.info('storage', 'Repository data cache status', {
         url,
         isValid,
         hasEvents,
@@ -182,7 +182,7 @@ export function useRepositoryStorage() {
       // Data is valid if it's within expiration time AND either has events OR is marked as mocked
       return isValid && (hasEvents || isMocked);
     } catch (error) {
-      Logger.error(Logger.Categories.CACHE, 'Error checking repository data validity', { error, url });
+      logger.error('storage', 'Error checking repository data validity', { error, url });
       return false;
     }
   }, []);

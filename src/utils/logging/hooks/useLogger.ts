@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { logger, LogLevel } from '../logger';
+import { logger, LogLevel } from '../Logger';
 
 interface LoggerContext {
   component: string;

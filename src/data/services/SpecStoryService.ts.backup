@@ -89,7 +89,7 @@ export class SpecStoryService {
    */
   private async makeRequest<T>(url: string, init?: RequestInit): Promise<T> {
     // Log the full URL for debugging
-    Logger.info(Logger.Categories.DATA, 'Making API request', {
+    logger.info('data', 'Making API request', {
       url,
       baseUrl: this.baseUrl,
       repository: this.repository,
@@ -259,7 +259,7 @@ export class SpecStoryService {
         stats
       };
 
-      Logger.debug(Logger.Categories.DATA, 'Successfully parsed spec event', {
+      logger.debug('data', 'Successfully parsed spec event', {
         specId,
         version,
         changeCount: changes.length,
@@ -271,7 +271,7 @@ export class SpecStoryService {
       if (error instanceof TimelineAPIError) {
         throw error;
       }
-      Logger.error(Logger.Categories.DATA, 'Failed to parse spec event', {
+      logger.error('data', 'Failed to parse spec event', {
         data,
         error,
         repository: this.repository
@@ -290,7 +290,7 @@ export class SpecStoryService {
       this.validateDateParams(startDate, endDate);
       const specDir = this.resolveSpecDirectory(this.repository);
 
-      Logger.debug(Logger.Categories.DATA, 'Starting spec history fetch', {
+      logger.debug('data', 'Starting spec history fetch', {
         repository: this.repository,
         specDir,
         startDate,
@@ -305,7 +305,7 @@ export class SpecStoryService {
         params.append('endDate', endDate.toISOString());
       }
 
-      Logger.info(Logger.Categories.DATA, 'Fetching spec history', { repository: this.repository, startDate, endDate });
+      logger.info('data', 'Fetching spec history', { repository: this.repository, startDate, endDate });
 
       params.append('repository', this.repository);
       const response = await this.makeRequest<SpecAPIResponse>(
@@ -326,14 +326,14 @@ export class SpecStoryService {
 
       const mocked = response.mocked || false;
 
-      Logger.info(Logger.Categories.DATA, 'Successfully fetched spec history', {
+      logger.info('data', 'Successfully fetched spec history', {
         eventCount: events.length,
         mocked
       });
 
       return { events, mocked };
     } catch (error) {
-      Logger.error(Logger.Categories.DATA, 'Failed to fetch spec history', {
+      logger.error('data', 'Failed to fetch spec history', {
         error,
         repository: this.repository
       });
@@ -351,7 +351,7 @@ export class SpecStoryService {
       }
 
       const specDir = this.resolveSpecDirectory(this.repository);
-      Logger.info(Logger.Categories.DATA, 'Fetching spec details', {
+      logger.info('data', 'Fetching spec details', {
         specId,
         repository: this.repository,
         specDir
@@ -362,7 +362,7 @@ export class SpecStoryService {
       );
 
       const event = this.parseSpecEvent(data);
-      Logger.info(Logger.Categories.DATA, 'Successfully fetched spec details', {
+      logger.info('data', 'Successfully fetched spec details', {
         specId,
         event
       });
@@ -370,10 +370,10 @@ export class SpecStoryService {
       return event;
     } catch (error) {
       if (error instanceof NotFoundError) {
-        Logger.warn(Logger.Categories.DATA, 'Spec not found', { specId });
+        logger.warn('data', 'Spec not found', { specId });
         return null;
       }
-      Logger.error(Logger.Categories.DATA, 'Failed to fetch spec details', {
+      logger.error('data', 'Failed to fetch spec details', {
         error,
         specId,
         repository: this.repository

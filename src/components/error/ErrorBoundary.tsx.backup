@@ -1,6 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { Logger } from '../../utils/logging/Logger';
+import { logger } from '../../utils/logging/Logger';
 
 interface Props {
   children: ReactNode;
@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log the error with more details
-    Logger.error(Logger.Categories.UI, 'Error caught by boundary', {
+    logger.error('ui', 'Error caught by boundary', {
       error: {
         message: error.message,
         name: error.name,
