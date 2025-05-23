@@ -6,7 +6,7 @@ import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { Vector3 } from 'three';
 import { useEffect, useMemo, useState } from 'react';
-import { clearAllCardHovers } from './TimelineCard';
+import { clearAllCardHovers } from '../../utils/three/cardUtils';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { threeColors } from '../../config';
@@ -103,13 +103,15 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     return Math.max(events.length * minSpacing, 100);
   }, [events]);
 
-  // Debug logging for Grid component
+  // Debug logging for Grid component (only in debug mode)
   useEffect(() => {
-    console.log('🔷 TimelineScene rendering with Grid component', {
-      eventsCount: events.length,
-      timelineLength,
-      debugMode
-    });
+    if (debugMode) {
+      console.log('🔷 TimelineScene rendering with Grid component', {
+        eventsCount: events.length,
+        timelineLength,
+        debugMode
+      });
+    }
   }, [events.length, timelineLength, debugMode]);
 
   // Background click handler component - simplified to only handle document clicks outside canvas
@@ -122,7 +124,6 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         const canvas = gl.domElement;
         // Only clear selections if the click was OUTSIDE the canvas
         if (!canvas.contains(event.target as Node)) {
-          console.log('Document click outside canvas - clearing selections');
           onCardSelect(null);
           clearAllCardHovers();
         }
@@ -158,7 +159,6 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           renderOrder={-1000}
           onClick={() => {
             // Only handle if no other object was clicked
-            console.log('Background mesh clicked - clearing cards');
             onCardSelect(null);
             clearAllCardHovers();
           }}
@@ -223,7 +223,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           position={[0, -0.01, 0]}
           infiniteGrid={true}
           followCamera={false}
-          onUpdate={() => console.log('🔷 Grid component updated')}
+          onUpdate={() => {}}
         />
         <Environment preset="city" />
       </Canvas>

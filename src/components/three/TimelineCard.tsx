@@ -5,6 +5,10 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, animation, threeColors, threeOpacities } from '../../config';
+import {
+  globalHoveredCardId,
+  globalClickHandlers
+} from '../../utils/three/cardUtils';
 
 interface TimelineCardProps {
   event: TimelineEvent;
@@ -22,45 +26,7 @@ interface TimelineCardProps {
   isMarkerDragging?: boolean;
 }
 
-// Global state to ensure only one card can be hovered at a time
-const globalHoveredCardId = { current: null as string | null };
 
-// Global state for tracking click outside cards
-const globalClickHandlers = {
-  // Track all active TimelineCard instances
-  activeCards: new Set<string>(),
-  // Flag if we've added the document click listener
-  documentListenerAdded: false,
-  // Function to check if a click is outside all cards
-  handleDocumentClick: (_: MouseEvent) => {
-    // Since we can't use className in Three.js, we need a different approach
-    if (globalHoveredCardId.current) {
-      // Find and clear the hover callback for the currently hovered card
-      for (const callback of globalClickHandlers.clearHoverCallbacks) {
-        callback(null); // This will call onHover(null) for the active cards
-      }
-      globalHoveredCardId.current = null;
-    }
-  },
-  // Store all the clear hover callbacks (one per card)
-  clearHoverCallbacks: new Set<(id: string | null) => void>(),
-  // Setup the document listener if not already done
-  setupDocumentListener: () => {
-    if (!globalClickHandlers.documentListenerAdded) {
-      document.addEventListener('click', globalClickHandlers.handleDocumentClick);
-      document.addEventListener('pointerdown', globalClickHandlers.handleDocumentClick);
-      globalClickHandlers.documentListenerAdded = true;
-    }
-  },
-  // Cleanup the document listener when no cards are active
-  cleanupDocumentListener: () => {
-    if (globalClickHandlers.activeCards.size === 0 && globalClickHandlers.documentListenerAdded) {
-      document.removeEventListener('click', globalClickHandlers.handleDocumentClick);
-      document.removeEventListener('pointerdown', globalClickHandlers.handleDocumentClick);
-      globalClickHandlers.documentListenerAdded = false;
-    }
-  }
-};
 
 // Global state for debouncing hover events
 const hoverDebounce = {
@@ -119,7 +85,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       // If this card is hovered and camera is moving, clear hover state
       if (isHovered.current && globalHoveredCardId.current === event.id) {
         if (onHover) {
-          console.debug(`Clearing hover on ${event.id} due to camera movement`);
           onHover(null);
         }
       }
@@ -458,21 +423,17 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
         // If this was a hover animation, update the hover animation state
         if (isHovered.current) {
           // Animation to hover state is complete
-          console.debug(`Hover animation complete for ${event.id}`);
-
           // Keep the hover animation state active for the debounce period
           // This will prevent immediate unhover if the mouse moves off during animation
           setTimeout(() => {
             // Only clear the animation flag if this card is still the hovered one
             if (globalHoveredCardId.current === event.id) {
               hoverDebounce.isInHoverAnimation = false;
-              console.debug(`Hover animation debounce complete for ${event.id}`);
             }
           }, hoverDebounce.debounceTime / 2); // Use half the debounce time for animation completion
         } else {
           // Animation to unhovered state is complete
           hoverDebounce.isInHoverAnimation = false;
-          console.debug(`Unhover animation complete for ${event.id}`);
         }
       }
     }
@@ -491,13 +452,11 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // If marker is being dragged, ignore hover events
     if (isMarkerDragging) {
-      console.debug(`Ignoring hover on ${event.id}, marker is being dragged`);
       return;
     }
 
     // If camera is moving, ignore hover events
     if (hoverDebounce.isCameraMoving) {
-      console.debug(`Ignoring hover on ${event.id}, camera is moving`);
       return;
     }
 
@@ -540,7 +499,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }, hoverDebounce.hoverLockDuration);
 
     if (onHover) {
-      console.debug(`Setting hover on ${event.id}`);
       globalHoveredCardId.current = event.id;
       onHover(event.id);
     }
@@ -795,12 +753,4 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   );
 };
 
-// Exportable function to clear all card hovers (for use in TimelineScene)
-export function clearAllCardHovers() {
-  if (globalHoveredCardId.current) {
-    for (const callback of globalClickHandlers.clearHoverCallbacks) {
-      callback(null);
-    }
-    globalHoveredCardId.current = null;
-  }
-}
+

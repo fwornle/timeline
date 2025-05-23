@@ -143,37 +143,66 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     }));
   }, []);
 
-  // Animation loop
+  // Animation loop with performance optimizations
   const animate = useCallback((time: number) => {
+    // Limit frame rate to 60fps for better performance
+    const targetFrameTime = 1000 / 60; // 16.67ms per frame
     const deltaTime = (time - lastTimeRef.current) / 1000;
+
+    // Skip frame if we're running too fast
+    if (time - lastTimeRef.current < targetFrameTime) {
+      animationFrameRef.current = requestAnimationFrame(animate);
+      return;
+    }
+
     lastTimeRef.current = time;
 
     // Use refs to access current state values to avoid dependencies
     const isAutoScrolling = state.isAutoScrolling;
     const scrollSpeed = state.scrollSpeed;
 
-    if (isAutoScrolling) {
+    if (isAutoScrolling && scrollSpeed !== 0) {
       // Apply scroll movement - always move forward (positive Z direction)
       // This ensures we're always looking at the front of the cards
       const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
-      setState(prev => ({
-        ...prev,
-        cameraTarget: prev.cameraTarget.clone().add(new THREE.Vector3(0, 0, scrollDelta)),
-      }));
+
+      // Only update state if there's a meaningful change (reduce unnecessary re-renders)
+      if (scrollDelta > 0.001) {
+        setState(prev => ({
+          ...prev,
+          cameraTarget: prev.cameraTarget.clone().add(new THREE.Vector3(0, 0, scrollDelta)),
+        }));
+      }
     }
 
-    animationFrameRef.current = requestAnimationFrame(animate);
+    // Only continue animation loop if auto-scrolling is active
+    if (isAutoScrolling) {
+      animationFrameRef.current = requestAnimationFrame(animate);
+    }
   }, [state.isAutoScrolling, state.scrollSpeed]);
 
-  // Start/stop animation loop
+  // Start/stop animation loop based on auto-scrolling state
   useEffect(() => {
-    animationFrameRef.current = requestAnimationFrame(animate);
+    if (state.isAutoScrolling) {
+      // Only start animation loop if auto-scrolling is enabled
+      if (!animationFrameRef.current) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
+    } else {
+      // Stop animation loop when auto-scrolling is disabled
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
+      }
+    }
+
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
       }
     };
-  }, [animate]);
+  }, [state.isAutoScrolling, animate]);
 
   return {
     isAutoScrolling: state.isAutoScrolling,

@@ -153,16 +153,18 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Add debug cycling state
   const debugCycleTimer = useRef<number | null>(null);
 
-  // Expose camera details to help debugging
+  // Expose camera details to help debugging (only in debug mode)
   useEffect(() => {
-    console.log('[DEBUG] Camera object details:', {
-      type: camera.type,
-      isPerspective: camera instanceof PerspectiveCamera,
-      isOrthographic: camera instanceof OrthographicCamera,
-      initialZoom: camera.zoom,
-      fov: 'fov' in camera ? camera.fov : 'N/A'
-    });
-  }, [camera]);
+    if (debugMode) {
+      console.log('[DEBUG] Camera object details:', {
+        type: camera.type,
+        isPerspective: camera instanceof PerspectiveCamera,
+        isOrthographic: camera instanceof OrthographicCamera,
+        initialZoom: camera.zoom,
+        fov: 'fov' in camera ? camera.fov : 'N/A'
+      });
+    }
+  }, [camera, debugMode]);
 
   // Helper to update camera state in a single place
   const updateCameraState = (
@@ -275,16 +277,18 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
     setCurrentZoom(state.zoom);
 
-    // Add detailed camera information logging
-    console.log(`[DEBUG] Camera details after applying state:`, {
-      type: camera.type,
-      zoom: camera.zoom,
-      stateZoom: state.zoom,
-      trackingZoom: currentZoom,
-      distanceToTarget: camera.position.distanceTo(
-        orbitControlsRef.current?.target || new Vector3()
-      )
-    });
+    // Add detailed camera information logging (only in debug mode)
+    if (debugMode) {
+      console.log(`[DEBUG] Camera details after applying state:`, {
+        type: camera.type,
+        zoom: camera.zoom,
+        stateZoom: state.zoom,
+        trackingZoom: currentZoom,
+        distanceToTarget: camera.position.distanceTo(
+          orbitControlsRef.current?.target || new Vector3()
+        )
+      });
+    }
 
     // Only log in debug mode to reduce console spam
     if (debugMode) {
@@ -466,8 +470,8 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         zoom: currentZoom
       };
 
-      // Log when zoom changes to debug
-      if (zoomChanged) {
+      // Log when zoom changes to debug (only in debug mode)
+      if (zoomChanged && debugMode) {
         console.log(`[TimelineCamera] Zoom changed:`, {
           old: cameraState.zoom.toFixed(4),
           new: currentZoom.toFixed(4),
@@ -479,27 +483,31 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
   });
 
-  // Debug camera cycling effect
+  // Debug camera cycling effect (optimized for performance)
   useEffect(() => {
     if (debugMode && !userInteractingRef.current) {
-      // Start cycling through debug positions
+      // Start cycling through debug positions with longer intervals to reduce performance impact
       debugCycleTimer.current = window.setInterval(() => {
-        const currentIndex = DEBUG_CAMERA_POSITIONS.findIndex(
-          pos => pos.position.distanceTo(camera.position) < 0.1
-        );
-        const nextIndex = (currentIndex + 1) % DEBUG_CAMERA_POSITIONS.length;
-        const debugPos = DEBUG_CAMERA_POSITIONS[nextIndex];
+        // Only cycle if user is not interacting and debug mode is still active
+        if (!userInteractingRef.current && debugMode) {
+          const currentIndex = DEBUG_CAMERA_POSITIONS.findIndex(
+            pos => pos.position.distanceTo(camera.position) < 0.1
+          );
+          const nextIndex = (currentIndex + 1) % DEBUG_CAMERA_POSITIONS.length;
+          const debugPos = DEBUG_CAMERA_POSITIONS[nextIndex];
 
-        updateCameraState({
-          position: debugPos.position.clone(),
-          target: debugPos.target.clone(),
-          zoom: camera.zoom
-        }, 'mode');
-      }, 2000); // Cycle every 2 seconds
+          updateCameraState({
+            position: debugPos.position.clone(),
+            target: debugPos.target.clone(),
+            zoom: camera.zoom
+          }, 'mode');
+        }
+      }, 3000); // Increased to 3 seconds to reduce performance impact
     } else {
       // Clear cycling timer when debug mode is disabled
       if (debugCycleTimer.current) {
         window.clearInterval(debugCycleTimer.current);
+        debugCycleTimer.current = null;
       }
     }
 
@@ -507,9 +515,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     return () => {
       if (debugCycleTimer.current) {
         window.clearInterval(debugCycleTimer.current);
+        debugCycleTimer.current = null;
       }
     };
-  }, [debugMode, camera]);
+  }, [debugMode, camera, updateCameraState]);
 
   return (
     <OrbitControls
@@ -533,10 +542,6 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       autoRotate={false}
       onStart={() => {
         userInteractingRef.current = true;
-
-        if (debugMode) {
-          console.log('User interaction started with OrbitControls');
-        }
       }}
       onChange={() => {
         if (!userInteractingRef.current) return;

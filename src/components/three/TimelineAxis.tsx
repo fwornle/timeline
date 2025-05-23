@@ -112,8 +112,6 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
   // Handle pointer move over the timeline to show a hover indicator
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
-    console.log('Timeline axis pointer move', { isHovering, point: e.point });
-
     // Get the hovered position along the Z axis (timeline runs along Z)
     const hoveredPosition = e.point.z;
 
@@ -122,7 +120,6 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     const maxPos = length / 2;
     const clampedPosition = Math.max(minPos, Math.min(maxPos, hoveredPosition));
 
-    console.log('Setting hover position:', clampedPosition);
     // Update hover position
     setHoverPosition(clampedPosition);
   };
@@ -130,15 +127,6 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   // Handle click on the timeline axis to move the marker
   const handleAxisClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    console.log('🎯 Timeline axis clicked!', {
-      point: e.point,
-      position: e.point.z,
-      object: e.object,
-      eventType: e.type,
-      button: e.button,
-      buttons: e.buttons,
-      target: e.target
-    });
 
     if (onPositionChange) {
       // Get the clicked position along the Z axis (timeline runs along Z)
@@ -149,7 +137,6 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       const maxPos = length / 2;
       const clampedPosition = Math.max(minPos, Math.min(maxPos, clickedPosition));
 
-      console.log('🎯 Moving marker to position:', clampedPosition);
       // Update position through callback
       onPositionChange(clampedPosition);
     }
@@ -192,13 +179,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     });
   }, []);
 
-  // Debug logging for timeline axis
-  console.log('🎯 TimelineAxis render:', {
-    length,
-    position: [0, 2, 0],
-    planeSize: [25, length],
-    currentPosition
-  });
+
 
   return (
     <group>
@@ -208,20 +189,10 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         rotation={[Math.PI / 2, 0, 0]}
         renderOrder={900}
         onClick={handleAxisClick}
-        onPointerEnter={(e) => {
-          console.log('🎯 Timeline axis pointer enter', {
-            point: e.point,
-            object: e.object,
-            target: e.target
-          });
+        onPointerEnter={() => {
           setIsHovering(true);
         }}
-        onPointerLeave={(e) => {
-          console.log('🎯 Timeline axis pointer leave', {
-            point: e.point,
-            object: e.object,
-            target: e.target
-          });
+        onPointerLeave={() => {
           setIsHovering(false);
           setHoverPosition(null);
         }}
