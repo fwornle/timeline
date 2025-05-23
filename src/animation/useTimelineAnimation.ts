@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { DEFAULTS, SPRING_CONFIG } from './constants';
 import { createSpringConfig } from './transitions';
 import type { SpringConfig } from './transitions';
-import { cardAnimationManager } from '../utils/three/cardAnimationManager';
 
 interface TimelineAnimationState {
   isAutoScrolling: boolean;
@@ -113,31 +112,6 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
       // Always clear existing hover when setting a new one to ensure exclusivity
       return { ...prev, hoveredCardId: id };
     });
-  }, []);
-
-  // Listen to animation manager hover changes to ensure React state stays in sync
-  useEffect(() => {
-    const handleHoverChange = (cardId: string | null) => {
-      // Convert cardId back to event ID format
-      // cardId format: "git-1234567890" or "spec-1234567890"
-      // event ID format: "git-commit-abc123" or "spec-123-1"
-
-      // For now, we'll use a simpler approach - just clear all hovers when animation manager clears
-      if (cardId === null) {
-        setState(prev => {
-          if (prev.hoveredCardId !== null) {
-            return { ...prev, hoveredCardId: null };
-          }
-          return prev;
-        });
-      }
-    };
-
-    cardAnimationManager.addHoverChangeCallback(handleHoverChange);
-
-    return () => {
-      cardAnimationManager.removeHoverChangeCallback(handleHoverChange);
-    };
   }, []);
 
   // Toggle auto-scrolling

@@ -33,6 +33,17 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   currentPosition = 0,
   isMarkerDragging = false
 }) => {
+  // Track the currently hovered card to enforce exclusivity
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+
+  // Handle hover with exclusivity
+  const handleCardHover = useCallback((cardId: string | null) => {
+    // Only update if the hover state actually changed
+    if (hoveredCardId !== cardId) {
+      setHoveredCardId(cardId);
+      onHover(cardId);
+    }
+  }, [hoveredCardId, onHover]);
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -145,7 +156,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
             position={position}
             selected={event.id === selectedCardId}
             onSelect={onSelect}
-            onHover={onHover}
+            onHover={handleCardHover}
             animationProps={{
               ...getAnimationProps(event.id),
               rotation: getAnimationProps(event.id).rotation as [number, number, number]

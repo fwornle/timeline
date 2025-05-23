@@ -6,10 +6,8 @@ import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../d
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, animation, threeColors, threeOpacities } from '../../config';
 import {
-  globalHoveredCardId,
   globalClickHandlers
 } from '../../utils/three/cardUtils';
-import { cardAnimationManager } from '../../utils/three/cardAnimationManager';
 
 
 interface TimelineCardProps {
@@ -72,13 +70,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       cameraState.lastCameraMoveTime = performance.now();
 
       // If this card is hovered and camera is moving, clear hover state
-      if (isHovered.current && globalHoveredCardId.current === event.id) {
-        // Cancel all hover animations when camera moves
-        cardAnimationManager.cancelAllHoverAnimations();
-
-        if (onHover) {
-          onHover(null);
-        }
+      if (isHovered.current && onHover) {
+        onHover(null);
       }
     } else {
       // Check if camera cooldown period has passed
@@ -147,15 +140,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     return () => {
       globalClickHandlers.activeCards.delete(event.id);
       globalClickHandlers.clearHoverCallbacks.delete(clearHover);
-
-      // If this was the hovered card, clear the global state
-      if (globalHoveredCardId.current === event.id) {
-        globalHoveredCardId.current = null;
-      }
-
-      // Cancel any animations for this card in the animation manager
-      const cardId = `${event.type}-${event.timestamp.getTime()}`;
-      cardAnimationManager.cancelAnimation(cardId);
 
       // Clean up document listener if no more cards
       globalClickHandlers.cleanupDocumentListener();
@@ -257,18 +241,9 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   // Update hover state when animation props change
   useEffect(() => {
     const newIsHovered = animationProps.scale === animation.card.scale.hover;
-    const cardId = `${event.type}-${event.timestamp.getTime()}`;
 
-    // Only trigger animation if hover state changed AND this card should be animated
+    // Only trigger animation if hover state changed
     if (newIsHovered !== isHovered.current) {
-      // Check if this card should be hovered according to animation manager
-      const shouldBeHovered = cardAnimationManager.shouldBeHovered(cardId);
-
-      // If we're trying to hover but animation manager says no, ignore
-      if (newIsHovered && !shouldBeHovered) {
-        return;
-      }
-
       // Animation props changed
       isHovered.current = newIsHovered;
 
@@ -313,10 +288,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // Recalculate camera values if card is hovered and not animating
     // This ensures the card stays properly oriented even when camera moves
-    const cardId = `${event.type}-${event.timestamp.getTime()}`;
-    const shouldBeHovered = cardAnimationManager.shouldBeHovered(cardId);
-
-    if (isHovered.current && !animState.isAnimating && globalHoveredCardId.current === event.id && shouldBeHovered) {
+    if (isHovered.current && !animState.isAnimating) {
       const { angle, zoomFactor, moveDistance } = calculateCameraValues();
 
       // Only start a new animation if values have changed significantly
@@ -390,15 +362,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       // End animation when complete
       if (progress >= 1) {
         setAnimState(prev => ({ ...prev, isAnimating: false }));
-
-        // Complete animation in animation manager
-        const cardId = `${event.type}-${event.timestamp.getTime()}`;
-        cardAnimationManager.completeAnimation(cardId);
       }
     }
-
-    // Cleanup completed animations in animation manager
-    cardAnimationManager.cleanup();
   });
 
   // Event handlers
@@ -422,47 +387,16 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // Use animation manager to handle exclusive hover state
-    const cardId = `${event.type}-${event.timestamp.getTime()}`;
-
-    // If we're already hovering this card, do nothing
-    if (cardAnimationManager.getCurrentHoveredCard() === cardId) {
-      return;
-    }
-
-    // Start hover animation (this will cancel any other hover animations)
-    const animationJob = cardAnimationManager.startHoverAnimation(cardId, 600);
-
-    // Only proceed if animation was started (not debounced)
-    if (animationJob) {
-      // Set hover state immediately
-      isHovered.current = true;
-      globalHoveredCardId.current = event.id;
-
-      if (onHover) {
-        onHover(event.id);
-      }
+    // Simply notify parent - it will handle exclusivity
+    if (onHover) {
+      onHover(event.id);
     }
   };
 
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
-    const cardId = `${event.type}-${event.timestamp.getTime()}`;
-
-    // If we're not hovering this card, ignore
-    if (globalHoveredCardId.current !== event.id) {
-      return;
-    }
-
-    // Start unhover animation
-    cardAnimationManager.startUnhoverAnimation(cardId, 300);
-
-    // Set local hover state to false
-    isHovered.current = false;
-
-    // Clear global hover state and notify parent
-    globalHoveredCardId.current = null;
+    // Simply notify parent to clear hover
     if (onHover) {
       onHover(null);
     }
