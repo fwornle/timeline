@@ -36,6 +36,10 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     cameraTarget: new THREE.Vector3(0, 0, initialMarkerPosition),
   });
 
+  // Use refs for animation loop to avoid dependency issues
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   // Animation frame tracking
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
@@ -157,8 +161,9 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     lastTimeRef.current = time;
 
     // Use refs to access current state values to avoid dependencies
-    const isAutoScrolling = state.isAutoScrolling;
-    const scrollSpeed = state.scrollSpeed;
+    const currentState = stateRef.current;
+    const isAutoScrolling = currentState.isAutoScrolling;
+    const scrollSpeed = currentState.scrollSpeed;
 
     if (isAutoScrolling && scrollSpeed !== 0) {
       // Apply scroll movement - always move forward (positive Z direction)
@@ -178,7 +183,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     if (isAutoScrolling) {
       animationFrameRef.current = requestAnimationFrame(animate);
     }
-  }, [state.isAutoScrolling, state.scrollSpeed]);
+  }, []); // Remove dependencies to prevent recreation
 
   // Start/stop animation loop based on auto-scrolling state
   useEffect(() => {
@@ -201,7 +206,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         animationFrameRef.current = undefined;
       }
     };
-  }, [state.isAutoScrolling, animate]);
+  }, [state.isAutoScrolling]); // Remove animate dependency
 
   return {
     isAutoScrolling: state.isAutoScrolling,

@@ -283,11 +283,19 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     };
   }, [events, cardPositionsRef, selectCard, toggleAutoScroll, isAutoScrolling, logger]);
 
+  // Throttle position updates to prevent excessive re-renders
+  const lastPositionUpdateRef = useRef<number>(0);
+  const positionUpdateThrottleMs = 16; // ~60fps
+
   // Update position for parent component
   useEffect(() => {
     if (onPositionUpdate && cameraTarget) {
-      // Use the z position as the timeline position
-      onPositionUpdate(cameraTarget.z);
+      const now = Date.now();
+      if (now - lastPositionUpdateRef.current >= positionUpdateThrottleMs) {
+        // Use the z position as the timeline position
+        onPositionUpdate(cameraTarget.z);
+        lastPositionUpdateRef.current = now;
+      }
     }
   }, [cameraTarget, onPositionUpdate]);
 

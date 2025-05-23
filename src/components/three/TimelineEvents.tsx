@@ -127,10 +127,17 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   }, [events, onPositionUpdate, getEventPosition]);
 
   useEffect(() => {
+    // Throttle wiggle checks to prevent excessive updates during animation
+    const threshold = 0.1; // Only check if position changed significantly
+    const prevNow = prevNowRef.current;
+
+    if (Math.abs(currentPosition - prevNow) < threshold) {
+      return;
+    }
+
     // For each event, check if the now plane crossed its Z position
     events.forEach((event) => {
       const position = getEventPosition(event);
-      const prevNow = prevNowRef.current;
       const cardZ = position[2];
       // If the now plane crossed the card (from either direction)
       if ((prevNow < cardZ && currentPosition >= cardZ) || (prevNow > cardZ && currentPosition <= cardZ)) {
