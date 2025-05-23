@@ -73,6 +73,8 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         ? DEFAULTS.CARD.POSITION_Y.HOVER as 0.2
         : DEFAULTS.CARD.POSITION_Y.DEFAULT as 0;
 
+
+
     return {
       scale,
       rotation,
@@ -99,20 +101,15 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     }
   }, []);
 
-  // Handle card hover with debounce to prevent flickering
+  // Handle card hover - ensure only one card can be hovered at a time
   const setHoveredCard = useCallback((id: string | null) => {
-    // If we're setting to null (hover end), check if it's the same as the currently hovered card
-    if (id === null) {
-      // Only clear hover if it's been at least 100ms since the last hover start
-      // This prevents flickering when the mouse moves between parts of the same card
-      setState(prev => {
-        // Don't clear hover if we just started hovering
-        return { ...prev, hoveredCardId: id };
-      });
-    } else {
-      // Always set hover immediately when hovering a card
-      setState(prev => ({ ...prev, hoveredCardId: id }));
-    }
+    setState(prev => {
+      // Only update if the hover state actually changed
+      if (prev.hoveredCardId === id) {
+        return prev;
+      }
+      return { ...prev, hoveredCardId: id };
+    });
   }, []);
 
   // Toggle auto-scrolling

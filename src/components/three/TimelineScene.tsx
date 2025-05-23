@@ -116,7 +116,10 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   }, [events.length, timelineLength, debugMode]);
 
   // Background click handler component - simplified to only handle document clicks outside canvas
-  const BackgroundClickHandler: React.FC<{ onCardSelect: (id: string | null) => void }> = ({ onCardSelect }) => {
+  const BackgroundClickHandler: React.FC<{
+    onCardSelect: (id: string | null) => void;
+    onCardHover: (id: string | null) => void;
+  }> = ({ onCardSelect, onCardHover }) => {
     const { gl } = useThree();
 
     useEffect(() => {
@@ -126,6 +129,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         // Only clear selections if the click was OUTSIDE the canvas
         if (!canvas.contains(event.target as Node)) {
           onCardSelect(null);
+          onCardHover(null);
           clearAllCardHovers();
         }
       };
@@ -135,7 +139,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
       return () => {
         document.removeEventListener('click', handleDocumentClick);
       };
-    }, [gl, onCardSelect]);
+    }, [gl, onCardSelect, onCardHover]);
 
     return null;
   };
@@ -152,15 +156,17 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         }}
       >
         {/* Background click handler */}
-        <BackgroundClickHandler onCardSelect={onCardSelect} />
+        <BackgroundClickHandler onCardSelect={onCardSelect} onCardHover={onCardHover} />
 
         {/* Large invisible mesh to catch background clicks - positioned behind everything */}
         <mesh
           position={[0, 0, 0]}
           renderOrder={-1000}
-          onClick={() => {
-            // Only handle if no other object was clicked
+          onClick={(e) => {
+            e.stopPropagation();
+            // Clear all selections and hovers when clicking background
             onCardSelect(null);
+            onCardHover(null);
             clearAllCardHovers();
           }}
         >

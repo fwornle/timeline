@@ -9,7 +9,7 @@ import {
   globalHoveredCardId,
   globalClickHandlers
 } from '../../utils/three/cardUtils';
-import { useLogger } from '../../utils/logging/hooks/useLogger';
+
 
 interface TimelineCardProps {
   event: TimelineEvent;
@@ -29,27 +29,14 @@ interface TimelineCardProps {
 
 
 
-// Global state for debouncing hover events
-const hoverDebounce = {
-  // Track the last time a hover state changed
-  lastHoverChangeTime: 0,
-  // Minimum time (ms) between hover state changes
-  debounceTime: 300, // Increased for better stability
-  // Track if we're in a hover animation
-  isInHoverAnimation: false,
-  // Track the last mouse position
-  lastMousePosition: { x: 0, y: 0 },
+// Simplified global state for camera movement tracking
+const cameraState = {
   // Track if camera is moving (to disable hover effects)
   isCameraMoving: false,
   // Last time camera moved
   lastCameraMoveTime: 0,
   // Camera movement cooldown (ms)
-  cameraCooldownTime: 300, // Increased to prevent hover during camera movement
-  // New values for improved hover stability
-  hoverStartPosition: { x: 0, y: 0 },
-  significantMoveThreshold: 30, // Increased to prevent accidental unhover
-  isHoverLocked: false,
-  hoverLockDuration: 500, // Increased to ensure animation completes
+  cameraCooldownTime: 200,
 };
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -67,7 +54,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   wiggle = false,
   isMarkerDragging = false
 }) => {
-  const logger = useLogger({ component: 'TimelineCard', topic: 'ui' });
+
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
   const prevCameraPosition = useRef(camera.position.clone());
@@ -80,8 +67,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     // If camera moved significantly
     if (distanceMoved > 0.05) {
       // Mark camera as moving
-      hoverDebounce.isCameraMoving = true;
-      hoverDebounce.lastCameraMoveTime = performance.now();
+      cameraState.isCameraMoving = true;
+      cameraState.lastCameraMoveTime = performance.now();
 
       // If this card is hovered and camera is moving, clear hover state
       if (isHovered.current && globalHoveredCardId.current === event.id) {
@@ -92,9 +79,9 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     } else {
       // Check if camera cooldown period has passed
       const now = performance.now();
-      if (hoverDebounce.isCameraMoving &&
-          (now - hoverDebounce.lastCameraMoveTime) > hoverDebounce.cameraCooldownTime) {
-        hoverDebounce.isCameraMoving = false;
+      if (cameraState.isCameraMoving &&
+          (now - cameraState.lastCameraMoveTime) > cameraState.cameraCooldownTime) {
+        cameraState.isCameraMoving = false;
       }
     }
 
@@ -268,17 +255,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       // Animation props changed
       isHovered.current = newIsHovered;
 
-      // Update global hovered card tracking
-      if (newIsHovered) {
-        globalHoveredCardId.current = event.id;
-
-        // Mark that we're in a hover animation
-        hoverDebounce.isInHoverAnimation = true;
-        hoverDebounce.lastHoverChangeTime = performance.now();
-      } else if (globalHoveredCardId.current === event.id) {
-        globalHoveredCardId.current = null;
-      }
-
       // Store current values as starting point
       const currentRotationY = groupRef.current?.rotation.y || 0;
       const currentPositionY = groupRef.current?.position.y || position[1];
@@ -317,32 +293,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   // Animation frame
   useFrame(() => {
     if (!groupRef.current) return;
-
-    // Force unhover if another card is hovered
-    if (isHovered.current && globalHoveredCardId.current !== event.id) {
-      isHovered.current = false;
-
-      // Start unhover animation
-      const currentRotationY = groupRef.current.rotation.y;
-      const currentPositionY = groupRef.current.position.y;
-      const currentPositionZ = groupRef.current.position.z;
-      const currentScale = groupRef.current.scale.x;
-
-      // We don't need camera values for unhover, just reset to original position
-      setAnimState({
-        targetRotationY: 0,
-        targetPositionY: position[1],
-        targetPositionZ: position[2],
-        targetScale: 1,
-        animationStartTime: performance.now(),
-        isAnimating: true,
-        animationDuration: 250, // Fast animation for unhover
-        startRotationY: currentRotationY,
-        startPositionY: currentPositionY,
-        startPositionZ: currentPositionZ,
-        startScale: currentScale,
-      });
-    }
 
     // Recalculate camera values if card is hovered and not animating
     // This ensures the card stays properly oriented even when camera moves
@@ -421,21 +371,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       if (progress >= 1) {
         setAnimState(prev => ({ ...prev, isAnimating: false }));
 
-        // If this was a hover animation, update the hover animation state
-        if (isHovered.current) {
-          // Animation to hover state is complete
-          // Keep the hover animation state active for the debounce period
-          // This will prevent immediate unhover if the mouse moves off during animation
-          setTimeout(() => {
-            // Only clear the animation flag if this card is still the hovered one
-            if (globalHoveredCardId.current === event.id) {
-              hoverDebounce.isInHoverAnimation = false;
-            }
-          }, hoverDebounce.debounceTime / 2); // Use half the debounce time for animation completion
-        } else {
-          // Animation to unhovered state is complete
-          hoverDebounce.isInHoverAnimation = false;
-        }
+        // Animation complete - no additional logic needed
       }
     }
   });
@@ -457,50 +393,20 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
 
     // If camera is moving, ignore hover events
-    if (hoverDebounce.isCameraMoving) {
+    if (cameraState.isCameraMoving) {
       return;
     }
 
-    // Store hover start position
-    hoverDebounce.hoverStartPosition = { x: e.clientX, y: e.clientY };
-    hoverDebounce.lastMousePosition = { x: e.clientX, y: e.clientY };
-
-    // If we're already hovering this card, just update the position
+    // If we're already hovering this card, do nothing
     if (globalHoveredCardId.current === event.id) {
-      isHovered.current = true;
       return;
     }
 
-    // Clear any existing hover state first - ensure only one card can be hovered at a time
-    if (globalHoveredCardId.current !== null && globalHoveredCardId.current !== event.id && onHover) {
-      logger.debug(`Clearing previous hover on ${globalHoveredCardId.current} before setting new hover`);
-      onHover(null);
-      // Force clear the global state immediately
-      globalHoveredCardId.current = null;
-    }
-
-    // Check debounce conditions
-    const now = performance.now();
-    const timeSinceLastChange = now - hoverDebounce.lastHoverChangeTime;
-
-    if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime) {
-      logger.debug(`Ignoring hover on ${event.id}, animation in progress`);
-      return;
-    }
-
-    // Update hover state
-    hoverDebounce.lastHoverChangeTime = now;
-    hoverDebounce.isInHoverAnimation = true;
-    hoverDebounce.isHoverLocked = true;
+    // Set hover state immediately
     isHovered.current = true;
-
-    // Set a timeout to unlock hover after the initial animation
-    setTimeout(() => {
-      hoverDebounce.isHoverLocked = false;
-    }, hoverDebounce.hoverLockDuration);
+    globalHoveredCardId.current = event.id;
 
     if (onHover) {
-      globalHoveredCardId.current = event.id;
       onHover(event.id);
     }
   };
@@ -513,50 +419,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // If we're in the initial hover animation lock period, check for significant movement
-    if (hoverDebounce.isHoverLocked) {
-      const distanceFromStart = Math.sqrt(
-        Math.pow(e.clientX - hoverDebounce.hoverStartPosition.x, 2) +
-        Math.pow(e.clientY - hoverDebounce.hoverStartPosition.y, 2)
-      );
-
-      // Only allow unhover during lock if mouse has moved significantly
-      if (distanceFromStart <= hoverDebounce.significantMoveThreshold) {
-        return;
-      }
-    }
-
     // Set local hover state to false
     isHovered.current = false;
-    hoverDebounce.lastHoverChangeTime = performance.now();
-    hoverDebounce.isInHoverAnimation = true;
-    hoverDebounce.isHoverLocked = false; // Clear hover lock
 
-    // Start unhover animation
-    if (groupRef.current) {
-      const currentRotationY = groupRef.current.rotation.y;
-      const currentPositionY = groupRef.current.position.y;
-      const currentPositionZ = groupRef.current.position.z;
-      const currentScale = groupRef.current.scale.x;
-
-      setAnimState({
-        targetRotationY: 0,
-        targetPositionY: position[1],
-        targetPositionZ: position[2],
-        targetScale: 1,
-        animationStartTime: performance.now(),
-        isAnimating: true,
-        animationDuration: 250,
-        startRotationY: currentRotationY,
-        startPositionY: currentPositionY,
-        startPositionZ: currentPositionZ,
-        startScale: currentScale,
-      });
-    }
-
+    // Clear global hover state and notify parent
+    globalHoveredCardId.current = null;
     if (onHover) {
-      // Clear hover on pointer out
-      globalHoveredCardId.current = null;
       onHover(null);
     }
   };
