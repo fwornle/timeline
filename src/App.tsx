@@ -14,8 +14,8 @@ const App: React.FC = () => {
     // Make Logger available globally for console testing
     (window as any).Logger = Logger;
 
-    console.log('Logger is now available globally as window.Logger');
-    console.log('Try: Logger.info(Logger.Categories.UI, "Test message")');
+    Logger.info(Logger.Categories.LIFECYCLE, 'Logger is now available globally as window.Logger');
+    Logger.info(Logger.Categories.LIFECYCLE, 'Try: Logger.info(Logger.Categories.UI, "Test message")');
   }, []);
 
   return (

@@ -129,7 +129,7 @@ const MainPage: React.FC<MainPageProps> = ({
               forceReload={forceReload}
               debugMode={debugMode}
               onDataLoaded={(gitEvents, specEvents, isMocked) => {
-                console.debug('MainPage onDataLoaded:', {
+                logger.debug('MainPage onDataLoaded:', {
                   gitEventsCount: gitEvents.length,
                   specEventsCount: specEvents.length,
                   isMocked,
@@ -140,7 +140,7 @@ const MainPage: React.FC<MainPageProps> = ({
                   onEventCountsChange(gitEvents.length, specEvents.length);
                 }
                 if (onMockStatusChange) {
-                  console.debug('MainPage calling onMockStatusChange:', { isMocked });
+                  logger.debug('MainPage calling onMockStatusChange:', { isMocked });
                   onMockStatusChange(isMocked);
                 }
               }}

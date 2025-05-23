@@ -52,7 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           zoom: storedState.zoom
         };
       } catch (error) {
-        console.error('Failed to load camera state from preferences', error);
+        logger.error('Failed to load camera state from preferences', { error });
       }
     }
 
@@ -76,12 +76,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Debug mode effect
   useEffect(() => {
-    console.log('MainLayout: Debug mode effect triggered, debugMode is:', debugMode);
+    logger.debug('MainLayout: Debug mode effect triggered, debugMode is:', { debugMode });
 
     // Force camera state updates when debug mode is enabled
     if (debugMode) {
       // This will help with debug mode cycling
-      console.log('Debug mode enabled - making sure camera state is fresh');
+      logger.debug('Debug mode enabled - making sure camera state is fresh');
     }
   }, [debugMode]);
 
@@ -329,7 +329,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               onCameraStateChange: (state: CameraState) => {
                 // Only log in debug mode
                 if (debugMode) {
-                  console.log('[MainLayout] Received camera state:', {
+                  logger.debug('[MainLayout] Received camera state:', {
                     id: Date.now(),
                     position: {
                       x: state.position.x.toFixed(2),
@@ -364,7 +364,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
                 // Only log in debug mode
                 if (debugMode) {
-                  console.log('[MainLayout] Processed camera state for BottomBar:', {
+                  logger.debug('[MainLayout] Processed camera state for BottomBar:', {
                     id: Date.now(),
                     position: {
                       x: newState.position.x.toFixed(2),
@@ -406,7 +406,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             }
           });
         } catch (e) {
-          console.error('Error cloning Routes element:', e);
+          logger.error('Error cloning Routes element:', { error: e });
           return child;
         }
       }
@@ -443,7 +443,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   useEffect(() => {
     // Only log in debug mode
     if (debugMode) {
-      console.log('BottomBar props updated:', {
+      logger.debug('BottomBar props updated:', {
         cameraPosition: {
           x: cameraPosition.x.toFixed(1),
           y: cameraPosition.y.toFixed(1),
@@ -498,13 +498,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         onViewAllClick={handleViewAllClick}
         onFocusCurrentClick={handleFocusCurrentClick}
         onDebugModeChange={(enabled) => {
-          console.log('MainLayout: Debug mode change requested from BottomBar:', enabled);
+          logger.debug('MainLayout: Debug mode change requested from BottomBar:', { enabled });
           // Immediately update the state
           setDebugMode(enabled);
 
           // If enabling debug mode, force a camera state update
           if (enabled && cameraState) {
-            console.log('Forcing camera state update due to debug mode activation');
+            logger.debug('Forcing camera state update due to debug mode activation');
             // Create a new object to ensure state change is detected
             const refreshedState = {
               position: new Vector3(
@@ -524,7 +524,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
           // Log again to verify state update
           setTimeout(() => {
-            console.log('MainLayout: Debug mode updated to:', enabled);
+            logger.debug('MainLayout: Debug mode updated to:', { enabled });
           }, 10);
         }}
         onResetTimeline={handleRefreshTimeline}

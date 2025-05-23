@@ -113,7 +113,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Log received props for camera state callbacks
   useEffect(() => {
-    console.log('TimelineVisualization received camera props:', {
+    logger.debug('TimelineVisualization received camera props:', {
       hasOnCameraPositionChange: !!onCameraPositionChange,
       hasOnCameraStateChange: !!onCameraStateChange,
       hasInitialCameraState: !!initialCameraState,
@@ -438,7 +438,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           onCameraStateChange={(state) => {
             // Only log in debug mode
             if (debugMode) {
-              console.log('[TimelineVisualization] Passing camera state:', {
+              logger.debug('[TimelineVisualization] Passing camera state:', {
                 id: Date.now(),
                 position: {
                   x: state.position.x.toFixed(2),

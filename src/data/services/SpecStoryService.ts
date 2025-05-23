@@ -193,7 +193,7 @@ export class SpecStoryService {
 
       if (data.stats) {
         // Use server-provided stats
-        console.log('Using server-provided stats for spec:', data.id, data.stats);
+        Logger.debug(Logger.Categories.DATA, 'Using server-provided stats for spec', { id: data.id, stats: data.stats });
         stats = {
           promptCount: data.stats.promptCount || 0,
           filesCreated: data.stats.filesCreated || 0,
@@ -205,7 +205,7 @@ export class SpecStoryService {
         };
       } else {
         // Generate statistics based on the description content
-        console.log('Generating stats for spec:', data.id);
+        Logger.debug(Logger.Categories.DATA, 'Generating stats for spec', { id: data.id });
         stats = {
           promptCount: 0,
           filesCreated: 0,
@@ -245,7 +245,7 @@ export class SpecStoryService {
       }
 
       // Debug: Log the final stats
-      console.log('Final stats for spec:', data.id, stats);
+      Logger.debug(Logger.Categories.DATA, 'Final stats for spec', { id: data.id, stats });
 
       const event: SpecTimelineEvent = {
         id: `spec-${specId}-${version}`,
@@ -313,14 +313,14 @@ export class SpecStoryService {
       );
 
       // Debug: Log the raw response data
-      console.log('Raw spec history response:', response);
+      Logger.debug(Logger.Categories.API, 'Raw spec history response', { response });
 
       const events = response.data.map((spec: SpecHistoryResponse) => {
         // Debug: Log each raw spec before parsing
-        console.log('Raw spec event:', spec.id, 'stats:', spec.stats);
+        Logger.debug(Logger.Categories.DATA, 'Raw spec event', { id: spec.id, stats: spec.stats });
         const parsedSpec = this.parseSpecEvent(spec);
         // Debug: Log each parsed spec
-        console.log('Parsed spec event:', parsedSpec.id, 'stats:', parsedSpec.stats);
+        Logger.debug(Logger.Categories.DATA, 'Parsed spec event', { id: parsedSpec.id, stats: parsedSpec.stats });
         return parsedSpec;
       });
 

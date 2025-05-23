@@ -70,7 +70,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         hasInitialCameraState: !!initialCameraState
       });
     } else {
-      console.log('TimelineScene camera callbacks:', {
+      logger.debug('TimelineScene camera callbacks:', {
         hasOnCameraPositionChange: !!onCameraPositionChange,
         hasOnCameraStateChange: !!onCameraStateChange,
         hasInitialCameraState: !!initialCameraState,
@@ -107,7 +107,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   // Debug logging for Grid component (only in debug mode)
   useEffect(() => {
     if (debugMode) {
-      console.log('🔷 TimelineScene rendering with Grid component', {
+      logger.debug('🔷 TimelineScene rendering with Grid component', {
         eventsCount: events.length,
         timelineLength,
         debugMode

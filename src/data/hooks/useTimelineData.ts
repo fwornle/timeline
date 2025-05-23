@@ -83,7 +83,7 @@ export function useTimelineData(repoUrl: string) {
       // Update separate mock flags for each data source
       setIsGitHistoryMocked(gitResult.mocked);
       setIsSpecHistoryMocked(specResult.mocked);
-      console.debug('useTimelineData fetchTimelineData:', {
+      Logger.debug(Logger.Categories.DATA, 'useTimelineData fetchTimelineData', {
         gitMocked: gitResult.mocked,
         specMocked: specResult.mocked
       });
@@ -148,7 +148,7 @@ export function useTimelineData(repoUrl: string) {
 
         setIsGitHistoryMocked(gitResult.mocked);
         setIsSpecHistoryMocked(specResult.mocked);
-        console.debug('useTimelineData initial fetch:', {
+        Logger.debug(Logger.Categories.DATA, 'useTimelineData initial fetch', {
           gitMocked: gitResult.mocked,
           specMocked: specResult.mocked
         });
