@@ -288,24 +288,28 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   // Throttle position updates to prevent excessive re-renders
   const lastPositionUpdateRef = useRef<number>(0);
   const lastReportedPositionRef = useRef<number>(0);
-  const positionUpdateThrottleMs = 16; // ~60fps
+  const positionUpdateThrottleMs = 50; // Reduced from 16ms to 50ms (~20fps) for better performance
 
-  // Update position for parent component - but only when it's a significant change
-  // and not during auto-scrolling to prevent circular updates
+  // Update position for parent component
+  // During auto-scrolling, update more frequently for smooth animation
   useEffect(() => {
-    if (onPositionUpdate && cameraTarget && !isAutoScrolling) {
+    if (onPositionUpdate && cameraTarget) {
       const now = Date.now();
       const newPosition = cameraTarget.z;
       const positionDelta = Math.abs(newPosition - lastReportedPositionRef.current);
 
+      // Different thresholds for auto-scrolling vs manual movement
+      const timeThreshold = isAutoScrolling ? 16 : positionUpdateThrottleMs; // 60fps during auto-scroll
+      const positionThreshold = isAutoScrolling ? 0.01 : 0.5; // Much smaller threshold during auto-scroll
+
       // Only report position changes if enough time has passed AND position changed significantly
-      if (now - lastPositionUpdateRef.current >= positionUpdateThrottleMs && positionDelta > 0.1) {
+      if (now - lastPositionUpdateRef.current >= timeThreshold && positionDelta > positionThreshold) {
         onPositionUpdate(newPosition);
         lastPositionUpdateRef.current = now;
         lastReportedPositionRef.current = newPosition;
       }
     }
-  }, [cameraTarget, onPositionUpdate, isAutoScrolling]);
+  }, [cameraTarget, onPositionUpdate, isAutoScrolling, positionUpdateThrottleMs]);
 
   // Also update position when a card is selected
   useEffect(() => {

@@ -361,9 +361,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Update camera when cameraState changes (only after initialization)
   // Use a ref to track the last applied state to prevent circular updates
   const lastAppliedStateRef = useRef<CameraState | null>(null);
+  const isApplyingStateRef = useRef(false);
 
   useEffect(() => {
-    if (!initialized) return;
+    if (!initialized || isApplyingStateRef.current) return;
 
     // Skip if this is the same state we just applied
     if (lastAppliedStateRef.current &&
@@ -372,6 +373,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         Math.abs(lastAppliedStateRef.current.zoom - cameraState.zoom) < 0.01) {
       return;
     }
+
+    // Mark that we're applying state to prevent circular updates
+    isApplyingStateRef.current = true;
 
     // Apply the state
     applyCameraState(cameraState);
@@ -382,6 +386,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       target: cameraState.target.clone(),
       zoom: cameraState.zoom
     };
+
+    // Reset the flag after a brief delay to allow the state to settle
+    setTimeout(() => {
+      isApplyingStateRef.current = false;
+    }, 50);
 
   }, [cameraState, initialized]);
 
@@ -470,17 +479,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   }, [target, initialized, disableControls, viewAllMode, focusCurrentMode]);
 
   // Monitor camera changes from OrbitControls using useFrame
-  // Add throttling to prevent excessive updates
-  const lastFrameUpdateRef = useRef<number>(0);
-  const FRAME_UPDATE_THROTTLE = 16; // ~60fps max
-
   useFrame(() => {
     if (!initialized || userInteractingRef.current) return;
 
-    // Throttle frame updates
     const now = performance.now();
-    if (now - lastFrameUpdateRef.current < FRAME_UPDATE_THROTTLE) return;
-    lastFrameUpdateRef.current = now;
 
     // Handle drone mode - camera flies freely around marker like a bee
     if (droneMode && !viewAllMode && !focusCurrentMode) {
@@ -523,7 +525,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
           droneState.userInterrupted = false;
           droneState.lastUpdateTime = now; // Reset timer to prevent immediate target change
-          
+
           if (debugMode) {
             logger.debug('Resumed drone mode from user position', {
               currentPos: `(${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)})`,
@@ -646,11 +648,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.5; // Increased threshold
     const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.1; // Less sensitive
 
-    // Only update state if actual changes detected and not too frequently
-    // Skip state updates during drone mode to prevent infinite loops
+    // Only update state if actual changes detected
+    // Skip state updates during drone mode or when applying state to prevent infinite loops
     if ((positionChanged || targetChanged || zoomChanged) &&
-        now - lastFrameUpdateRef.current > 100 &&
-        !droneMode) {
+        !droneMode &&
+        !isApplyingStateRef.current) {
       // Create new state object with fresh values
       const newState: CameraState = {
         position: new Vector3(
@@ -676,7 +678,6 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }
 
       updateCameraState(newState, 'frame');
-      lastFrameUpdateRef.current = now; // Update the throttle timer
     }
   });
 
@@ -720,10 +721,6 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       onChange={() => {
         if (!userInteractingRef.current) return;
 
-        // Throttle onChange events to prevent excessive updates
-        const now = performance.now();
-        if (now - lastFrameUpdateRef.current < 50) return; // Max 20 updates per second
-
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
@@ -753,7 +750,6 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
             zoom: cameraZoom
           };
           updateCameraState(newState, 'controls');
-          lastFrameUpdateRef.current = now;
         }
       }}
       onEnd={() => {

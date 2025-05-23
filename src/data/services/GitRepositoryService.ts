@@ -1,6 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { logger } from '../../utils/logging/Logger';
+import { Logger } from '../../utils/logging/Logger';
 import type { GitTimelineEvent } from '../types/TimelineEvent';
 import { enhanceGitCommitWithStats } from '../parsers/GitCommitParser';
 

@@ -61,7 +61,16 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   const prevCameraPosition = useRef(camera.position.clone());
 
   // Check for camera movement on each frame
+  const lastCameraCheckRef = useRef(0);
   useFrame(() => {
+    const now = performance.now();
+
+    // Only check camera movement every 16ms (~60fps) to reduce performance impact
+    if (now - lastCameraCheckRef.current < 16) {
+      return;
+    }
+    lastCameraCheckRef.current = now;
+
     // Calculate distance moved
     const distanceMoved = camera.position.distanceTo(prevCameraPosition.current);
 
@@ -69,7 +78,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     if (distanceMoved > 0.05) {
       // Mark camera as moving
       cameraState.isCameraMoving = true;
-      cameraState.lastCameraMoveTime = performance.now();
+      cameraState.lastCameraMoveTime = now;
 
       // If this card is hovered and camera is moving, clear hover state
       if (isHovered && onHover) {
@@ -77,7 +86,6 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       }
     } else {
       // Check if camera cooldown period has passed
-      const now = performance.now();
       if (cameraState.isCameraMoving &&
           (now - cameraState.lastCameraMoveTime) > cameraState.cameraCooldownTime) {
         cameraState.isCameraMoving = false;
@@ -155,27 +163,35 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
   }, [wiggle]);
 
-  // Wiggle animation frame
+  // Wiggle animation frame (throttled for performance)
+  const lastWiggleUpdateRef = useRef(0);
   useFrame(() => {
-    if (!groupRef.current) return;
-    if (wiggleState.isWiggling) {
-      const elapsed = performance.now() - wiggleState.startTime;
-      const duration = 400; // longer wiggle for more pronounced effect
-      if (elapsed < duration) {
-        // Wiggle: quick left-right rotation (Y axis) with more pronounced motion
-        // Use Math.sin directly as this is a simple calculation, not an interpolation
-        const progress = elapsed / duration;
+    if (!groupRef.current || !wiggleState.isWiggling) return;
 
-        // Create a more dramatic wiggle with varying amplitude
-        // Start strong, then fade out for a more natural feel
-        const fadeOut = 1 - (progress * progress); // Quadratic fade out
-        const wiggleAngle = Math.sin(progress * Math.PI * 6) * 0.35 * fadeOut; // 3 full wiggles with higher amplitude
+    const now = performance.now();
 
-        setWiggleState((prev) => ({ ...prev, wiggleAngle }));
-      } else {
-        // End wiggle
-        setWiggleState({ isWiggling: false, startTime: 0, wiggleAngle: 0 });
-      }
+    // Only update wiggle animation every 16ms (~60fps) to reduce performance impact
+    if (now - lastWiggleUpdateRef.current < 16) {
+      return;
+    }
+    lastWiggleUpdateRef.current = now;
+
+    const elapsed = now - wiggleState.startTime;
+    const duration = 400; // longer wiggle for more pronounced effect
+    if (elapsed < duration) {
+      // Wiggle: quick left-right rotation (Y axis) with more pronounced motion
+      // Use Math.sin directly as this is a simple calculation, not an interpolation
+      const progress = elapsed / duration;
+
+      // Create a more dramatic wiggle with varying amplitude
+      // Start strong, then fade out for a more natural feel
+      const fadeOut = 1 - (progress * progress); // Quadratic fade out
+      const wiggleAngle = Math.sin(progress * Math.PI * 6) * 0.35 * fadeOut; // 3 full wiggles with higher amplitude
+
+      setWiggleState((prev) => ({ ...prev, wiggleAngle }));
+    } else {
+      // End wiggle
+      setWiggleState({ isWiggling: false, startTime: 0, wiggleAngle: 0 });
     }
   });
 
@@ -291,9 +307,18 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
   }, [isHovered, position, camera, event.id, calculateCameraValues]);
 
-  // Animation frame
+  // Animation frame (throttled for performance)
+  const lastAnimationUpdateRef = useRef(0);
   useFrame(() => {
     if (!groupRef.current) return;
+
+    const now = performance.now();
+
+    // Only update animation every 16ms (~60fps) to reduce performance impact
+    if (now - lastAnimationUpdateRef.current < 16) {
+      return;
+    }
+    lastAnimationUpdateRef.current = now;
 
     // Recalculate camera values if card is hovered and not animating
     // This ensures the card stays properly oriented even when camera moves
@@ -316,7 +341,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
           targetPositionY: position[1] + 0.5,
           targetPositionZ: position[2] - moveDistance,
           targetScale: zoomFactor,
-          animationStartTime: performance.now(),
+          animationStartTime: now,
           isAnimating: true,
           animationDuration: 300, // Medium speed for camera tracking updates
           startRotationY: currentRotationY,
@@ -328,8 +353,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
 
     if (animState.isAnimating) {
-      // Calculate animation progress
-      const elapsedTime = performance.now() - animState.animationStartTime;
+      // Calculate animation progress using cached now value
+      const elapsedTime = now - animState.animationStartTime;
       const progress = Math.min(elapsedTime / animState.animationDuration, 1);
 
       // Easing function (ease-in-out)

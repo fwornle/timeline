@@ -1,5 +1,5 @@
 import type { SpecTimelineEvent } from '../types/TimelineEvent';
-import { logger } from '../../utils/logging/Logger';
+import { Logger } from '../../utils/logging/Logger';
 import { TimelineAPIError, ServerError, NotFoundError, NetworkError } from '../../utils/api/errors';
 
 interface SpecHistoryResponse {

@@ -301,7 +301,7 @@ export function useTimelineData(repoUrl: string) {
           }
 
           // Wait a bit to ensure the cache is cleared
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Fetch fresh git data
           const gitResult = await fetchData('git');
@@ -360,7 +360,7 @@ export function useTimelineData(repoUrl: string) {
           }
 
           // Wait a bit to ensure the cache is cleared
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Fetch fresh spec data
           const specResult = await fetchData('spec');

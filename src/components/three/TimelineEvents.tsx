@@ -59,56 +59,60 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   }, [sortedEvents]);
 
   // Calculate positions for events based on their timestamps (optimized)
-  const getEventPosition = useCallback((event: TimelineEvent): [number, number, number] => {
-    // If no events, return default position
-    if (events.length === 0) return [0, 2, 0];
+  // Memoize the position calculation to prevent infinite loops
+  const getEventPosition = useMemo(() => {
+    // Create a stable function that doesn't change unless events or timeRange change
+    return (event: TimelineEvent): [number, number, number] => {
+      // If no events, return default position
+      if (events.length === 0) return [0, 2, 0];
 
-    const { minTime, maxTime } = timeRange;
+      const { minTime, maxTime } = timeRange;
 
-    // Calculate the time span
-    const timeSpan = maxTime - minTime;
+      // Calculate the time span
+      const timeSpan = maxTime - minTime;
 
-    // If all events have the same timestamp, spread them evenly around center
-    if (timeSpan === 0) {
-      const index = events.findIndex((e: TimelineEvent) => e.id === event.id);
-      const spacing = 5;
-      // Center events around z=0
-      const zPos = (index - (events.length - 1) / 2) * spacing;
+      // If all events have the same timestamp, spread them evenly around center
+      if (timeSpan === 0) {
+        const index = events.findIndex((e: TimelineEvent) => e.id === event.id);
+        const spacing = 5;
+        // Center events around z=0
+        const zPos = (index - (events.length - 1) / 2) * spacing;
 
-      // Alternate x positions for better visibility
+        // Alternate x positions for better visibility
+        const xOffset = 3; // Reduced offset to save horizontal space
+        const xPos = index % 2 === 0 ? -xOffset : xOffset;
+
+        return [xPos, 2, zPos];
+      }
+
+      // Calculate timeline length based on the number of events and time range
+      // Use a minimum spacing between events
+      const minSpacing = 5; // Minimum units between events
+      const timelineLength = Math.max(
+        events.length * minSpacing,
+        100 // Minimum timeline length
+      );
+
+      // Map the event time to a position on the Z axis
+      // Normalize event time to a value between -0.5 and 0.5
+      const normalizedTime = (event.timestamp.getTime() - minTime) / timeSpan - 0.5;
+
+      // Map to Z position - centered around z=0
+      const zPos = normalizedTime * timelineLength;
+
+      // Find the index of this event in the sorted events array for alternating sides
+      const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
+
+      // Alternate x positions for better visibility based on sorted index
       const xOffset = 3; // Reduced offset to save horizontal space
-      const xPos = index % 2 === 0 ? -xOffset : xOffset;
+      const xPos = eventIndex % 2 === 0 ? -xOffset : xOffset;
 
-      return [xPos, 2, zPos];
-    }
+      // Y position is raised to move everything up
+      const yPos = 2;
 
-    // Calculate timeline length based on the number of events and time range
-    // Use a minimum spacing between events
-    const minSpacing = 5; // Minimum units between events
-    const timelineLength = Math.max(
-      events.length * minSpacing,
-      100 // Minimum timeline length
-    );
-
-    // Map the event time to a position on the Z axis
-    // Normalize event time to a value between -0.5 and 0.5
-    const normalizedTime = (event.timestamp.getTime() - minTime) / timeSpan - 0.5;
-
-    // Map to Z position - centered around z=0
-    const zPos = normalizedTime * timelineLength;
-
-    // Find the index of this event in the sorted events array for alternating sides
-    const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
-
-    // Alternate x positions for better visibility based on sorted index
-    const xOffset = 3; // Reduced offset to save horizontal space
-    const xPos = eventIndex % 2 === 0 ? -xOffset : xOffset;
-
-    // Y position is raised to move everything up
-    const yPos = 2;
-
-    return [xPos, yPos, zPos];
-  }, [events, timeRange]);
+      return [xPos, yPos, zPos];
+    };
+  }, [events, timeRange, sortedEvents]);
 
   // Track previous 'now' position
   const prevNowRef = useRef(currentPosition);
@@ -116,15 +120,28 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   const [wiggleMap, setWiggleMap] = useState<{ [id: string]: boolean }>({});
 
   // Update position cache when events change
+  // Use a ref to track if we've already updated positions for this event set
+  const lastEventsHashRef = useRef<string>('');
+
   useEffect(() => {
-    events.forEach((event) => {
-      const position = getEventPosition(event);
-      onPositionUpdate(
-        event.id,
-        new Vector3(position[0], position[1], position[2])
-      );
-    });
+    // Create a hash of the events to detect actual changes
+    const eventsHash = events.map(e => `${e.id}-${e.timestamp.getTime()}`).join('|');
+
+    // Only update if events actually changed
+    if (eventsHash !== lastEventsHashRef.current) {
+      events.forEach((event) => {
+        const position = getEventPosition(event);
+        onPositionUpdate(
+          event.id,
+          new Vector3(position[0], position[1], position[2])
+        );
+      });
+      lastEventsHashRef.current = eventsHash;
+    }
   }, [events, onPositionUpdate, getEventPosition]);
+
+  // Track active wiggle timeouts to prevent memory leaks
+  const wiggleTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     // Throttle wiggle checks to prevent excessive updates during animation
@@ -139,17 +156,37 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     events.forEach((event) => {
       const position = getEventPosition(event);
       const cardZ = position[2];
+
       // If the now plane crossed the card (from either direction)
       if ((prevNow < cardZ && currentPosition >= cardZ) || (prevNow > cardZ && currentPosition <= cardZ)) {
+        // Clear any existing timeout for this card
+        const existingTimeout = wiggleTimeoutsRef.current.get(event.id);
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+        }
+
+        // Start wiggle animation
         setWiggleMap((prev) => ({ ...prev, [event.id]: true }));
-        // Reset wiggle after animation completes (matches the 400ms duration in TimelineCard)
-        setTimeout(() => {
+
+        // Set timeout to stop wiggle
+        const timeout = setTimeout(() => {
           setWiggleMap((prev) => ({ ...prev, [event.id]: false }));
-        }, 450); // Slightly longer than animation duration to ensure cleanup
+          wiggleTimeoutsRef.current.delete(event.id);
+        }, 200); // Shorter duration to prevent interference with animation
+
+        wiggleTimeoutsRef.current.set(event.id, timeout);
       }
     });
     prevNowRef.current = currentPosition;
   }, [currentPosition, events, getEventPosition]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      wiggleTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      wiggleTimeoutsRef.current.clear();
+    };
+  }, []);
 
   return (
     <group>

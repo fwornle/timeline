@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { logger } from '../../utils/logging/Logger';
+import { Logger } from '../../utils/logging/Logger';
 import type { SpecTimelineEvent } from '../types/TimelineEvent';
 import { parseSpecHistoryStats } from '../parsers/SpecHistoryParser';
 

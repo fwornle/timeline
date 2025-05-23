@@ -12,7 +12,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PreferencesProvider>
       <ThemeProvider>
-    <App />
+        <App />
       </ThemeProvider>
     </PreferencesProvider>
   </StrictMode>,

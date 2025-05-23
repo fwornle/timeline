@@ -40,9 +40,18 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Keep internal target in sync with state
+  useEffect(() => {
+    internalTargetRef.current.copy(state.cameraTarget);
+  }, [state.cameraTarget]);
+
   // Animation frame tracking
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
+  const lastStateUpdateRef = useRef<number>(0);
+
+  // Internal animation target that doesn't trigger React re-renders
+  const internalTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, initialMarkerPosition));
 
   // Card position cache
   const cardPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
@@ -130,6 +139,9 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Update camera target position (for marker dragging)
   const setCameraTarget = useCallback((position: THREE.Vector3) => {
+    // Update internal target immediately
+    internalTargetRef.current.copy(position);
+
     setState(prev => ({
       ...prev,
       cameraTarget: position.clone(),
@@ -139,6 +151,9 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Update camera target Z position only (for marker dragging)
   const setCameraTargetZ = useCallback((z: number) => {
+    // Update internal target immediately
+    internalTargetRef.current.z = z;
+
     setState(prev => ({
       ...prev,
       cameraTarget: new THREE.Vector3(prev.cameraTarget.x, prev.cameraTarget.y, z),
@@ -148,18 +163,10 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     lastTimeRef.current = performance.now();
   }, []);
 
-  // Animation loop with performance optimizations
+  // Animation loop with smooth movement
   const animate = useCallback((time: number) => {
-    // Limit frame rate to 60fps for better performance
-    const targetFrameTime = 1000 / 60; // 16.67ms per frame
+    // Calculate delta time for smooth movement
     const deltaTime = (time - lastTimeRef.current) / 1000;
-
-    // Skip frame if we're running too fast
-    if (time - lastTimeRef.current < targetFrameTime) {
-      animationFrameRef.current = requestAnimationFrame(animate);
-      return;
-    }
-
     lastTimeRef.current = time;
 
     // Use refs to access current state values to avoid dependencies
@@ -172,16 +179,30 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
       // This ensures we're always looking at the front of the cards
       const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
 
-      // Only update state if there's a meaningful change (reduce unnecessary re-renders)
-      // Use a larger threshold to prevent micro-updates that cause jerkiness
-      if (scrollDelta > 0.01) {
-        setState(prev => {
-          const newTarget = prev.cameraTarget.clone().add(new THREE.Vector3(0, 0, scrollDelta));
-          return {
-            ...prev,
-            cameraTarget: newTarget,
-          };
-        });
+      // Always update internal target for smooth movement
+      if (scrollDelta > 0) {
+        // Update internal target immediately for smooth animation
+        internalTargetRef.current.z += scrollDelta;
+
+        // Only update React state periodically to avoid infinite loops
+        const stateUpdateInterval = 200; // Update React state every 200ms
+
+        if (time - lastStateUpdateRef.current >= stateUpdateInterval) {
+          // Use functional update to avoid stale closure issues
+          setState(prev => {
+            // Create a new Vector3 to ensure React detects the change
+            const newTarget = new THREE.Vector3(
+              internalTargetRef.current.x,
+              internalTargetRef.current.y,
+              internalTargetRef.current.z
+            );
+            return {
+              ...prev,
+              cameraTarget: newTarget,
+            };
+          });
+          lastStateUpdateRef.current = time;
+        }
       }
     }
 
@@ -189,7 +210,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     if (isAutoScrolling) {
       animationFrameRef.current = requestAnimationFrame(animate);
     }
-  }, []); // Remove dependencies to prevent recreation
+  }, []);
 
   // Start/stop animation loop based on auto-scrolling state
   useEffect(() => {
@@ -212,7 +233,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         animationFrameRef.current = undefined;
       }
     };
-  }, [state.isAutoScrolling]); // Remove animate dependency
+  }, [state.isAutoScrolling]);
 
   return {
     isAutoScrolling: state.isAutoScrolling,
