@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Navbar, Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Navbar, Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import PreferencesModal from './PreferencesModal';
 import { usePreferences } from '../context/PreferencesContext';
 import { useLogger } from '../utils/logging/hooks/useLogger';
@@ -32,30 +32,63 @@ const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <>
-      <Navbar bg="primary" variant="dark" expand="lg" className="w-100 px-0 mx-0" style={{ minHeight: '56px' }}>
+      <Navbar
+        expand="lg"
+        className="w-100 px-0 mx-0 shadow-sm"
+        style={{
+          minHeight: '64px',
+          backgroundColor: 'var(--color-primary-800)',
+          borderBottom: '1px solid var(--color-border-light)'
+        }}
+      >
         <Container fluid>
           {/* Branding/Logo (left) - Clickable to go to About */}
           <Navbar.Brand href="#" className="d-flex align-items-center">
-            <span className="text-light d-none d-sm-inline">Timeline</span>
+            <span
+              className="d-none d-sm-inline fw-semibold"
+              style={{
+                color: 'var(--color-primary-50)',
+                fontSize: '1.25rem',
+                letterSpacing: '-0.025em'
+              }}
+            >
+              Timeline
+            </span>
           </Navbar.Brand>
 
           {/* Toggler for mobile */}
           <button
-            className="navbar-toggler"
+            className="navbar-toggler border-0"
             type="button"
             aria-controls="navbarNav"
             aria-expanded={expanded}
             aria-label="Toggle navigation"
             onClick={() => setExpanded((prev) => !prev)}
+            style={{
+              backgroundColor: 'transparent',
+              boxShadow: 'none'
+            }}
           >
-            <span className="navbar-toggler-icon" />
+            <span
+              className="navbar-toggler-icon"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28248, 250, 252, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e")`
+              }}
+            />
           </button>
 
           <div className={collapseClassName} id="navbarNav">
             {/* Center area - Display repo URL */}
             <div className="navbar-nav mx-lg-auto text-center">
               {preferences.repoUrl && (
-                <span className="text-light d-none d-md-inline">
+                <span
+                  className="d-none d-md-inline"
+                  style={{
+                    color: 'var(--color-primary-200)',
+                    fontSize: '0.875rem',
+                    fontFamily: 'monospace'
+                  }}
+                >
                   {preferences.repoUrl}
                 </span>
               )}
@@ -70,9 +103,24 @@ const TopBar: React.FC<TopBarProps> = ({
                     placement="bottom"
                     overlay={<Tooltip>Reload data from cache or upstream repository</Tooltip>}
                   >
-                    <Button
-                      variant="outline-light"
-                      size="sm"
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--color-primary-400)',
+                        color: 'var(--color-primary-100)',
+                        borderRadius: '6px',
+                        padding: '0.375rem 0.75rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-primary-700)';
+                        e.currentTarget.style.borderColor = 'var(--color-primary-300)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.borderColor = 'var(--color-primary-400)';
+                      }}
                       onClick={() => {
                         logger.info('Soft reload requested');
                         onReloadData?.();
@@ -80,7 +128,7 @@ const TopBar: React.FC<TopBarProps> = ({
                       disabled={isLoading}
                     >
                       <i className={`bi ${isLoading ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} />
-                    </Button>
+                    </button>
                   </OverlayTrigger>
 
                   {/* Hard Reload Button */}
@@ -92,9 +140,24 @@ const TopBar: React.FC<TopBarProps> = ({
                       </Tooltip>
                     }
                   >
-                    <Button
-                      variant="outline-warning"
-                      size="sm"
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--color-warning)',
+                        color: 'var(--color-warning)',
+                        borderRadius: '6px',
+                        padding: '0.375rem 0.75rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-warning)';
+                        e.currentTarget.style.color = 'white';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-warning)';
+                      }}
                       onClick={() => {
                         logger.info('Hard reload requested');
                         onHardReload?.();
@@ -102,22 +165,37 @@ const TopBar: React.FC<TopBarProps> = ({
                       disabled={isLoading}
                     >
                       <i className={`bi ${isLoading ? 'bi-hourglass-split' : 'bi-exclamation-triangle'}`} />
-                    </Button>
+                    </button>
                   </OverlayTrigger>
                 </>
               )}
 
               {/* Settings Button */}
-              <Button
-                variant="outline-light"
-                size="sm"
+              <button
+                className="btn btn-sm"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--color-primary-400)',
+                  color: 'var(--color-primary-100)',
+                  borderRadius: '6px',
+                  padding: '0.375rem 0.75rem',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-700)';
+                  e.currentTarget.style.borderColor = 'var(--color-primary-300)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'var(--color-primary-400)';
+                }}
                 title="Repository Settings"
                 aria-label="Repository Settings"
                 onClick={() => setShowPrefs(true)}
                 disabled={isLoading}
               >
                 <i className="bi bi-gear" />
-              </Button>
+              </button>
             </div>
           </div>
         </Container>

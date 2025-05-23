@@ -602,8 +602,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     }
   };
 
-  // Determine card color based on event type
-  const cardColor = event.type === 'git' ? '#2c3e50' : '#34495e'; // Darker, more professional base colors
+  // Professional color scheme based on our theme
+  const cardColor = event.type === 'git' ? '#334155' : '#475569'; // Primary-700 and Primary-600
   const cardWidth = 3;
   const cardHeight = 2.2; // Adjusted height for better proportions
 
@@ -648,9 +648,9 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
         <mesh position={[0, 0.95, 0]}>
           <planeGeometry args={[cardWidth, 0.3]} />
           <meshBasicMaterial
-            color={event.type === 'git' ? '#2980b9' : '#8e44ad'}
+            color={event.type === 'git' ? '#2563eb' : '#3b82f6'}
             transparent
-            opacity={0.8}
+            opacity={0.9}
           />
         </mesh>
 
@@ -696,7 +696,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
         <Text
           position={[-1.35, -0.95, 0.01]}
           fontSize={0.14}
-          color={event.type === 'git' ? '#4da6ff' : '#d580ff'}
+          color={event.type === 'git' ? '#60a5fa' : '#93c5fd'}
           anchorX="left"
           anchorY="middle"
           fontWeight="bold"

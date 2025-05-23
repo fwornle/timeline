@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { Modal, Form, Alert } from 'react-bootstrap';
 import type { Preferences } from '../services/storage';
 import { usePreferences } from '../context/PreferencesContext';
 
@@ -75,11 +75,35 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
   };
 
   return (
-    <Modal show={show} onHide={onClose} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Repository Settings</Modal.Title>
+    <Modal
+      show={show}
+      onHide={onClose}
+      centered
+      style={{
+        '--bs-modal-border-radius': '8px'
+      } as React.CSSProperties}
+    >
+      <Modal.Header
+        closeButton
+        style={{
+          backgroundColor: 'var(--color-surface-light)',
+          borderBottom: '1px solid var(--color-border-light)',
+          borderTopLeftRadius: '8px',
+          borderTopRightRadius: '8px'
+        }}
+      >
+        <Modal.Title style={{
+          color: 'var(--color-primary-700)',
+          fontWeight: '600',
+          fontSize: '1.25rem'
+        }}>
+          Repository Settings
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
+      <Modal.Body style={{
+        backgroundColor: 'var(--color-surface-light)',
+        color: 'var(--color-text-primary-light)'
+      }}>
         <Form>
           <Form.Group className="mb-3">
             <Form.Label>Git Repository URL</Form.Label>
@@ -169,9 +193,50 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
 
         {success && <Alert variant="success" className="mt-3">Settings saved!</Alert>}
       </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" onClick={handleSave}>Save</Button>
+      <Modal.Footer style={{ backgroundColor: 'var(--color-surface-elevated-light)', borderTop: '1px solid var(--color-border-light)' }}>
+        <button
+          className="btn"
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid var(--color-primary-400)',
+            color: 'var(--color-primary-700)',
+            borderRadius: '6px',
+            padding: '0.5rem 1rem',
+            marginRight: '0.5rem',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--color-primary-100)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+        <button
+          className="btn"
+          style={{
+            backgroundColor: 'var(--color-accent-600)',
+            border: '1px solid var(--color-accent-600)',
+            color: 'white',
+            borderRadius: '6px',
+            padding: '0.5rem 1rem',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--color-accent-700)';
+            e.currentTarget.style.borderColor = 'var(--color-accent-700)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--color-accent-600)';
+            e.currentTarget.style.borderColor = 'var(--color-accent-600)';
+          }}
+          onClick={handleSave}
+        >
+          Save
+        </button>
       </Modal.Footer>
     </Modal>
   );

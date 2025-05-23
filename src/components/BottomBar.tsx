@@ -225,37 +225,89 @@ const BottomBar: React.FC<BottomBarProps> = ({
   }, []);
 
   return (
-    <div className="bg-light border-top py-2">
+    <div
+      className="border-top py-3"
+      style={{
+        backgroundColor: 'var(--color-surface-elevated-light)',
+        borderTopColor: 'var(--color-border-light)',
+        boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.1)'
+      }}
+    >
       <Container fluid>
         <Row className="align-items-center">
           {/* Repository Status (left) */}
           <Col xs={12} md={6} className="text-md-start text-center mb-2 mb-md-0">
             {showControls ? (
               <div className="d-flex flex-wrap gap-2 align-items-center">
-                <span className={`badge bg-secondary ${isGitHistoryMocked ? 'border border-warning' : ''}`}
-                      style={{ borderWidth: isGitHistoryMocked ? '2px' : '0' }}>
+                <span
+                  className={`badge ${isGitHistoryMocked ? 'border' : ''}`}
+                  style={{
+                    backgroundColor: 'var(--color-primary-600)',
+                    color: 'white',
+                    borderColor: isGitHistoryMocked ? 'var(--color-warning)' : 'transparent',
+                    borderWidth: isGitHistoryMocked ? '2px' : '0',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.75rem',
+                    fontWeight: '500'
+                  }}
+                >
                   <i className="bi bi-git me-1"></i>
                   {isLoading ? 'Loading...' : `${gitCount} commits`}
                 </span>
-                <span className={`badge bg-info ${isSpecHistoryMocked ? 'border border-warning' : ''}`}
-                      style={{ borderWidth: isSpecHistoryMocked ? '2px' : '0' }}>
+                <span
+                  className={`badge ${isSpecHistoryMocked ? 'border' : ''}`}
+                  style={{
+                    backgroundColor: 'var(--color-accent-600)',
+                    color: 'white',
+                    borderColor: isSpecHistoryMocked ? 'var(--color-warning)' : 'transparent',
+                    borderWidth: isSpecHistoryMocked ? '2px' : '0',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.75rem',
+                    fontWeight: '500'
+                  }}
+                >
                   <i className="bi bi-chat-dots me-1"></i>
                   {isLoading ? 'Loading...' : `${specCount} prompts`}
                 </span>
                 {/* Debug info for troubleshooting */}
                 {debugMode && (
-                  <span className="badge bg-dark text-white ms-2">
+                  <span
+                    className="badge ms-2"
+                    style={{
+                      backgroundColor: 'var(--color-primary-900)',
+                      color: 'white',
+                      padding: '0.5rem 0.75rem',
+                      fontSize: '0.75rem',
+                      fontWeight: '500'
+                    }}
+                  >
                     <i className="bi bi-info-circle me-1"></i>
                     Debug: {gitCount}/{specCount}
                   </span>
                 )}
-                <span className="badge bg-primary">
+                <span
+                  className="badge"
+                  style={{
+                    backgroundColor: 'var(--color-accent-500)',
+                    color: 'white',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.75rem',
+                    fontWeight: '500'
+                  }}
+                >
                   <i className="bi bi-clock-history me-1"></i>
                   {positionToDate()}
                 </span>
               </div>
             ) : (
-              <span className="text-muted">Enter a repository URL to begin</span>
+              <span
+                style={{
+                  color: 'var(--color-text-secondary-light)',
+                  fontSize: '0.875rem'
+                }}
+              >
+                Enter a repository URL to begin
+              </span>
             )}
           </Col>
 
@@ -266,14 +318,46 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 {/* Camera control buttons */}
                 <div className="d-flex align-items-center gap-2">
                   <button
-                    className="btn btn-sm btn-outline-secondary"
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--color-primary-400)',
+                      color: 'var(--color-primary-700)',
+                      borderRadius: '6px',
+                      padding: '0.375rem 0.75rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary-100)';
+                      e.currentTarget.style.borderColor = 'var(--color-primary-500)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.borderColor = 'var(--color-primary-400)';
+                    }}
                     onClick={onViewAllClick}
                     title="View all events"
                   >
                     <i className="bi bi-arrows-fullscreen"></i>
                   </button>
                   <button
-                    className="btn btn-sm btn-outline-secondary"
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--color-primary-400)',
+                      color: 'var(--color-primary-700)',
+                      borderRadius: '6px',
+                      padding: '0.375rem 0.75rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary-100)';
+                      e.currentTarget.style.borderColor = 'var(--color-primary-500)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.borderColor = 'var(--color-primary-400)';
+                    }}
                     onClick={onFocusCurrentClick}
                     title="Focus on current position"
                   >
@@ -281,7 +365,23 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   </button>
                   {/* Reset Timeline Position Button */}
                   <button
-                    className="btn btn-sm btn-outline-secondary"
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--color-primary-400)',
+                      color: 'var(--color-primary-700)',
+                      borderRadius: '6px',
+                      padding: '0.375rem 0.75rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary-100)';
+                      e.currentTarget.style.borderColor = 'var(--color-primary-500)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.borderColor = 'var(--color-primary-400)';
+                    }}
                     onClick={onResetTimeline}
                     title="Reset Timeline Position"
                     aria-label="Reset Timeline Position"
@@ -292,7 +392,17 @@ const BottomBar: React.FC<BottomBarProps> = ({
 
                 {/* Speed control */}
                 <div className="d-flex align-items-center gap-2" style={{ minWidth: '180px' }}>
-                  <label htmlFor="speed-control" className="form-label mb-0 text-nowrap">Speed:</label>
+                  <label
+                    htmlFor="speed-control"
+                    className="form-label mb-0 text-nowrap"
+                    style={{
+                      color: 'var(--color-text-secondary-light)',
+                      fontSize: '0.875rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Speed:
+                  </label>
                   <Form.Range
                     id="speed-control"
                     min="0.1"
@@ -300,14 +410,44 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     step="0.1"
                     value={animationSpeed}
                     onChange={handleSpeedChange}
-                    style={{ width: '100px' }}
+                    style={{
+                      width: '100px',
+                      accentColor: 'var(--color-accent-500)'
+                    }}
                   />
-                  <span className="text-nowrap">{animationSpeed.toFixed(1)}x</span>
+                  <span
+                    className="text-nowrap"
+                    style={{
+                      color: 'var(--color-text-primary-light)',
+                      fontSize: '0.875rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {animationSpeed.toFixed(1)}x
+                  </span>
                 </div>
 
                 {/* Auto-drift button */}
                 <button
-                  className={`btn btn-sm ${autoDrift ? 'btn-primary' : 'btn-outline-primary'}`}
+                  className="btn btn-sm"
+                  style={{
+                    backgroundColor: autoDrift ? 'var(--color-accent-600)' : 'transparent',
+                    border: '1px solid var(--color-accent-600)',
+                    color: autoDrift ? 'white' : 'var(--color-accent-600)',
+                    borderRadius: '6px',
+                    padding: '0.375rem 0.75rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!autoDrift) {
+                      e.currentTarget.style.backgroundColor = 'var(--color-accent-50)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!autoDrift) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
                   onClick={handleAutoDriftChange}
                   title={autoDrift ? 'Pause auto-drift' : 'Play auto-drift'}
                 >
@@ -316,13 +456,29 @@ const BottomBar: React.FC<BottomBarProps> = ({
 
                 {/* Debug mode toggle - now a bug icon */}
                 <button
-                  className={`btn btn-sm ${debugMode ? 'btn-danger' : 'btn-outline-danger'}`}
-                  onClick={handleDebugModeChange}
-                  title="Toggle camera debug mode"
+                  className="btn btn-sm"
                   style={{
+                    backgroundColor: debugMode ? 'var(--color-error)' : 'transparent',
+                    border: '1px solid var(--color-error)',
+                    color: debugMode ? 'white' : 'var(--color-error)',
+                    borderRadius: '6px',
+                    padding: '0.375rem 0.75rem',
+                    transition: 'all 0.2s ease',
                     position: 'relative',
                     overflow: 'visible'
                   }}
+                  onMouseEnter={(e) => {
+                    if (!debugMode) {
+                      e.currentTarget.style.backgroundColor = '#fef2f2';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!debugMode) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                  onClick={handleDebugModeChange}
+                  title="Toggle camera debug mode"
                 >
                   <i className="bi bi-bug"></i>
                   {debugMode && (
@@ -331,7 +487,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                         position: 'absolute',
                         top: '-8px',
                         right: '-8px',
-                        backgroundColor: 'red',
+                        backgroundColor: 'var(--color-error)',
                         borderRadius: '50%',
                         width: '12px',
                         height: '12px',
@@ -345,8 +501,22 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 <div style={{ position: 'relative', marginLeft: '12px' }}>
                   <button
                     id="camera-details-button"
-                    className="btn btn-sm btn-outline-primary"
-                    style={{ minWidth: '40px' }}
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--color-accent-600)',
+                      color: 'var(--color-accent-600)',
+                      borderRadius: '6px',
+                      padding: '0.375rem 0.75rem',
+                      transition: 'all 0.2s ease',
+                      minWidth: '40px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--color-accent-50)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
                     onClick={() => setShowCameraDetails(!showCameraDetails)}
                     title="Show camera view details"
                   >
@@ -364,33 +534,69 @@ const BottomBar: React.FC<BottomBarProps> = ({
                         position: 'absolute',
                         right: 0,
                         bottom: 'calc(100% + 8px)',
-                        background: 'white',
-                        color: '#222',
-                        border: '1px solid #ddd',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                        padding: 12,
-                        minWidth: 320,
+                        background: 'var(--color-surface-light)',
+                        color: 'var(--color-text-primary-light)',
+                        border: '1px solid var(--color-border-light)',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+                        padding: '16px',
+                        minWidth: '320px',
                         zIndex: 99999,
                       }}
                     >
-                      <div style={{ fontWeight: 600, fontSize: '1.05em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{
+                        fontWeight: 600,
+                        fontSize: '1.05em',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: 'var(--color-primary-700)'
+                      }}>
                         <i className="bi bi-camera"></i> Camera View Details
                       </div>
-                      <div style={{ textAlign: 'left', fontSize: '0.97em' }}>
+                      <div style={{ textAlign: 'left', fontSize: '0.875rem' }}>
                         {cameraState ? (
                           <>
-                            <div><small><b>Pos:</b> {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}</small></div>
-                            <div><small><b>Look:</b> {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}</small></div>
-                            <div><small><b>Target Date:</b> {targetPositionToDate(cameraState.target.z)}</small></div>
-                            <div><small><b>Zoom:</b> {cameraState.zoom.toFixed(2)}x</small></div>
-                            <div style={{ marginTop: 10, color: '#0d6efd', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ marginBottom: '6px' }}>
+                              <small style={{ color: 'var(--color-text-secondary-light)' }}>
+                                <b>Position:</b> {cameraState.position.x.toFixed(1)}, {cameraState.position.y.toFixed(1)}, {cameraState.position.z.toFixed(1)}
+                              </small>
+                            </div>
+                            <div style={{ marginBottom: '6px' }}>
+                              <small style={{ color: 'var(--color-text-secondary-light)' }}>
+                                <b>Target:</b> {cameraState.target.x.toFixed(1)}, {cameraState.target.y.toFixed(1)}, {cameraState.target.z.toFixed(1)}
+                              </small>
+                            </div>
+                            <div style={{ marginBottom: '6px' }}>
+                              <small style={{ color: 'var(--color-text-secondary-light)' }}>
+                                <b>Target Date:</b> {targetPositionToDate(cameraState.target.z)}
+                              </small>
+                            </div>
+                            <div style={{ marginBottom: '12px' }}>
+                              <small style={{ color: 'var(--color-text-secondary-light)' }}>
+                                <b>Zoom:</b> {cameraState.zoom.toFixed(2)}x
+                              </small>
+                            </div>
+                            <div style={{
+                              marginTop: '12px',
+                              color: 'var(--color-accent-600)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px',
+                              backgroundColor: 'var(--color-accent-50)',
+                              borderRadius: '4px',
+                              fontSize: '0.8rem'
+                            }}>
                               <i className="bi bi-info-circle"></i>
-                              <span style={{ fontSize: '0.97em' }}>View is auto-saved and restored on restart.</span>
+                              <span>View is auto-saved and restored on restart.</span>
                             </div>
                           </>
                         ) : (
-                          <>XYZ: {cameraPosition?.x?.toFixed(1) || '0.0'}, {cameraPosition?.y?.toFixed(1) || '0.0'}, {cameraPosition?.z?.toFixed(1) || '0.0'}</>
+                          <div style={{ color: 'var(--color-text-secondary-light)' }}>
+                            XYZ: {cameraPosition?.x?.toFixed(1) || '0.0'}, {cameraPosition?.y?.toFixed(1) || '0.0'}, {cameraPosition?.z?.toFixed(1) || '0.0'}
+                          </div>
                         )}
                       </div>
                     </div>
