@@ -9,6 +9,7 @@ import { mockSpecHistory } from '../data/mocks/mockSpecHistory';
 import { Vector3 } from 'three';
 import type { CameraState } from './three/TimelineCamera';
 
+
 interface TimelineVisualizationProps {
   repoUrl: string;
   animationSpeed: number;

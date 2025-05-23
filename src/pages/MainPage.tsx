@@ -3,6 +3,7 @@ import { TimelineVisualization } from '../components/TimelineVisualization';
 import ErrorBoundary from '../components/error/ErrorBoundary';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
+
 interface MainPageProps {
   repoUrl: string;
   animationSpeed: number;

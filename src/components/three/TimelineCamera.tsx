@@ -6,6 +6,7 @@ import { useLogger } from '../../utils/logging/hooks/useLogger';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
+
 // Define camera states interface
 export interface CameraState {
   position: Vector3;
@@ -156,7 +157,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Expose camera details to help debugging (only in debug mode)
   useEffect(() => {
     if (debugMode) {
-      console.log('[DEBUG] Camera object details:', {
+      logger.debug('Camera object details:', {
         type: camera.type,
         isPerspective: camera instanceof PerspectiveCamera,
         isOrthographic: camera instanceof OrthographicCamera,
@@ -219,7 +220,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     if (onCameraStateChange) {
       // Only log in debug mode to reduce console spam
       if (debugMode) {
-        console.log('[TimelineCamera] Sending state to parent:', {
+        logger.debug('Sending state to parent:', {
           id: Date.now(),
           source,
           position: {
@@ -243,7 +244,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
 
     if (debugMode) {
-      console.log(`Camera state updated from ${source}:`, {
+      logger.debug(`Camera state updated from ${source}:`, {
         position: {
           x: cleanState.position.x.toFixed(1),
           y: cleanState.position.y.toFixed(1),
@@ -279,7 +280,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
     // Add detailed camera information logging (only in debug mode)
     if (debugMode) {
-      console.log(`[DEBUG] Camera details after applying state:`, {
+      logger.debug('Camera details after applying state:', {
         type: camera.type,
         zoom: camera.zoom,
         stateZoom: state.zoom,
@@ -292,7 +293,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
     // Only log in debug mode to reduce console spam
     if (debugMode) {
-      console.log(`[TimelineCamera] Applied state to camera:`, {
+      logger.debug('Applied state to camera:', {
         position: {
           x: state.position.x.toFixed(2),
           y: state.position.y.toFixed(2),
@@ -433,7 +434,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
     // // Every ~5 seconds, log the camera state regardless of changes
     // if (Date.now() % 5000 < 20) {
-    //   console.log(`[DEBUG] Periodic camera check:`, {
+    //   logger.debug('Periodic camera check:', {
     //     type: camera.type,
     //     zoom: camera.zoom,
     //     position: {
@@ -472,7 +473,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
       // Log when zoom changes to debug (only in debug mode)
       if (zoomChanged && debugMode) {
-        console.log(`[TimelineCamera] Zoom changed:`, {
+        logger.debug('Zoom changed:', {
           old: cameraState.zoom.toFixed(4),
           new: currentZoom.toFixed(4),
           diff: (currentZoom - cameraState.zoom).toFixed(4)
@@ -605,7 +606,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         updateCameraState(finalState, 'controls');
         userInteractingRef.current = false;
         if (debugMode) {
-          console.log('User interaction ended with OrbitControls');
+          logger.debug('User interaction ended with OrbitControls');
         }
       }}
     />

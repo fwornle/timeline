@@ -8,6 +8,7 @@ import type { CameraState } from '../components/three/TimelineCamera';
 import type { StoredCameraState } from '../services/storage';
 import { Vector3 } from 'three';
 
+
 const API_BASE_URL = 'http://localhost:3030/api/v1';
 
 interface MainLayoutProps {

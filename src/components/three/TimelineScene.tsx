@@ -11,6 +11,7 @@ import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { threeColors } from '../../config';
 
+
 export interface TimelineSceneProps {
   events: TimelineEvent[];
   selectedCardId: string | null;

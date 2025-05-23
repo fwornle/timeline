@@ -9,6 +9,7 @@ import {
   globalHoveredCardId,
   globalClickHandlers
 } from '../../utils/three/cardUtils';
+import { useLogger } from '../../utils/logging/hooks/useLogger';
 
 interface TimelineCardProps {
   event: TimelineEvent;
@@ -66,7 +67,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   wiggle = false,
   isMarkerDragging = false
 }) => {
-  // Logging disabled to improve performance
+  const logger = useLogger({ component: 'TimelineCard', topic: 'ui' });
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
   const prevCameraPosition = useRef(camera.position.clone());
@@ -472,7 +473,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     // Clear any existing hover state first - ensure only one card can be hovered at a time
     if (globalHoveredCardId.current !== null && globalHoveredCardId.current !== event.id && onHover) {
-      console.debug(`Clearing previous hover on ${globalHoveredCardId.current} before setting new hover`);
+      logger.debug(`Clearing previous hover on ${globalHoveredCardId.current} before setting new hover`);
       onHover(null);
       // Force clear the global state immediately
       globalHoveredCardId.current = null;
@@ -483,7 +484,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     const timeSinceLastChange = now - hoverDebounce.lastHoverChangeTime;
 
     if (hoverDebounce.isInHoverAnimation && timeSinceLastChange < hoverDebounce.debounceTime) {
-      console.debug(`Ignoring hover on ${event.id}, animation in progress`);
+      logger.debug(`Ignoring hover on ${event.id}, animation in progress`);
       return;
     }
 

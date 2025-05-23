@@ -201,12 +201,17 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     // Welcome screen logic remains the same
     setShowWelcome(!repoUrl);
 
+    // If we have events, we should show the timeline regardless of error state
+    if (!!repoUrl && events.length > 0) {
+      setShowLoading(false);
+      setShowError(false);
+    }
     // Only show loading on initial load, not during error states
-    if (!!repoUrl && isLoading && events.length === 0 && !hasError) {
+    else if (!!repoUrl && isLoading && events.length === 0 && !hasError) {
       setShowLoading(true);
       setShowError(false);
     }
-    // Show error screen and keep it stable
+    // Show error screen only if we have no events AND there's an error
     else if (!!repoUrl && !!hasError && events.length === 0) {
       setShowLoading(false);
       setShowError(true);
@@ -214,6 +219,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     // Normal state - no error, no loading
     else if (!isLoading) {
       setShowLoading(false);
+      setShowError(false);
     }
   }, [repoUrl, isLoading, hasError, events.length]);
 

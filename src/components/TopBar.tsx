@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navbar, Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import PreferencesModal from './PreferencesModal';
+import { LoggingControl } from './ui/LoggingControl';
 import { usePreferences } from '../context/PreferencesContext';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
@@ -18,6 +19,7 @@ const TopBar: React.FC<TopBarProps> = ({
   isLoading
 }) => {
   const [showPrefs, setShowPrefs] = useState(false);
+  const [showLoggingControl, setShowLoggingControl] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const { preferences } = usePreferences();
   const logger = useLogger({ component: 'TopBar', topic: 'ui' });
@@ -170,6 +172,38 @@ const TopBar: React.FC<TopBarProps> = ({
                 </>
               )}
 
+              {/* Logging Control Button */}
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<Tooltip>Logging Configuration</Tooltip>}
+              >
+                <button
+                  className="btn btn-sm"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--color-primary-400)',
+                    color: 'var(--color-primary-100)',
+                    borderRadius: '6px',
+                    padding: '0.375rem 0.75rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary-700)';
+                    e.currentTarget.style.borderColor = 'var(--color-primary-300)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.borderColor = 'var(--color-primary-400)';
+                  }}
+                  title="Logging Configuration"
+                  aria-label="Logging Configuration"
+                  onClick={() => setShowLoggingControl(true)}
+                  disabled={isLoading}
+                >
+                  <i className="bi bi-file-text" />
+                </button>
+              </OverlayTrigger>
+
               {/* Settings Button */}
               <button
                 className="btn btn-sm"
@@ -205,6 +239,11 @@ const TopBar: React.FC<TopBarProps> = ({
         show={showPrefs}
         onClose={() => setShowPrefs(false)}
         onRepoUrlChange={handleRepoUrlChange}
+      />
+
+      <LoggingControl
+        isOpen={showLoggingControl}
+        onClose={() => setShowLoggingControl(false)}
       />
     </>
   );

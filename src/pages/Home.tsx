@@ -5,6 +5,7 @@ import { useLogger } from '../utils/logging/hooks/useLogger';
 import type { CameraState } from '../components/three/TimelineCamera';
 import { Vector3 } from 'three';
 
+
 interface HomeProps {
   onLoadingChange?: (loading: boolean) => void;
   onEventCountsChange?: (gitCount: number, specCount: number) => void;
