@@ -170,7 +170,8 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Helper to update camera state in a single place
   const updateCameraState = (
     newState: CameraState,
-    source: 'init' | 'controls' | 'mode' | 'frame'
+    source: 'init' | 'controls' | 'mode' | 'frame',
+    skipCallbacks: boolean = false
   ) => {
     if (!initialized && source !== 'init') return;
 
@@ -216,35 +217,39 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     // Mark the source of this state change
     stateChangeSourceRef.current = source;
 
-    // Notify parent components
-    if (onCameraStateChange) {
-      // Only log in debug mode to reduce console spam
-      if (debugMode) {
-        logger.debug('Sending state to parent:', {
-          id: Date.now(),
-          source,
-          position: {
-            x: cleanState.position.x.toFixed(2),
-            y: cleanState.position.y.toFixed(2),
-            z: cleanState.position.z.toFixed(2)
-          },
-          target: {
-            x: cleanState.target.x.toFixed(2),
-            y: cleanState.target.y.toFixed(2),
-            z: cleanState.target.z.toFixed(2)
-          },
-          zoom: cleanState.zoom.toFixed(2)
-        });
+    // Only notify parent components if not skipping callbacks
+    // This prevents circular dependencies when updating from external target changes
+    if (!skipCallbacks) {
+      if (onCameraStateChange) {
+        // Only log in debug mode to reduce console spam
+        if (debugMode) {
+          logger.debug('Sending state to parent:', {
+            id: Date.now(),
+            source,
+            position: {
+              x: cleanState.position.x.toFixed(2),
+              y: cleanState.position.y.toFixed(2),
+              z: cleanState.position.z.toFixed(2)
+            },
+            target: {
+              x: cleanState.target.x.toFixed(2),
+              y: cleanState.target.y.toFixed(2),
+              z: cleanState.target.z.toFixed(2)
+            },
+            zoom: cleanState.zoom.toFixed(2)
+          });
+        }
+        onCameraStateChange(cleanState);
       }
-      onCameraStateChange(cleanState);
-    }
 
-    if (onCameraPositionChange) {
-      onCameraPositionChange(cleanState.position);
+      if (onCameraPositionChange) {
+        onCameraPositionChange(cleanState.position);
+      }
     }
 
     if (debugMode) {
       logger.debug(`Camera state updated from ${source}:`, {
+        skipCallbacks,
         position: {
           x: cleanState.position.x.toFixed(1),
           y: cleanState.position.y.toFixed(1),
@@ -336,11 +341,29 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   }, [cameraState, initialized]);
 
   // Update camera when cameraState changes (only after initialization)
+  // Use a ref to track the last applied state to prevent circular updates
+  const lastAppliedStateRef = useRef<CameraState | null>(null);
+
   useEffect(() => {
     if (!initialized) return;
 
+    // Skip if this is the same state we just applied
+    if (lastAppliedStateRef.current &&
+        lastAppliedStateRef.current.position.distanceTo(cameraState.position) < 0.01 &&
+        lastAppliedStateRef.current.target.distanceTo(cameraState.target) < 0.01 &&
+        Math.abs(lastAppliedStateRef.current.zoom - cameraState.zoom) < 0.01) {
+      return;
+    }
+
     // Apply the state
     applyCameraState(cameraState);
+
+    // Remember this state
+    lastAppliedStateRef.current = {
+      position: cameraState.position.clone(),
+      target: cameraState.target.clone(),
+      zoom: cameraState.zoom
+    };
 
   }, [cameraState, initialized]);
 
@@ -393,6 +416,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   }, [viewAllMode, focusCurrentMode, target, initialized, events]);
 
   // Update when target changes (for timeline movement)
+  // Use a ref to track the last target to prevent circular updates
+  const lastTargetRef = useRef<Vector3>(target.clone());
+
   useEffect(() => {
     if (!initialized) return;
 
@@ -403,17 +429,41 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     // Skip if in specific view modes
     if (viewAllMode || focusCurrentMode) return;
 
-    // Only update the target component of the state
-    updateCameraState({
-      ...cameraState,
+    // Check if target actually changed to prevent unnecessary updates
+    const targetChanged = target.distanceTo(lastTargetRef.current) > 0.01;
+    if (!targetChanged) return;
+
+    // Update the last target reference
+    lastTargetRef.current = target.clone();
+
+    // Only update the target component of the state, but don't trigger callbacks
+    // This prevents circular dependencies
+    setCameraState(prev => ({
+      ...prev,
       target: target.clone()
-    }, 'frame');
+    }));
+
+    // Apply the target change directly to the camera controls
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.target.copy(target);
+      orbitControlsRef.current.update();
+    }
 
   }, [target, initialized, disableControls, viewAllMode, focusCurrentMode]);
 
   // Monitor camera changes from OrbitControls using useFrame
+  // Add throttling to prevent excessive updates
+  const lastFrameUpdateRef = useRef<number>(0);
+  const FRAME_UPDATE_THROTTLE = 16; // ~60fps max
+
   useFrame(() => {
     if (!initialized || userInteractingRef.current) return;
+
+    // Throttle frame updates
+    const now = performance.now();
+    if (now - lastFrameUpdateRef.current < FRAME_UPDATE_THROTTLE) return;
+    lastFrameUpdateRef.current = now;
+
     if (stateChangeSourceRef.current === 'controls') {
       stateChangeSourceRef.current = null;
       return;
@@ -449,10 +499,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     //   });
     // }
 
-    // Detect changes - even more sensitive thresholds
-    const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.1;
-    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.05;
-    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.001; // Ultra sensitive
+    // Detect changes - use reasonable thresholds to prevent circular updates
+    const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.5;
+    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.2;
+    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.05; // Less sensitive
 
     // Only update state if actual changes detected
     if (positionChanged || targetChanged || zoomChanged) {
@@ -561,18 +611,13 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
           cameraZoom = getZoomFactor(currentPosition, currentTarget);
         }
         setCurrentZoom(cameraZoom);
-        // ... rest unchanged ...
-        if (Math.abs(cameraZoom - cameraState.zoom) > 0.001) {
-          // ...
-          const newState: CameraState = {
-            position: currentPosition,
-            target: currentTarget,
-            zoom: cameraZoom
-          };
-          updateCameraState(newState, 'controls');
-          return;
-        }
-        if (Date.now() % 5 === 0) {
+
+        // Only update state if there are significant changes to prevent circular updates
+        const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.5;
+        const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.2;
+        const zoomChanged = Math.abs(cameraZoom - cameraState.zoom) > 0.05;
+
+        if (positionChanged || targetChanged || zoomChanged) {
           const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,

@@ -285,19 +285,25 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Throttle position updates to prevent excessive re-renders
   const lastPositionUpdateRef = useRef<number>(0);
+  const lastReportedPositionRef = useRef<number>(0);
   const positionUpdateThrottleMs = 16; // ~60fps
 
-  // Update position for parent component
+  // Update position for parent component - but only when it's a significant change
+  // and not during auto-scrolling to prevent circular updates
   useEffect(() => {
-    if (onPositionUpdate && cameraTarget) {
+    if (onPositionUpdate && cameraTarget && !isAutoScrolling) {
       const now = Date.now();
-      if (now - lastPositionUpdateRef.current >= positionUpdateThrottleMs) {
-        // Use the z position as the timeline position
-        onPositionUpdate(cameraTarget.z);
+      const newPosition = cameraTarget.z;
+      const positionDelta = Math.abs(newPosition - lastReportedPositionRef.current);
+
+      // Only report position changes if enough time has passed AND position changed significantly
+      if (now - lastPositionUpdateRef.current >= positionUpdateThrottleMs && positionDelta > 0.1) {
+        onPositionUpdate(newPosition);
         lastPositionUpdateRef.current = now;
+        lastReportedPositionRef.current = newPosition;
       }
     }
-  }, [cameraTarget, onPositionUpdate]);
+  }, [cameraTarget, onPositionUpdate, isAutoScrolling]);
 
   // Also update position when a card is selected
   useEffect(() => {
@@ -433,9 +439,12 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           onMarkerPositionChange={(position) => {
             // Update camera target Z position when marker is moved
             setCameraTargetZ(position);
-            // Also notify parent component
+            // Also notify parent component immediately (not throttled)
             if (onPositionUpdate) {
               onPositionUpdate(position);
+              // Update our tracking refs to prevent duplicate updates
+              lastReportedPositionRef.current = position;
+              lastPositionUpdateRef.current = Date.now();
             }
           }}
           onCameraPositionChange={(position) => {

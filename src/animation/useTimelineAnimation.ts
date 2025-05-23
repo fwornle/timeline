@@ -144,6 +144,8 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
       cameraTarget: new THREE.Vector3(prev.cameraTarget.x, prev.cameraTarget.y, z),
       isAutoScrolling: false // Stop auto-scrolling when manually positioning
     }));
+    // Reset the last time to prevent animation from immediately overriding this change
+    lastTimeRef.current = performance.now();
   }, []);
 
   // Animation loop with performance optimizations
@@ -171,11 +173,15 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
       const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
 
       // Only update state if there's a meaningful change (reduce unnecessary re-renders)
-      if (scrollDelta > 0.001) {
-        setState(prev => ({
-          ...prev,
-          cameraTarget: prev.cameraTarget.clone().add(new THREE.Vector3(0, 0, scrollDelta)),
-        }));
+      // Use a larger threshold to prevent micro-updates that cause jerkiness
+      if (scrollDelta > 0.01) {
+        setState(prev => {
+          const newTarget = prev.cameraTarget.clone().add(new THREE.Vector3(0, 0, scrollDelta));
+          return {
+            ...prev,
+            cameraTarget: newTarget,
+          };
+        });
       }
     }
 
