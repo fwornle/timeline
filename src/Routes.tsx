@@ -22,6 +22,7 @@ interface AppRoutesProps {
     viewAllMode?: boolean;
     focusCurrentMode?: boolean;
     debugMode?: boolean;
+    droneMode?: boolean;
   };
 }
 

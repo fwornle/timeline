@@ -15,12 +15,14 @@ interface BottomBarProps {
   cameraState?: CameraState;
   animationSpeed?: number;
   autoDrift?: boolean;
+  droneMode?: boolean;
   debugMode?: boolean;
   startDate?: Date;
   endDate?: Date;
   timelineLength?: number;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
+  onDroneModeChange?: (enabled: boolean) => void;
   onViewAllClick?: () => void;
   onFocusCurrentClick?: () => void;
   onDebugModeChange?: (enabled: boolean) => void;
@@ -38,12 +40,14 @@ const BottomBar: React.FC<BottomBarProps> = ({
   cameraState,
   animationSpeed = 1,
   autoDrift = false,
+  droneMode = false,
   debugMode = false,
   startDate,
   endDate,
   timelineLength = 100,
   onAnimationSpeedChange,
   onAutoDriftChange,
+  onDroneModeChange,
   onViewAllClick,
   onFocusCurrentClick,
   onDebugModeChange,
@@ -150,6 +154,12 @@ const BottomBar: React.FC<BottomBarProps> = ({
   const handleAutoDriftChange = () => {
     if (onAutoDriftChange) {
       onAutoDriftChange(!autoDrift);
+    }
+  };
+
+  const handleDroneModeChange = () => {
+    if (onDroneModeChange) {
+      onDroneModeChange(!droneMode);
     }
   };
 
@@ -429,7 +439,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   </span>
                 </div>
 
-                {/* Auto-drift button */}
+                {/* Play button (timeline animation only) */}
                 <button
                   className="btn btn-sm"
                   style={{
@@ -451,9 +461,36 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     }
                   }}
                   onClick={handleAutoDriftChange}
-                  title={autoDrift ? 'Pause auto-drift' : 'Play auto-drift'}
+                  title={autoDrift ? 'Pause timeline animation' : 'Play timeline animation'}
                 >
                   <i className={`bi ${autoDrift ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+                </button>
+
+                {/* Drone mode button */}
+                <button
+                  className="btn btn-sm"
+                  style={{
+                    backgroundColor: droneMode ? 'var(--color-primary-600)' : 'transparent',
+                    border: '1px solid var(--color-primary-600)',
+                    color: droneMode ? 'white' : 'var(--color-primary-600)',
+                    borderRadius: '6px',
+                    padding: '0.375rem 0.75rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!droneMode) {
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary-50)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!droneMode) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                  onClick={handleDroneModeChange}
+                  title={droneMode ? 'Disable drone camera mode' : 'Enable drone camera mode'}
+                >
+                  <i className="bi bi-airplane"></i>
                 </button>
 
                 {/* Debug mode toggle - now a bug icon */}

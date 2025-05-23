@@ -21,6 +21,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [repoUrl, setRepoUrl] = useState(preferences.repoUrl || 'https://github.com/example/repo.git');
   const [animationSpeed, setAnimationSpeed] = useState(preferences.animationSpeed || 1);
   const [autoDrift, setAutoDrift] = useState(preferences.autoDrift || false);
+  const [droneMode, setDroneMode] = useState(false);
   const [gitCount, setGitCount] = useState(0);
   const [specCount, setSpecCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -123,8 +124,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   }, []); // Run only on mount, not when preferences changes
 
-  // Update preferences when state changes
+  // Throttle preferences updates to prevent infinite loops
+  const lastPreferencesUpdateRef = useRef<number>(0);
+  const PREFERENCES_UPDATE_THROTTLE = 1000; // 1 second
+
+  // Update preferences when state changes (throttled)
   useEffect(() => {
+    const now = Date.now();
+    if (now - lastPreferencesUpdateRef.current < PREFERENCES_UPDATE_THROTTLE) {
+      return; // Skip update if too recent
+    }
+    lastPreferencesUpdateRef.current = now;
+
     // Convert Vector3 objects to plain objects for storage
     const storedCameraState: StoredCameraState = {
       position: {
@@ -297,6 +308,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           viewAllMode?: boolean;
           focusCurrentMode?: boolean;
           debugMode?: boolean;
+          droneMode?: boolean;
         }
       }
 
@@ -326,70 +338,95 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               onCameraPositionChange: (pos: { x: number, y: number, z: number }) => {
                 setCameraPosition(pos);
               },
-              onCameraStateChange: (state: CameraState) => {
-                // Only log in debug mode
-                if (debugMode) {
-                  logger.debug('[MainLayout] Received camera state:', {
-                    id: Date.now(),
-                    position: {
-                      x: state.position.x.toFixed(2),
-                      y: state.position.y.toFixed(2),
-                      z: state.position.z.toFixed(2)
-                    },
-                    target: {
-                      x: state.target.x.toFixed(2),
-                      y: state.target.y.toFixed(2),
-                      z: state.target.z.toFixed(2)
-                    },
-                    zoom: state.zoom.toFixed(2),
-                    type: state.constructor?.name || typeof state
-                  });
-                }
+              onCameraStateChange: (() => {
+                let lastCameraUpdateTime = 0;
+                const CAMERA_UPDATE_THROTTLE = 100; // 100ms throttle
 
-                // DIRECT VALUE EXTRACTION - don't rely on Vector3 methods or properties
-                // This eliminates any issues with Vector3 object references or methods
-                const newState: CameraState = {
-                  position: new Vector3(
-                    Number(state.position.x),
-                    Number(state.position.y),
-                    Number(state.position.z)
-                  ),
-                  target: new Vector3(
-                    Number(state.target.x),
-                    Number(state.target.y),
-                    Number(state.target.z)
-                  ),
-                  zoom: Number(state.zoom)
+                return (state: CameraState) => {
+                  const now = Date.now();
+                  if (now - lastCameraUpdateTime < CAMERA_UPDATE_THROTTLE) {
+                    return; // Skip update if too recent
+                  }
+                  lastCameraUpdateTime = now;
+
+                  // Only log in debug mode
+                  if (debugMode) {
+                    logger.debug('[MainLayout] Received camera state:', {
+                      id: Date.now(),
+                      position: {
+                        x: state.position.x.toFixed(2),
+                        y: state.position.y.toFixed(2),
+                        z: state.position.z.toFixed(2)
+                      },
+                      target: {
+                        x: state.target.x.toFixed(2),
+                        y: state.target.y.toFixed(2),
+                        z: state.target.z.toFixed(2)
+                      },
+                      zoom: state.zoom.toFixed(2),
+                      type: state.constructor?.name || typeof state
+                    });
+                  }
+
+                  // DIRECT VALUE EXTRACTION - don't rely on Vector3 methods or properties
+                  // This eliminates any issues with Vector3 object references or methods
+                  const newState: CameraState = {
+                    position: new Vector3(
+                      Number(state.position.x),
+                      Number(state.position.y),
+                      Number(state.position.z)
+                    ),
+                    target: new Vector3(
+                      Number(state.target.x),
+                      Number(state.target.y),
+                      Number(state.target.z)
+                    ),
+                    zoom: Number(state.zoom)
+                  };
+
+                  // Check if the state has actually changed to prevent unnecessary updates
+                  const hasChanged =
+                    Math.abs(newState.position.x - cameraState.position.x) > 0.1 ||
+                    Math.abs(newState.position.y - cameraState.position.y) > 0.1 ||
+                    Math.abs(newState.position.z - cameraState.position.z) > 0.1 ||
+                    Math.abs(newState.target.x - cameraState.target.x) > 0.1 ||
+                    Math.abs(newState.target.y - cameraState.target.y) > 0.1 ||
+                    Math.abs(newState.target.z - cameraState.target.z) > 0.1 ||
+                    Math.abs(newState.zoom - cameraState.zoom) > 0.01;
+
+                  if (!hasChanged) {
+                    return; // Skip update if no significant change
+                  }
+
+                  // Only log in debug mode
+                  if (debugMode) {
+                    logger.debug('[MainLayout] Processed camera state for BottomBar:', {
+                      id: Date.now(),
+                      position: {
+                        x: newState.position.x.toFixed(2),
+                        y: newState.position.y.toFixed(2),
+                        z: newState.position.z.toFixed(2)
+                      },
+                      target: {
+                        x: newState.target.x.toFixed(2),
+                        y: newState.target.y.toFixed(2),
+                        z: newState.target.z.toFixed(2)
+                      },
+                      zoom: newState.zoom.toFixed(2)
+                    });
+                  }
+
+                  // Force state update by creating a completely new state object
+                  setCameraState(newState);
+
+                  // Also update the legacy camera position for backwards compatibility
+                  setCameraPosition({
+                    x: newState.position.x,
+                    y: newState.position.y,
+                    z: newState.position.z
+                  });
                 };
-
-                // Only log in debug mode
-                if (debugMode) {
-                  logger.debug('[MainLayout] Processed camera state for BottomBar:', {
-                    id: Date.now(),
-                    position: {
-                      x: newState.position.x.toFixed(2),
-                      y: newState.position.y.toFixed(2),
-                      z: newState.position.z.toFixed(2)
-                    },
-                    target: {
-                      x: newState.target.x.toFixed(2),
-                      y: newState.target.y.toFixed(2),
-                      z: newState.target.z.toFixed(2)
-                    },
-                    zoom: newState.zoom.toFixed(2)
-                  });
-                }
-
-                // Force state update by creating a completely new state object
-                setCameraState(newState);
-
-                // Also update the legacy camera position for backwards compatibility
-                setCameraPosition({
-                  x: newState.position.x,
-                  y: newState.position.y,
-                  z: newState.position.z
-                });
-              },
+              })(),
               initialCameraState: cameraState,
               initialMarkerPosition: currentPosition,
               onTimelineDatesChange: (startDate: Date, endDate: Date) => {
@@ -402,7 +439,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               forceReload: forceReloadFlag,
               viewAllMode: viewAllMode,
               focusCurrentMode: focusCurrentMode,
-              debugMode: debugMode
+              debugMode: debugMode,
+              droneMode: droneMode
             }
           });
         } catch (e) {
@@ -489,12 +527,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         cameraState={cameraState}
         animationSpeed={animationSpeed}
         autoDrift={autoDrift}
+        droneMode={droneMode}
         debugMode={debugMode}
         startDate={timelineStartDate}
         endDate={timelineEndDate}
         timelineLength={timelineLength}
         onAnimationSpeedChange={setAnimationSpeed}
         onAutoDriftChange={setAutoDrift}
+        onDroneModeChange={setDroneMode}
         onViewAllClick={handleViewAllClick}
         onFocusCurrentClick={handleFocusCurrentClick}
         onDebugModeChange={(enabled) => {

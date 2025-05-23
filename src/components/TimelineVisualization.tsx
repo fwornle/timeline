@@ -14,6 +14,7 @@ interface TimelineVisualizationProps {
   repoUrl: string;
   animationSpeed: number;
   autoDrift: boolean;
+  droneMode?: boolean;
   onLoadingChange: (isLoading: boolean) => void;
   onError: (error: Error | null) => void;
   onDataLoaded?: (
@@ -95,6 +96,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   repoUrl,
   animationSpeed,
   autoDrift,
+  droneMode = false,
   onLoadingChange,
   onError,
   onDataLoaded,
@@ -435,7 +437,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           getCardAnimationProps={getCardAnimationProps}
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
-          droneMode={isAutoScrolling}
+          droneMode={droneMode}
           currentPosition={cameraTarget.z}
           onMarkerPositionChange={(position) => {
             // Update camera target Z position when marker is moved

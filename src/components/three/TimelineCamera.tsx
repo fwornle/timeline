@@ -89,13 +89,13 @@ function getPositionForZoom(target: Vector3, direction: Vector3, zoom: number) {
   return target.clone().add(direction.clone().setLength(distance));
 }
 
-// Debug camera positions for cycling
-const DEBUG_CAMERA_POSITIONS = [
-  { position: new Vector3(-35, 30, -50), target: new Vector3(0, 0, 0) },
-  { position: new Vector3(-20, 40, -30), target: new Vector3(0, 0, 0) },
-  { position: new Vector3(-50, 20, -70), target: new Vector3(0, 0, 0) },
-  { position: new Vector3(-30, 50, -40), target: new Vector3(0, 0, 0) },
-];
+// Debug camera positions for cycling (DISABLED - kept for future reference)
+// const DEBUG_CAMERA_POSITIONS = [
+//   { position: new Vector3(-35, 30, -50), target: new Vector3(0, 0, 0) },
+//   { position: new Vector3(-20, 40, -30), target: new Vector3(0, 0, 0) },
+//   { position: new Vector3(-50, 20, -70), target: new Vector3(0, 0, 0) },
+//   { position: new Vector3(-30, 50, -40), target: new Vector3(0, 0, 0) },
+// ];
 
 export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
@@ -486,44 +486,50 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     if (droneMode && !viewAllMode && !focusCurrentMode) {
       const droneState = droneStateRef.current;
 
-      // Check if user has manually moved the camera (detect significant position changes)
-      const currentPos = cameraState.position;
-      const expectedPos = new Vector3().copy(target).add(
-        new Vector3(droneState.offsetX, droneState.offsetY, droneState.offsetZ).normalize().multiplyScalar(droneState.distance)
-      );
-      const positionDifference = currentPos.distanceTo(expectedPos);
-
-      // If camera position differs significantly from expected drone position, user interrupted
-      if (positionDifference > 5 && !droneState.userInterrupted) {
+      // Check if user is currently interacting with controls
+      if (userInteractingRef.current && !droneState.userInterrupted) {
         droneState.userInterrupted = true;
         droneState.userInterruptTime = now;
         if (debugMode) {
-          logger.debug('User interrupted drone mode - resuming from current position');
+          logger.debug('User interrupted drone mode - will resume from current position');
         }
       }
 
-      // If user interrupted, gradually return to target vicinity
+      // If user interrupted, wait for them to finish and then resume from current position
       if (droneState.userInterrupted) {
+        if (userInteractingRef.current) {
+          // User is still interacting, don't do anything
+          return;
+        }
+
         const timeSinceInterrupt = now - droneState.userInterruptTime;
-        if (timeSinceInterrupt > 2000) { // After 2 seconds, start returning to target
-          // Gradually move current offsets toward target vicinity
-          const returnSpeed = 0.002;
-          const targetDirection = new Vector3().subVectors(target, currentPos).normalize();
-          const desiredDistance = 15; // Return to moderate distance
-          const desiredPosition = new Vector3().copy(target).sub(targetDirection.multiplyScalar(desiredDistance));
+        if (timeSinceInterrupt > 500) { // After 0.5 second of no interaction, resume from current position
+          // Calculate current offsets from where user left the camera
+          const currentPos = camera.position;
+          const currentOffset = new Vector3().subVectors(currentPos, target);
+          const currentDistance = currentOffset.length();
 
-          // Update offsets to gradually approach desired position
-          droneState.offsetX += (desiredPosition.x - target.x - droneState.offsetX) * returnSpeed;
-          droneState.offsetY += (desiredPosition.y - target.y - droneState.offsetY) * returnSpeed;
-          droneState.offsetZ += (desiredPosition.z - target.z - droneState.offsetZ) * returnSpeed;
-          droneState.distance += (desiredDistance - droneState.distance) * returnSpeed;
+          // Update drone state to current position - continue circling from here
+          droneState.offsetX = currentOffset.x;
+          droneState.offsetY = currentOffset.y;
+          droneState.offsetZ = currentOffset.z;
+          droneState.distance = currentDistance;
 
-          // Once close enough, resume normal drone behavior
-          if (positionDifference < 8) {
-            droneState.userInterrupted = false;
-            if (debugMode) {
-              logger.debug('Resumed normal drone mode after user interaction');
-            }
+          // Reset targets to generate new random movement from this position
+          droneState.targetOffsetX = droneState.offsetX + (Math.random() - 0.5) * 10; // Small variation from current
+          droneState.targetOffsetY = droneState.offsetY + (Math.random() - 0.5) * 8;
+          droneState.targetOffsetZ = droneState.offsetZ + (Math.random() - 0.5) * 12;
+          droneState.targetDistance = Math.max(8, Math.min(20, currentDistance + (Math.random() - 0.5) * 6));
+
+          droneState.userInterrupted = false;
+          droneState.lastUpdateTime = now; // Reset timer to prevent immediate target change
+          
+          if (debugMode) {
+            logger.debug('Resumed drone mode from user position', {
+              currentPos: `(${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)})`,
+              newOffsets: `X:${droneState.offsetX.toFixed(2)}, Y:${droneState.offsetY.toFixed(2)}, Z:${droneState.offsetZ.toFixed(2)}`,
+              newDistance: droneState.distance.toFixed(2)
+            });
           }
         }
       }
@@ -576,12 +582,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         target.z
       );
 
-      // Update camera state with drone position
-      updateCameraState({
-        position: dronePosition,
-        target: droneTarget,
-        zoom: getZoomFactor(dronePosition, droneTarget)
-      }, 'frame', true); // Skip callbacks to prevent circular updates
+      // Apply drone position directly to camera and controls without triggering state updates
+      camera.position.copy(dronePosition);
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.target.copy(droneTarget);
+        orbitControlsRef.current.update();
+      }
+
+      // DO NOT update camera state in drone mode to prevent infinite loops
+      // The camera position is managed directly by the drone logic
 
       // Debug logging for drone mode (only occasionally to avoid spam)
       if (debugMode && Math.random() < 0.01) { // Log ~1% of frames
@@ -633,12 +642,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     // }
 
     // Detect changes - use reasonable thresholds to prevent circular updates
-    const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.5;
-    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.2;
-    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.05; // Less sensitive
+    const positionChanged = currentPosition.distanceTo(cameraState.position) > 1.0; // Increased threshold
+    const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.5; // Increased threshold
+    const zoomChanged = Math.abs(currentZoom - cameraState.zoom) > 0.1; // Less sensitive
 
-    // Only update state if actual changes detected
-    if (positionChanged || targetChanged || zoomChanged) {
+    // Only update state if actual changes detected and not too frequently
+    // Skip state updates during drone mode to prevent infinite loops
+    if ((positionChanged || targetChanged || zoomChanged) &&
+        now - lastFrameUpdateRef.current > 100 &&
+        !droneMode) {
       // Create new state object with fresh values
       const newState: CameraState = {
         position: new Vector3(
@@ -664,36 +676,14 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }
 
       updateCameraState(newState, 'frame');
+      lastFrameUpdateRef.current = now; // Update the throttle timer
     }
   });
 
-  // Debug camera cycling effect (optimized for performance)
+  // Debug camera cycling effect (DISABLED to prevent infinite loops)
   useEffect(() => {
-    if (debugMode && !userInteractingRef.current) {
-      // Start cycling through debug positions with longer intervals to reduce performance impact
-      debugCycleTimer.current = window.setInterval(() => {
-        // Only cycle if user is not interacting and debug mode is still active
-        if (!userInteractingRef.current && debugMode) {
-          const currentIndex = DEBUG_CAMERA_POSITIONS.findIndex(
-            pos => pos.position.distanceTo(camera.position) < 0.1
-          );
-          const nextIndex = (currentIndex + 1) % DEBUG_CAMERA_POSITIONS.length;
-          const debugPos = DEBUG_CAMERA_POSITIONS[nextIndex];
-
-          updateCameraState({
-            position: debugPos.position.clone(),
-            target: debugPos.target.clone(),
-            zoom: camera.zoom
-          }, 'mode');
-        }
-      }, 3000); // Increased to 3 seconds to reduce performance impact
-    } else {
-      // Clear cycling timer when debug mode is disabled
-      if (debugCycleTimer.current) {
-        window.clearInterval(debugCycleTimer.current);
-        debugCycleTimer.current = null;
-      }
-    }
+    // Disable debug cycling completely to prevent infinite loops
+    // This feature can be re-enabled later with proper state isolation
 
     // Cleanup on unmount
     return () => {
@@ -702,7 +692,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         debugCycleTimer.current = null;
       }
     };
-  }, [debugMode, camera, updateCameraState]);
+  }, [debugMode]);
 
   return (
     <OrbitControls
@@ -729,6 +719,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }}
       onChange={() => {
         if (!userInteractingRef.current) return;
+
+        // Throttle onChange events to prevent excessive updates
+        const now = performance.now();
+        if (now - lastFrameUpdateRef.current < 50) return; // Max 20 updates per second
+
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
@@ -746,17 +741,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         setCurrentZoom(cameraZoom);
 
         // Only update state if there are significant changes to prevent circular updates
-        const positionChanged = currentPosition.distanceTo(cameraState.position) > 0.5;
-        const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.2;
-        const zoomChanged = Math.abs(cameraZoom - cameraState.zoom) > 0.05;
+        // Skip state updates during drone mode to prevent infinite loops
+        const positionChanged = currentPosition.distanceTo(cameraState.position) > 1.0;
+        const targetChanged = currentTarget.distanceTo(cameraState.target) > 0.5;
+        const zoomChanged = Math.abs(cameraZoom - cameraState.zoom) > 0.1;
 
-        if (positionChanged || targetChanged || zoomChanged) {
+        if ((positionChanged || targetChanged || zoomChanged) && !droneMode) {
           const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,
             zoom: cameraZoom
           };
           updateCameraState(newState, 'controls');
+          lastFrameUpdateRef.current = now;
         }
       }}
       onEnd={() => {
@@ -776,12 +773,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         }
         setCurrentZoom(cameraZoom);
         // ...
-        const finalState: CameraState = {
-          position: currentPosition,
-          target: currentTarget,
-          zoom: cameraZoom
-        };
-        updateCameraState(finalState, 'controls');
+        // Skip state updates during drone mode to prevent infinite loops
+        if (!droneMode) {
+          const finalState: CameraState = {
+            position: currentPosition,
+            target: currentTarget,
+            zoom: cameraZoom
+          };
+          updateCameraState(finalState, 'controls');
+        }
         userInteractingRef.current = false;
         if (debugMode) {
           logger.debug('User interaction ended with OrbitControls');

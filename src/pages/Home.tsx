@@ -21,6 +21,7 @@ interface HomeProps {
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
   debugMode?: boolean;
+  droneMode?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({
@@ -37,7 +38,8 @@ const Home: React.FC<HomeProps> = ({
   forceReload = false,
   viewAllMode = false,
   focusCurrentMode = false,
-  debugMode = false
+  debugMode = false,
+  droneMode = false
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
   const { preferences } = usePreferences();
@@ -101,6 +103,7 @@ const Home: React.FC<HomeProps> = ({
         repoUrl={repoUrl}
         animationSpeed={animationSpeed}
         autoDrift={autoDrift}
+        droneMode={droneMode}
         onLoadingChange={handleLoadingChange}
         onError={handleError}
         forceReload={forceReload}
