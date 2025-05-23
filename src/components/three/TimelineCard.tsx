@@ -160,11 +160,17 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     if (!groupRef.current) return;
     if (wiggleState.isWiggling) {
       const elapsed = performance.now() - wiggleState.startTime;
-      const duration = 250; // short wiggle
+      const duration = 400; // longer wiggle for more pronounced effect
       if (elapsed < duration) {
-        // Wiggle: quick left-right rotation (Y axis)
+        // Wiggle: quick left-right rotation (Y axis) with more pronounced motion
         // Use Math.sin directly as this is a simple calculation, not an interpolation
-        const wiggleAngle = Math.sin((elapsed / duration) * Math.PI * 4) * 0.18; // 2 full wiggles
+        const progress = elapsed / duration;
+
+        // Create a more dramatic wiggle with varying amplitude
+        // Start strong, then fade out for a more natural feel
+        const fadeOut = 1 - (progress * progress); // Quadratic fade out
+        const wiggleAngle = Math.sin(progress * Math.PI * 6) * 0.35 * fadeOut; // 3 full wiggles with higher amplitude
+
         setWiggleState((prev) => ({ ...prev, wiggleAngle }));
       } else {
         // End wiggle

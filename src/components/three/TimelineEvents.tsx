@@ -142,10 +142,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       // If the now plane crossed the card (from either direction)
       if ((prevNow < cardZ && currentPosition >= cardZ) || (prevNow > cardZ && currentPosition <= cardZ)) {
         setWiggleMap((prev) => ({ ...prev, [event.id]: true }));
-        // Reset wiggle after short time
+        // Reset wiggle after animation completes (matches the 400ms duration in TimelineCard)
         setTimeout(() => {
           setWiggleMap((prev) => ({ ...prev, [event.id]: false }));
-        }, 300);
+        }, 450); // Slightly longer than animation duration to ensure cleanup
       }
     });
     prevNowRef.current = currentPosition;

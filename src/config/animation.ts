@@ -10,7 +10,7 @@ export const animation = {
     easeIn: 'ease-in',
     easeOut: 'ease-out',
     easeInOut: 'ease-in-out',
-    
+
     // Custom cubic-bezier curves
     smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
     bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
@@ -35,35 +35,35 @@ export const animation = {
       tension: 170,
       friction: 26
     },
-    
+
     // Gentle spring for smooth animations
     gentle: {
       mass: 1,
       tension: 120,
       friction: 14
     },
-    
+
     // Wobbly spring for playful animations
     wobbly: {
       mass: 1,
       tension: 180,
       friction: 12
     },
-    
+
     // Stiff spring for quick, responsive animations
     stiff: {
       mass: 1,
       tension: 210,
       friction: 20
     },
-    
+
     // Slow spring for deliberate animations
     slow: {
       mass: 1,
       tension: 280,
       friction: 60
     },
-    
+
     // Molasses spring for very slow animations
     molasses: {
       mass: 1,
@@ -110,9 +110,10 @@ export const animation = {
 
   // Wiggle animation for cards
   wiggle: {
-    amplitude: 0.1,     // Maximum rotation in radians
-    frequency: 8,       // Oscillations per second
-    duration: 1000,     // Total animation duration in milliseconds
+    amplitude: 0.35,    // Maximum rotation in radians (more pronounced)
+    frequency: 7.5,     // Oscillations per second (3 wiggles in 400ms)
+    duration: 400,      // Total animation duration in milliseconds
+    fadeOut: true,      // Enable fade-out effect for more natural motion
     easing: 'ease-in-out',
     enabled: true
   },
