@@ -21,6 +21,8 @@ interface TimelineEventsProps {
   };
   currentPosition?: number;
   isMarkerDragging?: boolean;
+  isTimelineHovering?: boolean;
+  droneMode?: boolean;
 }
 
 export const TimelineEvents: React.FC<TimelineEventsProps> = ({
@@ -31,7 +33,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   onPositionUpdate,
   getAnimationProps,
   currentPosition = 0,
-  isMarkerDragging = false
+  isMarkerDragging = false,
+  isTimelineHovering = false,
+  droneMode = false
 }) => {
   // Track the currently hovered card to enforce exclusivity
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
@@ -222,11 +226,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           }}
           wiggle={!!wiggleMap[event.id]}
           isMarkerDragging={isMarkerDragging}
+          isTimelineHovering={isTimelineHovering}
+          droneMode={droneMode}
           isHovered={hoveredCardId === event.id}
         />
       );
     });
-  }, [events, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, hoveredCardId]);
+  }, [events, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId]);
 
   return (
     <group>

@@ -15,6 +15,8 @@ interface TimelineAxisProps {
   currentPosition?: number;
   onPositionChange?: (position: number) => void;
   onMarkerDragStateChange?: (isDragging: boolean) => void;
+  onTimelineHoverChange?: (isHovering: boolean) => void;
+  droneMode?: boolean;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -27,6 +29,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   currentPosition = 0,
   onPositionChange,
   onMarkerDragStateChange,
+  onTimelineHoverChange,
+  droneMode = false,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -112,6 +116,11 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
   // Handle pointer move over the timeline to show a hover indicator
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+    // Disable timeline hover during drone mode
+    if (droneMode) {
+      return;
+    }
+
     // Get the hovered position along the Z axis (timeline runs along Z)
     const hoveredPosition = e.point.z;
 
@@ -190,11 +199,23 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         renderOrder={900}
         onClick={handleAxisClick}
         onPointerEnter={() => {
+          // Disable timeline hover during drone mode
+          if (droneMode) {
+            return;
+          }
           setIsHovering(true);
+          // Notify parent about timeline hover state change
+          if (onTimelineHoverChange) {
+            onTimelineHoverChange(true);
+          }
         }}
         onPointerLeave={() => {
           setIsHovering(false);
           setHoverPosition(null);
+          // Notify parent about timeline hover state change
+          if (onTimelineHoverChange) {
+            onTimelineHoverChange(false);
+          }
         }}
         onPointerMove={handlePointerMove}
       >

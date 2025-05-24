@@ -62,6 +62,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
 }) => {
   const logger = useLogger({ component: 'TimelineScene', topic: 'ui' });
   const [isMarkerDragging, setIsMarkerDragging] = useState(false);
+  const [isTimelineHovering, setIsTimelineHovering] = useState(false);
 
   // Log camera callback props
   useEffect(() => {
@@ -211,6 +212,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onMarkerDragStateChange={(isDragging) => {
             setIsMarkerDragging(isDragging);
           }}
+          onTimelineHoverChange={setIsTimelineHovering}
+          droneMode={droneMode}
         />
         <TimelineEvents
           events={events}
@@ -221,6 +224,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           getAnimationProps={getCardAnimationProps}
           currentPosition={currentPosition}
           isMarkerDragging={isMarkerDragging}
+          isTimelineHovering={isTimelineHovering}
+          droneMode={droneMode}
         />
 
         {/* Environment & Helpers */}

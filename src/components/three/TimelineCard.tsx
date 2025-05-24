@@ -24,6 +24,8 @@ interface TimelineCardProps {
   };
   wiggle?: boolean;
   isMarkerDragging?: boolean;
+  isTimelineHovering?: boolean;
+  droneMode?: boolean;
   isHovered?: boolean; // Explicit hover state from parent
 }
 
@@ -53,6 +55,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   },
   wiggle = false,
   isMarkerDragging = false,
+  isTimelineHovering = false,
+  droneMode = false,
   isHovered = false
 }) => {
 
@@ -413,6 +417,16 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     // If marker is being dragged, ignore hover events
     if (isMarkerDragging) {
+      return;
+    }
+
+    // If timeline is being hovered (marker mover ball/stick is visible), ignore card hover events
+    if (isTimelineHovering) {
+      return;
+    }
+
+    // If drone mode is active, ignore hover events
+    if (droneMode) {
       return;
     }
 
