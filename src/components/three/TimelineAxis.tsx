@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Line, Text } from '@react-three/drei';
 import { DraggableTimelineMarker } from './DraggableTimelineMarker';
 import { ThreeEvent } from '@react-three/fiber';
@@ -34,6 +34,40 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
+
+  // Track mouse movement to prevent accidental timeline triggers
+  const mouseTrackingRef = useRef({
+    lastX: 0,
+    lastY: 0,
+    lastMoveTime: 0,
+    hasMovedSignificantly: false,
+    moveThreshold: 3, // pixels
+    timeThreshold: 50, // ms
+  });
+
+  // Update mouse tracking
+  const updateMouseTracking = (clientX: number, clientY: number) => {
+    const now = performance.now();
+    const tracking = mouseTrackingRef.current;
+
+    const deltaX = Math.abs(clientX - tracking.lastX);
+    const deltaY = Math.abs(clientY - tracking.lastY);
+    const deltaTime = now - tracking.lastMoveTime;
+
+    // Check if mouse has moved significantly
+    if (deltaX > tracking.moveThreshold || deltaY > tracking.moveThreshold) {
+      tracking.hasMovedSignificantly = true;
+    }
+
+    // Reset if enough time has passed without significant movement
+    if (deltaTime > tracking.timeThreshold && deltaX <= tracking.moveThreshold && deltaY <= tracking.moveThreshold) {
+      tracking.hasMovedSignificantly = false;
+    }
+
+    tracking.lastX = clientX;
+    tracking.lastY = clientY;
+    tracking.lastMoveTime = now;
+  };
 
   // Generate axis points - centered around z=0
   const axisPoints = [
@@ -121,6 +155,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       return;
     }
 
+    // Update mouse tracking
+    updateMouseTracking(e.nativeEvent.clientX, e.nativeEvent.clientY);
+
     // Get the hovered position along the Z axis (timeline runs along Z)
     const hoveredPosition = e.point.z;
 
@@ -198,15 +235,23 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         rotation={[Math.PI / 2, 0, 0]}
         renderOrder={900}
         onClick={handleAxisClick}
-        onPointerEnter={() => {
+        onPointerEnter={(e) => {
           // Disable timeline hover during drone mode
           if (droneMode) {
             return;
           }
-          setIsHovering(true);
-          // Notify parent about timeline hover state change
-          if (onTimelineHoverChange) {
-            onTimelineHoverChange(true);
+
+          // Update mouse tracking
+          updateMouseTracking(e.nativeEvent.clientX, e.nativeEvent.clientY);
+
+          // Only trigger timeline hover if mouse has moved significantly (intentional movement)
+          // This prevents accidental triggers from card animations moving the mouse over the timeline
+          if (mouseTrackingRef.current.hasMovedSignificantly) {
+            setIsHovering(true);
+            // Notify parent about timeline hover state change
+            if (onTimelineHoverChange) {
+              onTimelineHoverChange(true);
+            }
           }
         }}
         onPointerLeave={() => {

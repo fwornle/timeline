@@ -5,7 +5,7 @@ import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { Vector3 } from 'three';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clearAllCardHovers } from '../../utils/three/cardUtils';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
@@ -63,6 +63,16 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   const logger = useLogger({ component: 'TimelineScene', topic: 'ui' });
   const [isMarkerDragging, setIsMarkerDragging] = useState(false);
   const [isTimelineHovering, setIsTimelineHovering] = useState(false);
+
+  // Handle timeline hover state changes
+  const handleTimelineHoverChange = useCallback((isHovering: boolean) => {
+    setIsTimelineHovering(isHovering);
+
+    // When timeline hover starts, close all cards
+    if (isHovering) {
+      onCardHover(null); // Close all cards
+    }
+  }, [onCardHover]);
 
   // Log camera callback props
   useEffect(() => {
@@ -212,7 +222,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onMarkerDragStateChange={(isDragging) => {
             setIsMarkerDragging(isDragging);
           }}
-          onTimelineHoverChange={setIsTimelineHovering}
+          onTimelineHoverChange={handleTimelineHoverChange}
           droneMode={droneMode}
         />
         <TimelineEvents
