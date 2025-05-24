@@ -158,18 +158,21 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
   // Drone mode state for smooth random movement with free-flying around target
   const droneStateRef = useRef({
-    offsetX: (Math.random() - 0.5) * 15, // Start with larger initial variation ±7.5 units
-    offsetY: (Math.random() - 0.5) * 10, // Start with larger initial variation ±5 units
-    offsetZ: Math.random() * 20 - 5, // Start with Z variation -5 to +15 units
-    distance: 10 + Math.random() * 8, // Start with random distance 10-18 units
-    targetOffsetX: (Math.random() - 0.5) * 30, // Initial target with full range ±15 units
-    targetOffsetY: (Math.random() - 0.5) * 20, // Initial target with full range ±10 units
-    targetOffsetZ: Math.random() * 40 - 10, // Initial target -10 to +30 units
-    targetDistance: 8 + Math.random() * 12, // Initial target 8-20 units
+    offsetX: 0, // Will be initialized from current camera position
+    offsetY: 0, // Will be initialized from current camera position
+    offsetZ: 0, // Will be initialized from current camera position
+    distance: 15, // Will be initialized from current camera position
+    targetOffsetX: 0, // Will be set when drone mode starts
+    targetOffsetY: 0, // Will be set when drone mode starts
+    targetOffsetZ: 0, // Will be set when drone mode starts
+    targetDistance: 15, // Will be set when drone mode starts
     lastUpdateTime: 0,
     changeInterval: 1500 + Math.random() * 3000, // Random initial interval
     userInterrupted: false, // Track if user moved camera manually
     userInterruptTime: 0, // When user last moved camera
+    initialized: false, // Track if drone state has been initialized from current camera position
+    homingPhase: true, // Start with homing phase to smoothly approach target area
+    homingStartTime: 0, // When homing phase started
   });
 
   // Expose camera details to help debugging (only in debug mode)
@@ -453,30 +456,36 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     // This allows marker dragging to update the camera state even when controls are disabled
     if (userInteractingRef.current && !disableControls) return;
 
-    // Skip if in specific view modes
-    if (viewAllMode || focusCurrentMode) return;
+    // Skip if in specific view modes or drone mode
+    if (viewAllMode || focusCurrentMode || droneMode) return;
 
     // Check if target actually changed to prevent unnecessary updates
     const targetChanged = target.distanceTo(lastTargetRef.current) > 0.01;
     if (!targetChanged) return;
 
+    // Calculate the target movement delta to maintain relative camera positioning
+    const targetDelta = new Vector3().subVectors(target, lastTargetRef.current);
+
     // Update the last target reference
     lastTargetRef.current = target.clone();
 
-    // Only update the target component of the state, but don't trigger callbacks
-    // This prevents circular dependencies
-    setCameraState(prev => ({
-      ...prev,
-      target: target.clone()
-    }));
-
-    // Apply the target change directly to the camera controls
-    if (orbitControlsRef.current) {
+    // Move both camera position and target by the same delta to maintain relative positioning
+    // This prevents camera jumping during auto-drift
+    if (orbitControlsRef.current && targetDelta.length() > 0.01) {
+      const newCameraPosition = new Vector3().addVectors(camera.position, targetDelta);
+      camera.position.copy(newCameraPosition);
       orbitControlsRef.current.target.copy(target);
       orbitControlsRef.current.update();
+
+      // Update state to reflect the new positions
+      setCameraState(prev => ({
+        position: newCameraPosition.clone(),
+        target: target.clone(),
+        zoom: prev.zoom
+      }));
     }
 
-  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode]);
+  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode, droneMode]);
 
   // Monitor camera changes from OrbitControls using useFrame
   useFrame(() => {
@@ -484,9 +493,44 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
     const now = performance.now();
 
+    // Update camera target during animation (removed internalTargetRef dependency)
+    // This is now handled by the target change effect instead
+
     // Handle drone mode - camera flies freely around marker like a bee
     if (droneMode && !viewAllMode && !focusCurrentMode) {
       const droneState = droneStateRef.current;
+
+      // Initialize drone state from current camera position when first entering drone mode
+      if (!droneState.initialized) {
+        const currentPos = camera.position;
+        const currentOffset = new Vector3().subVectors(currentPos, target);
+        const currentDistance = currentOffset.length();
+
+        // Initialize drone state from current camera position
+        droneState.offsetX = currentOffset.x;
+        droneState.offsetY = currentOffset.y;
+        droneState.offsetZ = currentOffset.z;
+        droneState.distance = currentDistance;
+
+        // Set initial targets close to current position for smooth start
+        droneState.targetOffsetX = droneState.offsetX + (Math.random() - 0.5) * 5; // Small initial variation
+        droneState.targetOffsetY = droneState.offsetY + (Math.random() - 0.5) * 3;
+        droneState.targetOffsetZ = droneState.offsetZ + (Math.random() - 0.5) * 5;
+        droneState.targetDistance = Math.max(8, Math.min(20, currentDistance + (Math.random() - 0.5) * 3));
+
+        droneState.initialized = true;
+        droneState.homingPhase = true;
+        droneState.homingStartTime = now;
+        droneState.lastUpdateTime = now;
+
+        if (debugMode) {
+          logger.debug('Initialized drone mode from current camera position', {
+            currentPos: `(${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)})`,
+            offsets: `X:${droneState.offsetX.toFixed(2)}, Y:${droneState.offsetY.toFixed(2)}, Z:${droneState.offsetZ.toFixed(2)}`,
+            distance: droneState.distance.toFixed(2)
+          });
+        }
+      }
 
       // Check if user is currently interacting with controls
       if (userInteractingRef.current && !droneState.userInterrupted) {
@@ -508,7 +552,8 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         if (timeSinceInterrupt > 500) { // After 0.5 second of no interaction, resume from current position
           // Calculate current offsets from where user left the camera
           const currentPos = camera.position;
-          const currentOffset = new Vector3().subVectors(currentPos, target);
+          const currentTarget = target;
+          const currentOffset = new Vector3().subVectors(currentPos, currentTarget);
           const currentDistance = currentOffset.length();
 
           // Update drone state to current position - continue circling from here
@@ -524,6 +569,8 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
           droneState.targetDistance = Math.max(8, Math.min(20, currentDistance + (Math.random() - 0.5) * 6));
 
           droneState.userInterrupted = false;
+          droneState.homingPhase = true; // Restart homing phase from new position
+          droneState.homingStartTime = now;
           droneState.lastUpdateTime = now; // Reset timer to prevent immediate target change
 
           if (debugMode) {
@@ -536,21 +583,86 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         }
       }
 
-      // Update drone targets periodically (only if not interrupted by user)
-      if (!droneState.userInterrupted && now - droneState.lastUpdateTime > droneState.changeInterval) {
+      // Handle homing phase - smoothly approach target area before starting random movement
+      if (droneState.homingPhase) {
+        const homingDuration = 2000; // 2 seconds to home in
+        const homingProgress = Math.min(1, (now - droneState.homingStartTime) / homingDuration);
+
+        if (homingProgress >= 1) {
+          // Homing complete, start random movement
+          droneState.homingPhase = false;
+          droneState.lastUpdateTime = now;
+        } else {
+          // During homing, gradually move towards a good position around the target
+          const idealDistance = 15; // Good viewing distance
+          const idealOffsetX = 10; // Slightly to the right
+          const idealOffsetY = 8;  // Slightly above
+          const idealOffsetZ = 12; // In front of the target
+
+          // Smoothly interpolate towards ideal position
+          droneState.targetOffsetX = idealOffsetX;
+          droneState.targetOffsetY = idealOffsetY;
+          droneState.targetOffsetZ = idealOffsetZ;
+          droneState.targetDistance = idealDistance;
+        }
+      }
+
+      // Update drone targets periodically (only if not interrupted by user and not homing)
+      if (!droneState.userInterrupted && !droneState.homingPhase &&
+          now - droneState.lastUpdateTime > droneState.changeInterval) {
+
         // Generate new random targets for free-flying bee-like movement around the target
-        droneState.targetOffsetX = (Math.random() - 0.5) * 30; // ±15 units left/right (full freedom)
-        droneState.targetOffsetY = (Math.random() - 0.5) * 20; // ±10 units up/down (including below)
-        droneState.targetOffsetZ = Math.random() * 40 - 10; // -10 to +30 units (mostly ahead, sometimes behind)
+        // Patterns: random, up, down, left, right, mostly in front, briefly behind
+        const patterns = ['random', 'up', 'down', 'left', 'right', 'front', 'behind'];
+        const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+
+        switch (pattern) {
+          case 'up':
+            droneState.targetOffsetX = (Math.random() - 0.5) * 10; // ±5 units
+            droneState.targetOffsetY = 8 + Math.random() * 12; // 8-20 units up
+            droneState.targetOffsetZ = 5 + Math.random() * 15; // 5-20 units ahead
+            break;
+          case 'down':
+            droneState.targetOffsetX = (Math.random() - 0.5) * 10;
+            droneState.targetOffsetY = -5 - Math.random() * 8; // -5 to -13 units down
+            droneState.targetOffsetZ = 5 + Math.random() * 15;
+            break;
+          case 'left':
+            droneState.targetOffsetX = -8 - Math.random() * 12; // -8 to -20 units left
+            droneState.targetOffsetY = (Math.random() - 0.5) * 10;
+            droneState.targetOffsetZ = 5 + Math.random() * 15;
+            break;
+          case 'right':
+            droneState.targetOffsetX = 8 + Math.random() * 12; // 8-20 units right
+            droneState.targetOffsetY = (Math.random() - 0.5) * 10;
+            droneState.targetOffsetZ = 5 + Math.random() * 15;
+            break;
+          case 'front':
+            droneState.targetOffsetX = (Math.random() - 0.5) * 20; // ±10 units
+            droneState.targetOffsetY = (Math.random() - 0.5) * 16; // ±8 units
+            droneState.targetOffsetZ = 10 + Math.random() * 20; // 10-30 units ahead
+            break;
+          case 'behind':
+            droneState.targetOffsetX = (Math.random() - 0.5) * 16; // ±8 units
+            droneState.targetOffsetY = (Math.random() - 0.5) * 12; // ±6 units
+            droneState.targetOffsetZ = -5 - Math.random() * 10; // -5 to -15 units behind
+            break;
+          default: // 'random'
+            droneState.targetOffsetX = (Math.random() - 0.5) * 30; // ±15 units left/right
+            droneState.targetOffsetY = (Math.random() - 0.5) * 20; // ±10 units up/down
+            droneState.targetOffsetZ = Math.random() * 40 - 10; // -10 to +30 units
+            break;
+        }
+
         droneState.targetDistance = 8 + Math.random() * 12; // 8-20 units distance from target
         droneState.lastUpdateTime = now;
         droneState.changeInterval = 1500 + Math.random() * 3000; // 1.5-4.5 seconds between changes
 
         if (debugMode) {
-          logger.debug('Drone mode: New FREE-FLYING targets generated', {
-            targetOffsetX: `${droneState.targetOffsetX.toFixed(2)} (range: ±15)`,
-            targetOffsetY: `${droneState.targetOffsetY.toFixed(2)} (range: ±10)`,
-            targetOffsetZ: `${droneState.targetOffsetZ.toFixed(2)} (range: -10/+30)`,
+          logger.debug(`Drone mode: New ${pattern.toUpperCase()} pattern targets generated`, {
+            targetOffsetX: `${droneState.targetOffsetX.toFixed(2)}`,
+            targetOffsetY: `${droneState.targetOffsetY.toFixed(2)}`,
+            targetOffsetZ: `${droneState.targetOffsetZ.toFixed(2)}`,
             targetDistance: `${droneState.targetDistance.toFixed(2)} (range: 8-20)`,
             nextChangeIn: `${droneState.changeInterval}ms`
           });
@@ -572,16 +684,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         droneState.offsetZ  // Free forward/backward movement (-10 to +30 units)
       ).normalize();
 
+      // Use target for drone positioning
+      const currentTarget = target;
+
       // Position camera at the desired distance from target in the offset direction
-      const dronePosition = new Vector3().copy(target).add(
+      const dronePosition = new Vector3().copy(currentTarget).add(
         offsetDirection.multiplyScalar(droneState.distance)
       );
 
       // Always look at the target (the marker we're following)
       const droneTarget = new Vector3(
-        target.x,
-        target.y, // Look directly at the timeline marker
-        target.z
+        currentTarget.x,
+        currentTarget.y, // Look directly at the timeline marker
+        currentTarget.z
       );
 
       // Apply drone position directly to camera and controls without triggering state updates
@@ -597,7 +712,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       // Debug logging for drone mode (only occasionally to avoid spam)
       if (debugMode && Math.random() < 0.01) { // Log ~1% of frames
         logger.debug('FREE-FLYING Drone mode active', {
-          markerPos: `(${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`,
+          markerPos: `(${currentTarget.x.toFixed(1)}, ${currentTarget.y.toFixed(1)}, ${currentTarget.z.toFixed(1)})`,
           dronePos: `(${dronePosition.x.toFixed(1)}, ${dronePosition.y.toFixed(1)}, ${dronePosition.z.toFixed(1)})`,
           offsets: `X:${droneState.offsetX.toFixed(2)} (±15), Y:${droneState.offsetY.toFixed(2)} (±10), Z:${droneState.offsetZ.toFixed(2)} (-10/+30)`,
           distance: `${droneState.distance.toFixed(2)} (8-20 range)`,
@@ -606,6 +721,12 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }
 
       return; // Skip normal camera monitoring when in drone mode
+    } else {
+      // Reset drone state when not in drone mode so it can be re-initialized
+      if (droneStateRef.current.initialized) {
+        droneStateRef.current.initialized = false;
+        droneStateRef.current.homingPhase = true;
+      }
     }
 
     if (stateChangeSourceRef.current === 'controls') {
@@ -713,6 +834,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       dampingFactor={0.3}
       rotateSpeed={0.8}
       zoomSpeed={1.0}
+
       panSpeed={0.8}
       autoRotate={false}
       onStart={() => {

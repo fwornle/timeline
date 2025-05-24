@@ -40,18 +40,10 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  // Keep internal target in sync with state
-  useEffect(() => {
-    internalTargetRef.current.copy(state.cameraTarget);
-  }, [state.cameraTarget]);
-
   // Animation frame tracking
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
   const lastStateUpdateRef = useRef<number>(0);
-
-  // Internal animation target that doesn't trigger React re-renders
-  const internalTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, initialMarkerPosition));
 
   // Card position cache
   const cardPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
@@ -139,9 +131,6 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Update camera target position (for marker dragging)
   const setCameraTarget = useCallback((position: THREE.Vector3) => {
-    // Update internal target immediately
-    internalTargetRef.current.copy(position);
-
     setState(prev => ({
       ...prev,
       cameraTarget: position.clone(),
@@ -151,9 +140,6 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Update camera target Z position only (for marker dragging)
   const setCameraTargetZ = useCallback((z: number) => {
-    // Update internal target immediately
-    internalTargetRef.current.z = z;
-
     setState(prev => ({
       ...prev,
       cameraTarget: new THREE.Vector3(prev.cameraTarget.x, prev.cameraTarget.y, z),
@@ -179,22 +165,19 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
       // This ensures we're always looking at the front of the cards
       const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
 
-      // Always update internal target for smooth movement
+      // Update state directly for smooth movement
       if (scrollDelta > 0) {
-        // Update internal target immediately for smooth animation
-        internalTargetRef.current.z += scrollDelta;
-
         // Only update React state periodically to avoid infinite loops
-        const stateUpdateInterval = 200; // Update React state every 200ms
+        const stateUpdateInterval = 100; // Update React state every 100ms
 
         if (time - lastStateUpdateRef.current >= stateUpdateInterval) {
           // Use functional update to avoid stale closure issues
           setState(prev => {
             // Create a new Vector3 to ensure React detects the change
             const newTarget = new THREE.Vector3(
-              internalTargetRef.current.x,
-              internalTargetRef.current.y,
-              internalTargetRef.current.z
+              prev.cameraTarget.x,
+              prev.cameraTarget.y,
+              prev.cameraTarget.z + scrollDelta
             );
             return {
               ...prev,
