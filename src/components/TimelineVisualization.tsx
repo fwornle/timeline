@@ -257,10 +257,11 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       // This ensures single source of truth and prevents position jumping
       if (autoDrift && !isAutoScrolling) {
         // Use the initialMarkerPosition (from MainLayout) as the authoritative position
-        const authoritativePosition = initialMarkerPosition;
+        const authoritativePosition = initialMarkerPosition || 0;
         currentMarkerPositionRef.current = authoritativePosition;
 
-        // Set the camera target to the authoritative position to prevent jumping
+        // IMMEDIATELY set the camera target to the authoritative position to prevent jumping
+        // This must happen BEFORE toggling auto scroll to ensure no position drift
         setCameraTarget(new Vector3(cameraTarget.x, cameraTarget.y, authoritativePosition));
 
         if (debugMode) {
@@ -270,14 +271,28 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             difference: Math.abs(authoritativePosition - cameraTarget.z)
           });
         }
-      } else {
-        // When exiting drift mode, preserve the current animation position
-        currentMarkerPositionRef.current = cameraTarget.z;
+      } else if (!autoDrift && isAutoScrolling) {
+        // When exiting drift mode, immediately freeze the current position to prevent inertia
+        const currentAnimationPosition = cameraTarget.z;
+        currentMarkerPositionRef.current = currentAnimationPosition;
+
+        // Immediately notify parent of the final position to keep everything in sync
+        if (onPositionUpdate) {
+          onPositionUpdate(currentAnimationPosition);
+          lastReportedPositionRef.current = currentAnimationPosition;
+          lastPositionUpdateRef.current = Date.now();
+        }
+
+        if (debugMode) {
+          logger.debug('Exiting drift mode with final position', {
+            finalPosition: currentAnimationPosition
+          });
+        }
       }
 
       toggleAutoScroll();
     }
-  }, [autoDrift, isAutoScrolling, toggleAutoScroll, cameraTarget, setCameraTarget, initialMarkerPosition, debugMode, logger]);
+  }, [autoDrift, isAutoScrolling, toggleAutoScroll, cameraTarget.x, cameraTarget.y, cameraTarget.z, setCameraTarget, initialMarkerPosition, debugMode, logger, onPositionUpdate]);
 
   // Listen for reset events
   useEffect(() => {
@@ -329,13 +344,18 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       const positionThreshold = isAutoScrolling ? 0.01 : 0.5; // Much smaller threshold during auto-scroll
 
       // Only report position changes if enough time has passed AND position changed significantly
-      if (now - lastPositionUpdateRef.current >= timeThreshold && positionDelta > positionThreshold) {
+      // AND the position is different from what we received from parent (to prevent loops)
+      const isSignificantChange = positionDelta > positionThreshold;
+      const isTimeThresholdMet = now - lastPositionUpdateRef.current >= timeThreshold;
+      const isDifferentFromInitial = Math.abs(newPosition - (initialMarkerPosition || 0)) > 0.1;
+
+      if (isTimeThresholdMet && isSignificantChange && isDifferentFromInitial) {
         onPositionUpdate(newPosition);
         lastPositionUpdateRef.current = now;
         lastReportedPositionRef.current = newPosition;
       }
     }
-  }, [cameraTarget, onPositionUpdate, isAutoScrolling, positionUpdateThrottleMs]);
+  }, [cameraTarget?.z, isAutoScrolling, positionUpdateThrottleMs, initialMarkerPosition]); // Only depend on cameraTarget.z, not the whole object
 
   // Also update position when a card is selected
   useEffect(() => {

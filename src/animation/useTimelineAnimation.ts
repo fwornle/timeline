@@ -125,9 +125,14 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
       const newIsAutoScrolling = !prev.isAutoScrolling;
 
       // If stopping auto-scroll, immediately cancel any pending animation frame
+      // and freeze the current position to prevent inertia
       if (!newIsAutoScrolling && animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = undefined;
+
+        // Immediately freeze the current position to prevent any drift
+        // The current position is already in prev.cameraTarget, so we don't need to change it
+        // This ensures no inertia or position jumping when stopping
       }
 
       return { ...prev, isAutoScrolling: newIsAutoScrolling };
@@ -174,7 +179,9 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
   // Animation loop with smooth movement
   const animate = useCallback((time: number) => {
     // Calculate delta time for smooth movement
-    const deltaTime = (time - lastTimeRef.current) / 1000;
+    // Prevent huge deltaTime jumps (e.g., when tab was inactive)
+    const rawDeltaTime = (time - lastTimeRef.current) / 1000;
+    const deltaTime = Math.min(rawDeltaTime, 0.1); // Cap at 100ms to prevent huge jumps
     lastTimeRef.current = time;
 
     // Use refs to access current state values to avoid dependencies
@@ -220,6 +227,12 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
   // Start/stop animation loop based on auto-scrolling state
   useEffect(() => {
     if (state.isAutoScrolling) {
+      // When starting animation, reset time references to prevent deltaTime issues
+      // But don't reset to 0 - use current time to avoid skipping frames
+      const now = performance.now();
+      lastTimeRef.current = now;
+      lastStateUpdateRef.current = now;
+
       // Only start animation loop if auto-scrolling is enabled
       if (!animationFrameRef.current) {
         animationFrameRef.current = requestAnimationFrame(animate);
@@ -238,7 +251,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         animationFrameRef.current = undefined;
       }
     };
-  }, [state.isAutoScrolling]);
+  }, [state.isAutoScrolling, animate]);
 
   return {
     isAutoScrolling: state.isAutoScrolling,
