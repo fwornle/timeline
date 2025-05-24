@@ -161,7 +161,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
     if (wiggle) {
       setWiggleState({ isWiggling: true, startTime: performance.now(), wiggleAngle: 0 });
     }
-  }, [wiggle]);
+  }, [wiggle, setWiggleState]);
 
   // Wiggle animation frame (throttled for performance)
   const lastWiggleUpdateRef = useRef(0);

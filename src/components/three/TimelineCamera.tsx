@@ -186,7 +186,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         fov: 'fov' in camera ? camera.fov : 'N/A'
       });
     }
-  }, [camera, debugMode]);
+  }, [camera, debugMode, logger]);
 
   // Helper to update camera state in a single place
   const updateCameraState = (
@@ -359,7 +359,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       },
       zoom: cameraState.zoom
     });
-  }, [cameraState, initialized]);
+  }, [cameraState, initialized, applyCameraState, logger]);
 
   // Update camera when cameraState changes (only after initialization)
   // Use a ref to track the last applied state to prevent circular updates
@@ -395,7 +395,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       isApplyingStateRef.current = false;
     }, 50);
 
-  }, [cameraState, initialized]);
+  }, [cameraState, initialized, applyCameraState]);
 
   // Handle view mode changes (viewAllMode or focusCurrentMode)
   useEffect(() => {
@@ -443,7 +443,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         calculatedDistance: newPosition.distanceTo(target)
       });
     }
-  }, [viewAllMode, focusCurrentMode, target, initialized, events]);
+  }, [viewAllMode, focusCurrentMode, target, initialized, events, camera, updateCameraState, logger]);
 
   // Update when target changes (for timeline movement)
   // Use a ref to track the last target to prevent circular updates
@@ -485,7 +485,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }));
     }
 
-  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode, droneMode]);
+  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode, droneMode, setCameraState]);
 
   // Monitor camera changes from OrbitControls using useFrame
   useFrame(() => {
