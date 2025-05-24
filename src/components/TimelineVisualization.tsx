@@ -164,7 +164,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
     // Update the ref with current value for next comparison
     prevForceReloadRef.current = forceReload;
-  }, [forceReload, repoUrl, purgeAndRefresh, logger, isLoading]);
+  }, [forceReload, repoUrl, isLoading]); // Remove function dependencies to prevent infinite loops
 
   // Track external view mode changes
   useEffect(() => {
@@ -174,7 +174,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     if (externalFocusCurrentMode) {
       logger.info('External focus mode activated');
     }
-  }, [externalViewAllMode, externalFocusCurrentMode, logger]);
+  }, [externalViewAllMode, externalFocusCurrentMode]); // Remove logger from dependencies to prevent infinite loops
 
   // Use external props directly - we don't need internal state anymore
   const viewAllMode = externalViewAllMode;
@@ -233,7 +233,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   // Update parent loading state
   useEffect(() => {
     onLoadingChange(isLoading);
-  }, [isLoading, onLoadingChange]);
+  }, [isLoading]); // Remove onLoadingChange from dependencies to prevent infinite loops
 
   // Update parent error state
   useEffect(() => {
@@ -243,12 +243,12 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     } else {
       onError(null);
     }
-  }, [hasError, errors, onError]);
+  }, [hasError, errors]); // Remove onError from dependencies to prevent infinite loops
 
   // Update animation speed when prop changes
   useEffect(() => {
     setScrollSpeed(animationSpeed);
-  }, [animationSpeed, setScrollSpeed]);
+  }, [animationSpeed]); // Remove setScrollSpeed from dependencies to prevent infinite loops
 
   // Update auto-drift when prop changes - preserve marker position
   useEffect(() => {
@@ -292,7 +292,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
       toggleAutoScroll();
     }
-  }, [autoDrift, isAutoScrolling, toggleAutoScroll, cameraTarget.x, cameraTarget.y, cameraTarget.z, setCameraTarget, initialMarkerPosition, debugMode, logger, onPositionUpdate]);
+  }, [autoDrift, isAutoScrolling]); // Simplified dependencies to prevent infinite loops
 
   // Listen for reset events
   useEffect(() => {
@@ -324,7 +324,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     return () => {
       window.removeEventListener('timeline-reset', handleReset);
     };
-  }, [events, cardPositionsRef, selectCard, toggleAutoScroll, isAutoScrolling, logger]);
+  }, [events, isAutoScrolling]); // Remove function dependencies to prevent infinite loops
 
   // Throttle position updates to prevent excessive re-renders
   const lastPositionUpdateRef = useRef<number>(0);
@@ -355,7 +355,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         lastReportedPositionRef.current = newPosition;
       }
     }
-  }, [cameraTarget?.z, isAutoScrolling, positionUpdateThrottleMs, initialMarkerPosition]); // Only depend on cameraTarget.z, not the whole object
+  }, [cameraTarget?.z, isAutoScrolling]); // Simplified dependencies to prevent infinite loops
 
   // Also update position when a card is selected
   useEffect(() => {
@@ -369,7 +369,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         }
       }
     }
-  }, [selectedCardId, onPositionUpdate, cardPositionsRef, debugMode, logger]);
+  }, [selectedCardId]); // Simplified dependencies to prevent infinite loops
 
   // Log significant state changes and notify parent
   useEffect(() => {
@@ -387,7 +387,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       const specEvents = events.filter(e => e.type === 'spec');
       onDataLoaded(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
     }
-  }, [events, period, onDataLoaded, isGitHistoryMocked, isSpecHistoryMocked, debugMode, logger]);
+  }, [events, period]); // Simplified dependencies to prevent infinite loops
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {

@@ -224,24 +224,32 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
     }
   }, []);
 
+  // Track auto-scrolling state changes separately to avoid infinite loops
+  const isAutoScrollingRef = useRef(state.isAutoScrolling);
+
   // Start/stop animation loop based on auto-scrolling state
   useEffect(() => {
-    if (state.isAutoScrolling) {
-      // When starting animation, reset time references to prevent deltaTime issues
-      // But don't reset to 0 - use current time to avoid skipping frames
-      const now = performance.now();
-      lastTimeRef.current = now;
-      lastStateUpdateRef.current = now;
+    // Only react to actual changes in auto-scrolling state
+    if (isAutoScrollingRef.current !== state.isAutoScrolling) {
+      isAutoScrollingRef.current = state.isAutoScrolling;
 
-      // Only start animation loop if auto-scrolling is enabled
-      if (!animationFrameRef.current) {
-        animationFrameRef.current = requestAnimationFrame(animate);
-      }
-    } else {
-      // Stop animation loop when auto-scrolling is disabled
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = undefined;
+      if (state.isAutoScrolling) {
+        // When starting animation, reset time references to prevent deltaTime issues
+        // But don't reset to 0 - use current time to avoid skipping frames
+        const now = performance.now();
+        lastTimeRef.current = now;
+        lastStateUpdateRef.current = now;
+
+        // Only start animation loop if auto-scrolling is enabled
+        if (!animationFrameRef.current) {
+          animationFrameRef.current = requestAnimationFrame(animate);
+        }
+      } else {
+        // Stop animation loop when auto-scrolling is disabled
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = undefined;
+        }
       }
     }
 
@@ -251,7 +259,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         animationFrameRef.current = undefined;
       }
     };
-  }, [state.isAutoScrolling]); // Removed 'animate' dependency to prevent infinite loop
+  }, [state.isAutoScrolling]); // Remove animate from dependencies to prevent infinite loops
 
   return {
     isAutoScrolling: state.isAutoScrolling,

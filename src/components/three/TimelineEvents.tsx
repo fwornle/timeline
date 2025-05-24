@@ -38,12 +38,16 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Handle hover with exclusivity
   const handleCardHover = useCallback((cardId: string | null) => {
-    // Only update if the hover state actually changed
-    if (hoveredCardId !== cardId) {
-      setHoveredCardId(cardId);
-      onHover(cardId);
-    }
-  }, [onHover]); // Remove hoveredCardId from dependencies to prevent loops
+    // Use functional update to avoid stale closure issues
+    setHoveredCardId(prev => {
+      // Only update if the hover state actually changed
+      if (prev !== cardId) {
+        onHover(cardId);
+        return cardId;
+      }
+      return prev;
+    });
+  }, [onHover]); // Safe to exclude hoveredCardId since we use functional update
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -184,7 +188,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
     // Defer the wiggle check to the next frame to prevent blocking
     requestAnimationFrame(checkWiggle);
-  }, [currentPosition, events, getEventPosition]);
+  }, [currentPosition]); // Remove events and getEventPosition from dependencies to prevent infinite loops
 
   // Cleanup timeouts on unmount
   useEffect(() => {

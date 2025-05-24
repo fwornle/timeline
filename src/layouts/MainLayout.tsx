@@ -323,22 +323,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           return React.cloneElement(child as React.ReactElement<RouteProps>, {
             routeProps: {
               onLoadingChange: handleLoadingChange,
-              onEventCountsChange: (gitCount: number, specCount: number) => {
+              onEventCountsChange: useCallback((gitCount: number, specCount: number) => {
                 setGitCount(gitCount);
                 setSpecCount(specCount);
-              },
-              onMockStatusChange: (gitMocked: boolean, specMocked: boolean) => {
+              }, []),
+              onMockStatusChange: useCallback((gitMocked: boolean, specMocked: boolean) => {
                 setIsGitHistoryMocked(gitMocked);
                 setIsSpecHistoryMocked(specMocked);
-              },
-              onPositionChange: (pos: number) => {
+              }, []),
+              onPositionChange: useCallback((pos: number) => {
                 setCurrentPosition(pos);
                 logger.info('Marker position changed', { position: pos });
-              },
-              onCameraPositionChange: (pos: { x: number, y: number, z: number }) => {
+              }, [logger]),
+              onCameraPositionChange: useCallback((pos: { x: number, y: number, z: number }) => {
                 setCameraPosition(pos);
-              },
-              onCameraStateChange: (state: CameraState) => {
+              }, []),
+              onCameraStateChange: useCallback((state: CameraState) => {
                 // Only log in debug mode
                 if (debugMode) {
                   logger.debug('[MainLayout] Received camera state:', {
@@ -401,16 +401,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   y: newState.position.y,
                   z: newState.position.z
                 });
-              },
+              }, [debugMode, logger]),
               initialCameraState: cameraState,
               initialMarkerPosition: currentPosition,
-              onTimelineDatesChange: (startDate: Date, endDate: Date) => {
+              onTimelineDatesChange: useCallback((startDate: Date, endDate: Date) => {
                 setTimelineStartDate(startDate);
                 setTimelineEndDate(endDate);
-              },
-              onTimelineLengthChange: (length: number) => {
+              }, []),
+              onTimelineLengthChange: useCallback((length: number) => {
                 setTimelineLength(length);
-              },
+              }, []),
               forceReload: forceReloadFlag,
               viewAllMode: viewAllMode,
               focusCurrentMode: focusCurrentMode,

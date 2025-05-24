@@ -305,7 +305,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         animationDuration, // Store the duration for use in the animation frame
       });
     }
-  }, [isHovered, position, camera, event.id, calculateCameraValues]);
+  }, [isHovered, event.id]); // Simplified dependencies to prevent infinite loops
 
   // Animation frame (throttled for performance)
   const lastAnimationUpdateRef = useRef(0);

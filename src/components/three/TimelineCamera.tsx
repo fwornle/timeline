@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Vector3, PerspectiveCamera, OrthographicCamera } from 'three';
@@ -189,7 +189,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   }, [camera, debugMode, logger]);
 
   // Helper to update camera state in a single place
-  const updateCameraState = (
+  const updateCameraState = useCallback((
     newState: CameraState,
     source: 'init' | 'controls' | 'mode' | 'frame',
     skipCallbacks: boolean = false
@@ -284,10 +284,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         zoom: cleanState.zoom.toFixed(1)
       });
     }
-  };
+  }, [initialized, camera, cameraState, debugMode, logger, onCameraStateChange, onCameraPositionChange]);
 
   // Apply camera state to Three.js camera and controls
-  const applyCameraState = (state: CameraState) => {
+  const applyCameraState = useCallback((state: CameraState) => {
     if (camera instanceof PerspectiveCamera) {
       // Move camera along its current direction to match the zoom factor
       const direction = state.position.clone().sub(state.target).normalize();
@@ -334,7 +334,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         cameraDotZoom: camera.zoom.toFixed(2)
       });
     }
-  };
+  }, [camera, debugMode, logger, currentZoom]);
 
   // Initial setup - Apply initial camera state once
   useEffect(() => {
@@ -359,7 +359,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       },
       zoom: cameraState.zoom
     });
-  }, [cameraState, initialized, applyCameraState, logger]);
+  }, [initialized, applyCameraState, cameraState, logger]); // Now safe to include memoized functions
 
   // Update camera when cameraState changes (only after initialization)
   // Use a ref to track the last applied state to prevent circular updates
@@ -395,7 +395,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       isApplyingStateRef.current = false;
     }, 50);
 
-  }, [cameraState, initialized, applyCameraState]);
+  }, [cameraState, initialized, applyCameraState]); // Now safe to include memoized functions
 
   // Handle view mode changes (viewAllMode or focusCurrentMode)
   useEffect(() => {
@@ -443,7 +443,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         calculatedDistance: newPosition.distanceTo(target)
       });
     }
-  }, [viewAllMode, focusCurrentMode, target, initialized, events, camera, updateCameraState, logger]);
+  }, [viewAllMode, focusCurrentMode, target, initialized, events, updateCameraState, camera, logger]); // Now safe to include memoized functions
 
   // Update when target changes (for timeline movement)
   // Use a ref to track the last target to prevent circular updates
@@ -485,7 +485,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }));
     }
 
-  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode, droneMode, setCameraState]);
+  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode, droneMode]); // Remove setCameraState dependency
 
   // Monitor camera changes from OrbitControls using useFrame
   useFrame(() => {
