@@ -512,16 +512,16 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         droneState.offsetZ = currentOffset.z;
         droneState.distance = currentDistance;
 
-        // Set initial targets close to current position for smooth start
-        droneState.targetOffsetX = droneState.offsetX + (Math.random() - 0.5) * 5; // Small initial variation
-        droneState.targetOffsetY = droneState.offsetY + (Math.random() - 0.5) * 3;
-        droneState.targetOffsetZ = droneState.offsetZ + (Math.random() - 0.5) * 5;
-        droneState.targetDistance = Math.max(8, Math.min(20, currentDistance + (Math.random() - 0.5) * 3));
+        // Set initial targets with more noticeable movement for immediate action
+        droneState.targetOffsetX = droneState.offsetX + (Math.random() - 0.5) * 15; // Larger initial variation
+        droneState.targetOffsetY = droneState.offsetY + (Math.random() - 0.5) * 10;
+        droneState.targetOffsetZ = droneState.offsetZ + (Math.random() - 0.5) * 15;
+        droneState.targetDistance = Math.max(8, Math.min(20, currentDistance + (Math.random() - 0.5) * 8));
 
         droneState.initialized = true;
         droneState.homingPhase = true;
         droneState.homingStartTime = now;
-        droneState.lastUpdateTime = now;
+        droneState.lastUpdateTime = now - droneState.changeInterval; // Allow immediate target generation
 
         if (debugMode) {
           logger.debug('Initialized drone mode from current camera position', {
@@ -544,12 +544,12 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       // If user interrupted, wait for them to finish and then resume from current position
       if (droneState.userInterrupted) {
         if (userInteractingRef.current) {
-          // User is still interacting, don't do anything
+          // User is still interacting, don't do anything - completely pause drone logic
           return;
         }
 
         const timeSinceInterrupt = now - droneState.userInterruptTime;
-        if (timeSinceInterrupt > 500) { // After 0.5 second of no interaction, resume from current position
+        if (timeSinceInterrupt > 50) { // After 0.05 second of no interaction, resume quickly
           // Calculate current offsets from where user left the camera
           const currentPos = camera.position;
           const currentTarget = target;
@@ -562,53 +562,45 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
           droneState.offsetZ = currentOffset.z;
           droneState.distance = currentDistance;
 
-          // Reset targets to generate new random movement from this position
-          droneState.targetOffsetX = droneState.offsetX + (Math.random() - 0.5) * 10; // Small variation from current
-          droneState.targetOffsetY = droneState.offsetY + (Math.random() - 0.5) * 8;
-          droneState.targetOffsetZ = droneState.offsetZ + (Math.random() - 0.5) * 12;
-          droneState.targetDistance = Math.max(8, Math.min(20, currentDistance + (Math.random() - 0.5) * 6));
+          // Set targets to exactly where we are now (no immediate movement)
+          droneState.targetOffsetX = droneState.offsetX;
+          droneState.targetOffsetY = droneState.offsetY;
+          droneState.targetOffsetZ = droneState.offsetZ;
+          droneState.targetDistance = currentDistance;
 
           droneState.userInterrupted = false;
-          droneState.homingPhase = true; // Restart homing phase from new position
-          droneState.homingStartTime = now;
-          droneState.lastUpdateTime = now; // Reset timer to prevent immediate target change
+          droneState.homingPhase = false; // No homing needed - start from current position
+          droneState.lastUpdateTime = now - droneState.changeInterval; // Allow immediate new target generation
 
           if (debugMode) {
-            logger.debug('Resumed drone mode from user position', {
+            logger.debug('User interaction ended - resuming drone from exact current position', {
               currentPos: `(${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)})`,
               newOffsets: `X:${droneState.offsetX.toFixed(2)}, Y:${droneState.offsetY.toFixed(2)}, Z:${droneState.offsetZ.toFixed(2)}`,
               newDistance: droneState.distance.toFixed(2)
             });
           }
+        } else {
+          // Still waiting for user to finish - don't do any drone movement
+          return;
         }
       }
 
-      // Handle homing phase - smoothly approach target area before starting random movement
+      // Handle homing phase - quickly settle into drone movement from user position
       if (droneState.homingPhase) {
-        const homingDuration = 2000; // 2 seconds to home in
+        const homingDuration = 200; // 0.2 seconds to home in (much faster)
         const homingProgress = Math.min(1, (now - droneState.homingStartTime) / homingDuration);
 
         if (homingProgress >= 1) {
           // Homing complete, start random movement
           droneState.homingPhase = false;
           droneState.lastUpdateTime = now;
-        } else {
-          // During homing, gradually move towards a good position around the target
-          const idealDistance = 15; // Good viewing distance
-          const idealOffsetX = 10; // Slightly to the right
-          const idealOffsetY = 8;  // Slightly above
-          const idealOffsetZ = 12; // In front of the target
-
-          // Smoothly interpolate towards ideal position
-          droneState.targetOffsetX = idealOffsetX;
-          droneState.targetOffsetY = idealOffsetY;
-          droneState.targetOffsetZ = idealOffsetZ;
-          droneState.targetDistance = idealDistance;
         }
+        // No need to override targets during homing - let it settle naturally from user position
       }
 
-      // Update drone targets periodically (only if not interrupted by user and not homing)
-      if (!droneState.userInterrupted && !droneState.homingPhase &&
+      // Update drone targets periodically (only if not interrupted by user)
+      // Allow target updates during homing for immediate movement
+      if (!droneState.userInterrupted &&
           now - droneState.lastUpdateTime > droneState.changeInterval) {
 
         // Generate new random targets for free-flying bee-like movement around the target
@@ -669,8 +661,8 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         }
       }
 
-      // Smoothly interpolate to targets (slow drift)
-      const lerpFactor = 0.008; // Slightly faster interpolation for more noticeable movement
+      // Smoothly interpolate to targets with faster movement for immediate visibility
+      const lerpFactor = droneState.homingPhase ? 0.05 : 0.02; // Faster during homing, then moderate speed
       droneState.offsetX += (droneState.targetOffsetX - droneState.offsetX) * lerpFactor;
       droneState.offsetY += (droneState.targetOffsetY - droneState.offsetY) * lerpFactor;
       droneState.offsetZ += (droneState.targetOffsetZ - droneState.offsetZ) * lerpFactor;
@@ -700,10 +692,13 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       );
 
       // Apply drone position directly to camera and controls without triggering state updates
-      camera.position.copy(dronePosition);
-      if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.copy(droneTarget);
-        orbitControlsRef.current.update();
+      // BUT ONLY if user is not currently interacting
+      if (!userInteractingRef.current) {
+        camera.position.copy(dronePosition);
+        if (orbitControlsRef.current) {
+          orbitControlsRef.current.target.copy(droneTarget);
+          orbitControlsRef.current.update();
+        }
       }
 
       // DO NOT update camera state in drone mode to prevent infinite loops
@@ -722,40 +717,20 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
       return; // Skip normal camera monitoring when in drone mode
     } else {
-      // When exiting drone mode, smoothly transition camera back to a reasonable position
+      // When exiting drone mode, keep camera exactly where it is (no position change)
       if (droneStateRef.current.initialized) {
-        // Calculate a good viewing position relative to the current target
-        const currentTarget = target;
-        const idealPosition = new Vector3(
-          currentTarget.x + 15, // Slightly to the right
-          currentTarget.y + 10, // Slightly above
-          currentTarget.z + 20  // In front of the target
-        );
-
-        // Immediately position camera at ideal position (no smooth transition for abrupt stop)
-        camera.position.copy(idealPosition);
-        if (orbitControlsRef.current) {
-          orbitControlsRef.current.target.copy(currentTarget);
-          orbitControlsRef.current.update();
-        }
-
-        // Update camera state to reflect the new position
-        const newState: CameraState = {
-          position: idealPosition.clone(),
-          target: currentTarget.clone(),
-          zoom: getZoomFactor(idealPosition, currentTarget)
-        };
-        updateCameraState(newState, 'mode');
-
-        // Immediately finish transition (abrupt stop)
+        // Mark drone mode as finished - DO NOT update camera state to prevent jumping
         droneStateRef.current.initialized = false;
-        droneStateRef.current.homingPhase = true;
+        droneStateRef.current.homingPhase = false;
+        droneStateRef.current.userInterrupted = false;
 
         if (debugMode) {
-          logger.debug('Drone mode exit completed immediately (abrupt stop)', {
-            finalPosition: `(${idealPosition.x.toFixed(1)}, ${idealPosition.y.toFixed(1)}, ${idealPosition.z.toFixed(1)})`,
+          const currentPosition = camera.position;
+          const currentTarget = target;
+          logger.debug('Drone mode exit - camera stays at current position (no state update)', {
+            position: `(${currentPosition.x.toFixed(1)}, ${currentPosition.y.toFixed(1)}, ${currentPosition.z.toFixed(1)})`,
             target: `(${currentTarget.x.toFixed(1)}, ${currentTarget.y.toFixed(1)}, ${currentTarget.z.toFixed(1)})`,
-            distance: idealPosition.distanceTo(currentTarget).toFixed(1)
+            distance: currentPosition.distanceTo(currentTarget).toFixed(1)
           });
         }
 
@@ -855,9 +830,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       ref={orbitControlsRef}
       makeDefault
       target={cameraState.target}
-      enablePan={!debugMode && !disableControls}
+      enablePan={(!debugMode || droneMode) && !disableControls}
       enableZoom={!disableControls}
-      enableRotate={!debugMode && !disableControls}
+      enableRotate={(!debugMode || droneMode) && !disableControls}
       minDistance={5}
       maxDistance={300}
       minPolarAngle={0}
