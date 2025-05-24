@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback, memo } from 'react';
+import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 import { Text } from '@react-three/drei';
 import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -65,8 +65,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   useFrame(() => {
     const now = performance.now();
 
-    // Only check camera movement every 50ms (~20fps) to reduce performance impact
-    if (now - lastCameraCheckRef.current < 50) {
+    // Only check camera movement every 100ms (~10fps) to reduce performance impact
+    if (now - lastCameraCheckRef.current < 100) {
       return;
     }
     lastCameraCheckRef.current = now;
@@ -314,8 +314,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     const now = performance.now();
 
-    // Only update animation every 33ms (~30fps) to reduce performance impact
-    if (now - lastAnimationUpdateRef.current < 33) {
+    // Only update animation every 50ms (~20fps) to reduce performance impact
+    if (now - lastAnimationUpdateRef.current < 50) {
       return;
     }
     lastAnimationUpdateRef.current = now;
@@ -439,6 +439,36 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Get card colors and dimensions from configuration
   const cardColors = event.type === 'git' ? threeColors.cards.git : threeColors.cards.spec;
   const cardOpacities = event.type === 'git' ? threeOpacities.cards.git : threeOpacities.cards.spec;
+
+  // Memoize text content to prevent font reprocessing during animations
+  const textContent = useMemo(() => {
+    const headerText = event.type === 'git' ? 'GIT COMMIT' : 'SPEC CHANGE';
+    const mainText = event.title.length > 80 ? event.title.substring(0, 80) + '...' : event.title;
+    const typeText = event.type === 'git' ? 'Commit' : 'Spec';
+    const dateText = event.timestamp.toLocaleDateString();
+
+    let statsLine1 = '';
+    let statsLine2 = '';
+
+    if (event.type === 'git') {
+      const gitEvent = event as GitTimelineEvent;
+      statsLine1 = `Files: +${gitEvent.stats?.filesAdded ?? gitEvent.stats?.filesCreated ?? 0} ~${gitEvent.stats?.filesModified ?? 0} -${gitEvent.stats?.filesDeleted ?? 0}`;
+      statsLine2 = `Lines: +${gitEvent.stats?.linesAdded ?? 0} -${gitEvent.stats?.linesDeleted ?? 0}`;
+    } else {
+      const specEvent = event as SpecTimelineEvent;
+      statsLine1 = `Prompts: ${specEvent.stats?.promptCount ?? 0} | Tools: ${specEvent.stats?.toolInvocations ?? 0}`;
+      statsLine2 = `Files: ${specEvent.stats?.filesCreated ?? 0} | Lines: +${specEvent.stats?.linesAdded ?? 0}`;
+    }
+
+    return {
+      headerText,
+      mainText,
+      typeText,
+      dateText,
+      statsLine1,
+      statsLine2
+    };
+  }, [event.type, event.title, event.timestamp, event]);
   const cardWidth = dimensions.card.width;
   const cardHeight = dimensions.card.height;
 
@@ -506,7 +536,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           anchorY="middle"
           fontWeight="bold"
         >
-          {event.type === 'git' ? 'GIT COMMIT' : 'SPEC CHANGE'}
+          {textContent.headerText}
         </Text>
 
         {/* Main content - left-justified with proper padding */}
@@ -521,8 +551,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           anchorY="top"
           overflowWrap="break-word"
         >
-          {/* Truncate text with ellipsis if too long */}
-          {event.title.length > 80 ? event.title.substring(0, 80) + '...' : event.title}
+          {textContent.mainText}
         </Text>
 
         {/* Bottom bar with type and date */}
@@ -548,54 +577,29 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           anchorY="middle"
           fontWeight="bold"
         >
-          {event.type === 'git' ? 'Commit' : 'Spec'}
+          {textContent.typeText}
         </Text>
 
         {/* Stats - bottom center - split into two lines for better readability */}
         <group position={[0, -0.95, 0.01]}>
-          {event.type === 'git' ? (
-            <>
-              <Text
-                position={[0, 0.15, 0]}
-                fontSize={0.11}
-                color="#e0e0e0"
-                anchorX="center"
-                anchorY="middle"
-              >
-                {`Files: +${(event as GitTimelineEvent).stats?.filesAdded ?? (event as GitTimelineEvent).stats?.filesCreated ?? 0} ~${(event as GitTimelineEvent).stats?.filesModified ?? 0} -${(event as GitTimelineEvent).stats?.filesDeleted ?? 0}`}
-              </Text>
-              <Text
-                position={[0, -0.1, 0]}
-                fontSize={0.11}
-                color="#e0e0e0"
-                anchorX="center"
-                anchorY="middle"
-              >
-                {`Lines: +${(event as GitTimelineEvent).stats?.linesAdded ?? 0} -${(event as GitTimelineEvent).stats?.linesDeleted ?? 0}`}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text
-                position={[0, 0.15, 0]}
-                fontSize={0.11}
-                color="#e0e0e0"
-                anchorX="center"
-                anchorY="middle"
-              >
-                {`Prompts: ${(event as SpecTimelineEvent).stats?.promptCount ?? 0} | Tools: ${(event as SpecTimelineEvent).stats?.toolInvocations ?? 0}`}
-              </Text>
-              <Text
-                position={[0, -0.1, 0]}
-                fontSize={0.11}
-                color="#e0e0e0"
-                anchorX="center"
-                anchorY="middle"
-              >
-                {`Files: ${(event as SpecTimelineEvent).stats?.filesCreated ?? 0} | Lines: +${(event as SpecTimelineEvent).stats?.linesAdded ?? 0}`}
-              </Text>
-            </>
-          )}
+          <Text
+            position={[0, 0.15, 0]}
+            fontSize={0.11}
+            color="#e0e0e0"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {textContent.statsLine1}
+          </Text>
+          <Text
+            position={[0, -0.1, 0]}
+            fontSize={0.11}
+            color="#e0e0e0"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {textContent.statsLine2}
+          </Text>
         </group>
 
         {/* Date - bottom right */}
@@ -610,7 +614,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           anchorX="right"
           anchorY="middle"
         >
-          {event.timestamp.toLocaleDateString()}
+          {textContent.dateText}
         </Text>
       </group>
 
@@ -631,17 +635,20 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
 // Export memoized version to prevent unnecessary re-renders and reduce font processing
 export const TimelineCard = memo(TimelineCardComponent, (prevProps, nextProps) => {
-  // Only re-render if meaningful props changed
+  // Be extremely aggressive about preventing re-renders to stop font processing errors
+  // Only re-render if critical visual props changed
   return (
     prevProps.event.id === nextProps.event.id &&
     prevProps.selected === nextProps.selected &&
     prevProps.isHovered === nextProps.isHovered &&
     prevProps.wiggle === nextProps.wiggle &&
     prevProps.isMarkerDragging === nextProps.isMarkerDragging &&
-    prevProps.position?.[0] === nextProps.position?.[0] &&
-    prevProps.position?.[1] === nextProps.position?.[1] &&
-    prevProps.position?.[2] === nextProps.position?.[2] &&
-    JSON.stringify(prevProps.animationProps) === JSON.stringify(nextProps.animationProps)
+    // Only re-render for significant position changes (>0.1 units)
+    Math.abs((prevProps.position?.[0] || 0) - (nextProps.position?.[0] || 0)) < 0.1 &&
+    Math.abs((prevProps.position?.[1] || 0) - (nextProps.position?.[1] || 0)) < 0.1 &&
+    Math.abs((prevProps.position?.[2] || 0) - (nextProps.position?.[2] || 0)) < 0.1 &&
+    // Only re-render for significant scale changes (>0.1)
+    Math.abs((prevProps.animationProps?.scale || 1) - (nextProps.animationProps?.scale || 1)) < 0.1
   );
 });
 

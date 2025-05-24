@@ -326,9 +326,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
           {/* Animation Controls and Camera/Debug (right) */}
           {showControls && (
             <Col xs={12} md={6} className="text-md-end text-center mt-2 mt-md-0">
-              <div className="d-flex align-items-center justify-content-md-end justify-content-center gap-3">
+              <div className="d-flex flex-wrap align-items-center justify-content-md-end justify-content-center gap-2">
                 {/* Camera control buttons */}
-                <div className="d-flex align-items-center gap-2">
+                <div className="d-flex align-items-center gap-1">
                   <button
                     className="btn btn-sm"
                     style={{
@@ -336,7 +336,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       border: '1px solid var(--color-primary-400)',
                       color: 'var(--color-primary-700)',
                       borderRadius: '6px',
-                      padding: '0.375rem 0.75rem',
+                      padding: '0.25rem 0.5rem',
                       transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={(e) => {
@@ -359,7 +359,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       border: '1px solid var(--color-primary-400)',
                       color: 'var(--color-primary-700)',
                       borderRadius: '6px',
-                      padding: '0.375rem 0.75rem',
+                      padding: '0.25rem 0.5rem',
                       transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={(e) => {
@@ -383,7 +383,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       border: '1px solid var(--color-primary-400)',
                       color: 'var(--color-primary-700)',
                       borderRadius: '6px',
-                      padding: '0.375rem 0.75rem',
+                      padding: '0.25rem 0.5rem',
                       transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={(e) => {
@@ -403,13 +403,13 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 </div>
 
                 {/* Speed control */}
-                <div className="d-flex align-items-center gap-2" style={{ minWidth: '180px' }}>
+                <div className="d-flex align-items-center gap-1" style={{ minWidth: '140px' }}>
                   <label
                     htmlFor="speed-control"
-                    className="form-label mb-0 text-nowrap"
+                    className="form-label mb-0 text-nowrap d-none d-md-inline"
                     style={{
                       color: 'var(--color-text-secondary-light)',
-                      fontSize: '0.875rem',
+                      fontSize: '0.75rem',
                       fontWeight: '500'
                     }}
                   >
@@ -423,7 +423,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     value={animationSpeed}
                     onChange={handleSpeedChange}
                     style={{
-                      width: '100px',
+                      width: '80px',
                       accentColor: 'var(--color-accent-500)'
                     }}
                   />
@@ -431,7 +431,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     className="text-nowrap"
                     style={{
                       color: 'var(--color-text-primary-light)',
-                      fontSize: '0.875rem',
+                      fontSize: '0.75rem',
                       fontWeight: '500'
                     }}
                   >
@@ -447,7 +447,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     border: '1px solid var(--color-accent-600)',
                     color: autoDrift ? 'white' : 'var(--color-accent-600)',
                     borderRadius: '6px',
-                    padding: '0.375rem 0.75rem',
+                    padding: '0.25rem 0.5rem',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
@@ -474,7 +474,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     border: '1px solid var(--color-primary-600)',
                     color: droneMode ? 'white' : 'var(--color-primary-600)',
                     borderRadius: '6px',
-                    padding: '0.375rem 0.75rem',
+                    padding: '0.25rem 0.5rem',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
@@ -501,7 +501,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     border: '1px solid var(--color-error)',
                     color: debugMode ? 'white' : 'var(--color-error)',
                     borderRadius: '6px',
-                    padding: '0.375rem 0.75rem',
+                    padding: '0.25rem 0.5rem',
                     transition: 'all 0.2s ease',
                     position: 'relative',
                     overflow: 'visible'
@@ -537,7 +537,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 </button>
 
                 {/* Camera indicator - far right */}
-                <div style={{ position: 'relative', marginLeft: '12px' }}>
+                <div style={{ position: 'relative', marginLeft: '8px' }}>
                   <button
                     id="camera-details-button"
                     className="btn btn-sm"
@@ -546,9 +546,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       border: '1px solid var(--color-accent-600)',
                       color: 'var(--color-accent-600)',
                       borderRadius: '6px',
-                      padding: '0.375rem 0.75rem',
+                      padding: '0.375rem 0.5rem',
                       transition: 'all 0.2s ease',
-                      minWidth: '40px'
+                      minWidth: '36px'
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = 'var(--color-accent-50)';
@@ -561,8 +561,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   >
                     <i className="bi bi-camera"></i>
                     {cameraState && (
-                      <span style={{ marginLeft: 6, fontSize: '0.95em' }}>
-                        {cameraState.zoom.toFixed(2)}x
+                      <span className="d-none d-lg-inline" style={{ marginLeft: 4, fontSize: '0.85em' }}>
+                        {cameraState.zoom.toFixed(1)}x
                       </span>
                     )}
                   </button>
@@ -578,8 +578,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
                         border: '1px solid var(--color-border-light)',
                         borderRadius: '8px',
                         boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-                        padding: '16px',
-                        minWidth: '320px',
+                        padding: '12px',
+                        minWidth: '280px',
+                        maxWidth: '90vw',
                         zIndex: 99999,
                       }}
                     >

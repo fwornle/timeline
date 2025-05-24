@@ -58,56 +58,78 @@ export function BottomBar({
   // Always show the bottom bar, even if no controls or errors
   return (
     <footer className={`bg-gray-800 text-gray-300 border-t border-gray-700 shadow-md h-12 w-full ${className}`}>
-      <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-2">
+      <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8 h-full flex items-center gap-2 overflow-hidden">
         {showControls ? (
-          <div className="flex items-center gap-4 min-w-[200px]">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1 px-2 py-1 rounded">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
+          <>
+            {/* Left side - Status indicators */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1 px-1 py-1 rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
                 <span className="text-xs text-gray-300 whitespace-nowrap">
-                  Position: {currentPosition.toFixed(2)}
+                  {currentPosition.toFixed(1)}
                 </span>
               </div>
 
-              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isGitHistoryMocked ? 'border-4 border-orange-500 shadow-[0_0_8px_2px_rgba(255,140,0,0.5)]' : ''}`}
-                   style={{ borderWidth: isGitHistoryMocked ? '4px' : '0', boxShadow: isGitHistoryMocked ? '0 0 8px 2px rgba(255,140,0,0.5)' : undefined }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+              <div className={`flex items-center gap-1 px-1 py-1 rounded ${isGitHistoryMocked ? 'border-2 border-orange-500' : ''}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" />
                 </svg>
                 <span className="text-xs text-gray-300 whitespace-nowrap">
-                  Commits: {gitCount}
+                  {gitCount}
                 </span>
+                {isGitHistoryMocked && (
+                  <span className="text-xs text-orange-400 font-semibold">M</span>
+                )}
               </div>
 
-              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isSpecHistoryMocked ? 'border-4 border-orange-500 shadow-[0_0_8px_2px_rgba(255,140,0,0.5)]' : ''}`}
-                   style={{ borderWidth: isSpecHistoryMocked ? '4px' : '0', boxShadow: isSpecHistoryMocked ? '0 0 8px 2px rgba(255,140,0,0.5)' : undefined }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
+              <div className={`flex items-center gap-1 px-1 py-1 rounded ${isSpecHistoryMocked ? 'border-2 border-orange-500' : ''}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
                 <span className="text-xs text-gray-300 whitespace-nowrap">
-                  Prompts: {specCount}
+                  {specCount}
                 </span>
+                {isSpecHistoryMocked && (
+                  <span className="text-xs text-orange-400 font-semibold">M</span>
+                )}
               </div>
+
+              {/* Loading indicators */}
+              {sourceStates && (
+                <>
+                  {sourceStates.git.isLoading && (
+                    <div className="flex items-center gap-1 px-1 py-1 rounded bg-gray-700">
+                      <div className="w-2 h-2 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-indigo-300">Git</span>
+                    </div>
+                  )}
+                  {sourceStates.spec.isLoading && (
+                    <div className="flex items-center gap-1 px-1 py-1 rounded bg-gray-700">
+                      <div className="w-2 h-2 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-indigo-300">Spec</span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
-            {/* Animation Controls */}
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="flex items-center gap-2">
-                <label htmlFor="speed-slider" className="text-xs text-gray-400">Speed:</label>
+            {/* Right side - Animation Controls */}
+            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-400">Speed:</span>
                 <input
-                  id="speed-slider"
                   type="range"
                   min="0.1"
                   max="5"
                   step="0.1"
                   value={animationSpeed}
                   onChange={(e) => onAnimationSpeedChange(parseFloat(e.target.value))}
-                  className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-16 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
-                <span className="text-xs text-gray-300">{animationSpeed.toFixed(1)}x</span>
+                <span className="text-xs text-gray-300 w-8">{animationSpeed.toFixed(1)}x</span>
               </div>
 
               <button
@@ -116,31 +138,14 @@ export function BottomBar({
                   autoDrift ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300'
                 }`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1" />
                   <polygon points="12 15 17 21 7 21 12 15" />
                 </svg>
                 Auto
               </button>
             </div>
-
-            {sourceStates && (
-              <div className="flex items-center gap-2">
-                {sourceStates.git.isLoading && (
-                  <div className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700">
-                    <div className="w-2 h-2 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-indigo-300">Git</span>
-                  </div>
-                )}
-                {sourceStates.spec.isLoading && (
-                  <div className="flex items-center gap-1 px-2 py-1 rounded bg-gray-700">
-                    <div className="w-2 h-2 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-indigo-300">Spec</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          </>
         ) : (
           <div className="text-xs text-gray-400">
             Enter a repository URL to begin
