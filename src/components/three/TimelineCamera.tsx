@@ -722,10 +722,44 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
       return; // Skip normal camera monitoring when in drone mode
     } else {
-      // Reset drone state when not in drone mode so it can be re-initialized
+      // When exiting drone mode, smoothly transition camera back to a reasonable position
       if (droneStateRef.current.initialized) {
+        // Calculate a good viewing position relative to the current target
+        const currentTarget = target;
+        const idealPosition = new Vector3(
+          currentTarget.x + 15, // Slightly to the right
+          currentTarget.y + 10, // Slightly above
+          currentTarget.z + 20  // In front of the target
+        );
+
+        // Immediately position camera at ideal position (no smooth transition for abrupt stop)
+        camera.position.copy(idealPosition);
+        if (orbitControlsRef.current) {
+          orbitControlsRef.current.target.copy(currentTarget);
+          orbitControlsRef.current.update();
+        }
+
+        // Update camera state to reflect the new position
+        const newState: CameraState = {
+          position: idealPosition.clone(),
+          target: currentTarget.clone(),
+          zoom: getZoomFactor(idealPosition, currentTarget)
+        };
+        updateCameraState(newState, 'mode');
+
+        // Immediately finish transition (abrupt stop)
         droneStateRef.current.initialized = false;
         droneStateRef.current.homingPhase = true;
+
+        if (debugMode) {
+          logger.debug('Drone mode exit completed immediately (abrupt stop)', {
+            finalPosition: `(${idealPosition.x.toFixed(1)}, ${idealPosition.y.toFixed(1)}, ${idealPosition.z.toFixed(1)})`,
+            target: `(${currentTarget.x.toFixed(1)}, ${currentTarget.y.toFixed(1)}, ${currentTarget.z.toFixed(1)})`,
+            distance: idealPosition.distanceTo(currentTarget).toFixed(1)
+          });
+        }
+
+        return; // Skip normal monitoring during drone exit
       }
     }
 

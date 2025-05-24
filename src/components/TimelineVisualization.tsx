@@ -180,6 +180,9 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   const viewAllMode = externalViewAllMode;
   const focusCurrentMode = externalFocusCurrentMode;
 
+  // Track current marker position to preserve it when entering drift mode
+  const currentMarkerPositionRef = useRef<number>(initialMarkerPosition);
+
   // Animation state
   const {
     isAutoScrolling,
@@ -193,10 +196,11 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     toggleAutoScroll,
     setScrollSpeed,
     setCameraTargetZ,
+    setCameraTarget,
   } = useTimelineAnimation({
     enableAutoScroll: autoDrift,
     initialScrollSpeed: animationSpeed,
-    initialMarkerPosition: initialMarkerPosition,
+    initialMarkerPosition: currentMarkerPositionRef.current,
   });
 
   // Determine which view to show based on state - with stable error handling
@@ -246,12 +250,34 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     setScrollSpeed(animationSpeed);
   }, [animationSpeed, setScrollSpeed]);
 
-  // Update auto-drift when prop changes
+  // Update auto-drift when prop changes - preserve marker position
   useEffect(() => {
     if (autoDrift !== isAutoScrolling) {
+      // If we're entering drift mode, use the exact position from the parent (MainLayout)
+      // This ensures single source of truth and prevents position jumping
+      if (autoDrift && !isAutoScrolling) {
+        // Use the initialMarkerPosition (from MainLayout) as the authoritative position
+        const authoritativePosition = initialMarkerPosition;
+        currentMarkerPositionRef.current = authoritativePosition;
+
+        // Set the camera target to the authoritative position to prevent jumping
+        setCameraTarget(new Vector3(cameraTarget.x, cameraTarget.y, authoritativePosition));
+
+        if (debugMode) {
+          logger.debug('Entering drift mode with authoritative position', {
+            authoritativePosition,
+            previousCameraTargetZ: cameraTarget.z,
+            difference: Math.abs(authoritativePosition - cameraTarget.z)
+          });
+        }
+      } else {
+        // When exiting drift mode, preserve the current animation position
+        currentMarkerPositionRef.current = cameraTarget.z;
+      }
+
       toggleAutoScroll();
     }
-  }, [autoDrift, isAutoScrolling, toggleAutoScroll]);
+  }, [autoDrift, isAutoScrolling, toggleAutoScroll, cameraTarget, setCameraTarget, initialMarkerPosition, debugMode, logger]);
 
   // Listen for reset events
   useEffect(() => {
@@ -288,7 +314,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   // Throttle position updates to prevent excessive re-renders
   const lastPositionUpdateRef = useRef<number>(0);
   const lastReportedPositionRef = useRef<number>(0);
-  const positionUpdateThrottleMs = 50; // Reduced from 16ms to 50ms (~20fps) for better performance
+  const positionUpdateThrottleMs = 16; // 60fps for smooth updates
 
   // Update position for parent component
   // During auto-scrolling, update more frequently for smooth animation
@@ -446,6 +472,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           onMarkerPositionChange={(position) => {
             // Update camera target Z position when marker is moved
             setCameraTargetZ(position);
+            // Track the current marker position for drift mode preservation
+            currentMarkerPositionRef.current = position;
             // Also notify parent component immediately (not throttled)
             if (onPositionUpdate) {
               onPositionUpdate(position);

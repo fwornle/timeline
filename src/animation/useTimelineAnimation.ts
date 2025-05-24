@@ -121,7 +121,17 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Toggle auto-scrolling
   const toggleAutoScroll = useCallback(() => {
-    setState(prev => ({ ...prev, isAutoScrolling: !prev.isAutoScrolling }));
+    setState(prev => {
+      const newIsAutoScrolling = !prev.isAutoScrolling;
+
+      // If stopping auto-scroll, immediately cancel any pending animation frame
+      if (!newIsAutoScrolling && animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
+      }
+
+      return { ...prev, isAutoScrolling: newIsAutoScrolling };
+    });
   }, []);
 
   // Update scroll speed
@@ -131,6 +141,12 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Update camera target position (for marker dragging)
   const setCameraTarget = useCallback((position: THREE.Vector3) => {
+    // Immediately cancel any pending animation frame when manually positioning
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+
     setState(prev => ({
       ...prev,
       cameraTarget: position.clone(),
@@ -140,6 +156,12 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
   // Update camera target Z position only (for marker dragging)
   const setCameraTargetZ = useCallback((z: number) => {
+    // Immediately cancel any pending animation frame when manually positioning
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+
     setState(prev => ({
       ...prev,
       cameraTarget: new THREE.Vector3(prev.cameraTarget.x, prev.cameraTarget.y, z),
@@ -167,8 +189,8 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
       // Update state directly for smooth movement
       if (scrollDelta > 0) {
-        // Only update React state periodically to avoid infinite loops
-        const stateUpdateInterval = 100; // Update React state every 100ms
+        // Update React state more frequently for smoother animation
+        const stateUpdateInterval = 16; // Update React state every 16ms (~60fps)
 
         if (time - lastStateUpdateRef.current >= stateUpdateInterval) {
           // Use functional update to avoid stale closure issues
