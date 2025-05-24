@@ -36,6 +36,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
     }
   }, [position, isDragging]);
 
+
+
   // Global pointer move handler for when dragging
   const handleGlobalPointerMove = (e: PointerEvent) => {
     if (!isDragging) return;

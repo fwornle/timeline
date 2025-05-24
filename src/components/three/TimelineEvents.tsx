@@ -43,7 +43,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       setHoveredCardId(cardId);
       onHover(cardId);
     }
-  }, [hoveredCardId, onHover]);
+  }, [onHover]); // Remove hoveredCardId from dependencies to prevent loops
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -145,39 +145,45 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   useEffect(() => {
     // Throttle wiggle checks to prevent excessive updates during animation
-    const threshold = 0.1; // Only check if position changed significantly
+    const threshold = 0.5; // Increase threshold to reduce frequency
     const prevNow = prevNowRef.current;
 
     if (Math.abs(currentPosition - prevNow) < threshold) {
       return;
     }
 
-    // For each event, check if the now plane crossed its Z position
-    events.forEach((event) => {
-      const position = getEventPosition(event);
-      const cardZ = position[2];
+    // Use requestAnimationFrame to defer the wiggle check and prevent blocking
+    const checkWiggle = () => {
+      // For each event, check if the now plane crossed its Z position
+      events.forEach((event) => {
+        const position = getEventPosition(event);
+        const cardZ = position[2];
 
-      // If the now plane crossed the card (from either direction)
-      if ((prevNow < cardZ && currentPosition >= cardZ) || (prevNow > cardZ && currentPosition <= cardZ)) {
-        // Clear any existing timeout for this card
-        const existingTimeout = wiggleTimeoutsRef.current.get(event.id);
-        if (existingTimeout) {
-          clearTimeout(existingTimeout);
+        // If the now plane crossed the card (from either direction)
+        if ((prevNow < cardZ && currentPosition >= cardZ) || (prevNow > cardZ && currentPosition <= cardZ)) {
+          // Clear any existing timeout for this card
+          const existingTimeout = wiggleTimeoutsRef.current.get(event.id);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+
+          // Start wiggle animation
+          setWiggleMap((prev) => ({ ...prev, [event.id]: true }));
+
+          // Set timeout to stop wiggle
+          const timeout = setTimeout(() => {
+            setWiggleMap((prev) => ({ ...prev, [event.id]: false }));
+            wiggleTimeoutsRef.current.delete(event.id);
+          }, 200); // Shorter duration to prevent interference with animation
+
+          wiggleTimeoutsRef.current.set(event.id, timeout);
         }
+      });
+      prevNowRef.current = currentPosition;
+    };
 
-        // Start wiggle animation
-        setWiggleMap((prev) => ({ ...prev, [event.id]: true }));
-
-        // Set timeout to stop wiggle
-        const timeout = setTimeout(() => {
-          setWiggleMap((prev) => ({ ...prev, [event.id]: false }));
-          wiggleTimeoutsRef.current.delete(event.id);
-        }, 200); // Shorter duration to prevent interference with animation
-
-        wiggleTimeoutsRef.current.set(event.id, timeout);
-      }
-    });
-    prevNowRef.current = currentPosition;
+    // Defer the wiggle check to the next frame to prevent blocking
+    requestAnimationFrame(checkWiggle);
   }, [currentPosition, events, getEventPosition]);
 
   // Cleanup timeouts on unmount

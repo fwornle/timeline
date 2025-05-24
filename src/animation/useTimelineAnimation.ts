@@ -196,8 +196,8 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
 
       // Update state directly for smooth movement
       if (scrollDelta > 0) {
-        // Update React state more frequently for smoother animation
-        const stateUpdateInterval = 16; // Update React state every 16ms (~60fps)
+        // Reduce state update frequency to prevent excessive re-renders
+        const stateUpdateInterval = 50; // Update React state every 50ms (~20fps) instead of 60fps
 
         if (time - lastStateUpdateRef.current >= stateUpdateInterval) {
           // Use functional update to avoid stale closure issues
@@ -251,7 +251,7 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
         animationFrameRef.current = undefined;
       }
     };
-  }, [state.isAutoScrolling, animate]);
+  }, [state.isAutoScrolling]); // Removed 'animate' dependency to prevent infinite loop
 
   return {
     isAutoScrolling: state.isAutoScrolling,

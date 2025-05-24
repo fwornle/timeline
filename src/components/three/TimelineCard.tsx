@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, memo } from 'react';
 import { Text } from '@react-three/drei';
 import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -39,7 +39,7 @@ const cameraState = {
   cameraCooldownTime: 200,
 };
 
-export const TimelineCard: React.FC<TimelineCardProps> = ({
+const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   event,
   selected = false,
   onSelect,
@@ -65,8 +65,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   useFrame(() => {
     const now = performance.now();
 
-    // Only check camera movement every 16ms (~60fps) to reduce performance impact
-    if (now - lastCameraCheckRef.current < 16) {
+    // Only check camera movement every 50ms (~20fps) to reduce performance impact
+    if (now - lastCameraCheckRef.current < 50) {
       return;
     }
     lastCameraCheckRef.current = now;
@@ -314,8 +314,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
     const now = performance.now();
 
-    // Only update animation every 16ms (~60fps) to reduce performance impact
-    if (now - lastAnimationUpdateRef.current < 16) {
+    // Only update animation every 33ms (~30fps) to reduce performance impact
+    if (now - lastAnimationUpdateRef.current < 33) {
       return;
     }
     lastAnimationUpdateRef.current = now;
@@ -629,4 +629,19 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   );
 };
 
+// Export memoized version to prevent unnecessary re-renders and reduce font processing
+export const TimelineCard = memo(TimelineCardComponent, (prevProps, nextProps) => {
+  // Only re-render if meaningful props changed
+  return (
+    prevProps.event.id === nextProps.event.id &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.isHovered === nextProps.isHovered &&
+    prevProps.wiggle === nextProps.wiggle &&
+    prevProps.isMarkerDragging === nextProps.isMarkerDragging &&
+    prevProps.position?.[0] === nextProps.position?.[0] &&
+    prevProps.position?.[1] === nextProps.position?.[1] &&
+    prevProps.position?.[2] === nextProps.position?.[2] &&
+    JSON.stringify(prevProps.animationProps) === JSON.stringify(nextProps.animationProps)
+  );
+});
 
