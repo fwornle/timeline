@@ -607,8 +607,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
 
     // Check for delayed hover clearing when mouse becomes stable
-    // But only if no animation is in progress that must complete
-    if (pendingHoverClearRef.current && isMouseStable() && isHovered && !animationCompletionRef.current.mustComplete) {
+    if (pendingHoverClearRef.current && isMouseStable() && isHovered) {
       pendingHoverClearRef.current = false;
       if (onHover) {
         onHover(null);
@@ -619,8 +618,20 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Event handlers
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+
+    // Clicking on a card should both select it AND open it (hover)
+    // This ensures cards can be opened even if hover detection is having issues
+
+    // First, select the card (yellow frame)
     if (onSelect) {
       onSelect(event.id);
+    }
+
+    // Then, open the card (hover state) - simplified conditions
+    if (!isMarkerDragging && !droneMode) {
+      if (onHover) {
+        onHover(event.id);
+      }
     }
   };
 
@@ -630,28 +641,14 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Update mouse position tracking
     updateMousePosition(e.nativeEvent.clientX, e.nativeEvent.clientY);
 
+    // Simplified hover logic - only block for essential conditions
     // If marker is being dragged, ignore hover events
     if (isMarkerDragging) {
       return;
     }
 
-    // If timeline is being hovered (marker mover ball/stick is visible), ignore card hover events
-    if (isTimelineHovering) {
-      return;
-    }
-
     // If drone mode is active, ignore hover events
     if (droneMode) {
-      return;
-    }
-
-    // If camera is moving, ignore hover events
-    if (cameraState.isCameraMoving) {
-      return;
-    }
-
-    // If an animation is in progress that must complete, don't interrupt it
-    if (animationCompletionRef.current.mustComplete) {
       return;
     }
 
@@ -670,13 +667,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Update mouse position tracking
     updateMousePosition(e.nativeEvent.clientX, e.nativeEvent.clientY);
 
-    // If an animation is in progress that must complete, don't interrupt it
-    if (animationCompletionRef.current.mustComplete) {
-      return;
-    }
-
+    // Simplified pointer out - use mouse stability check but don't block for animations
     // Only clear hover if mouse has been stable (not moving due to card animation)
-    // This prevents the card from closing when its own movement causes a pointer out event
     if (isMouseStable()) {
       // Simply notify parent to clear hover
       if (onHover) {
@@ -730,10 +722,10 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     <group
       ref={groupRef}
       position={[position[0], position[1], position[2]]}
+      rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
       onClick={handleClick}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
-      rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
     >
       {/* Card shadow */}
       <mesh position={[
@@ -881,6 +873,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           <meshBasicMaterial color={threeColors.warning} />
         </mesh>
       )}
+
+
     </group>
   );
 };
