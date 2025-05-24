@@ -449,6 +449,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   // Use a ref to track the last target to prevent circular updates
   const lastTargetRef = useRef<Vector3>(target.clone());
 
+  // Track if we just exited drone mode to prevent drift mode from interfering
+  const justExitedDroneModeRef = useRef(false);
+
   useEffect(() => {
     if (!initialized) return;
 
@@ -458,6 +461,13 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
     // Skip if in specific view modes or drone mode
     if (viewAllMode || focusCurrentMode || droneMode) return;
+
+    // Skip if we just exited drone mode to prevent camera jumping from drift mode
+    if (justExitedDroneModeRef.current) {
+      justExitedDroneModeRef.current = false;
+      lastTargetRef.current = target.clone(); // Update reference to current target
+      return;
+    }
 
     // Check if target actually changed to prevent unnecessary updates
     const targetChanged = target.distanceTo(lastTargetRef.current) > 0.01;
@@ -549,7 +559,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         }
 
         const timeSinceInterrupt = now - droneState.userInterruptTime;
-        if (timeSinceInterrupt > 50) { // After 0.05 second of no interaction, resume quickly
+        if (timeSinceInterrupt > 200) { // After 0.2 second of no interaction, resume
           // Calculate current offsets from where user left the camera
           const currentPos = camera.position;
           const currentTarget = target;
@@ -576,11 +586,18 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
             logger.debug('User interaction ended - resuming drone from exact current position', {
               currentPos: `(${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)})`,
               newOffsets: `X:${droneState.offsetX.toFixed(2)}, Y:${droneState.offsetY.toFixed(2)}, Z:${droneState.offsetZ.toFixed(2)}`,
-              newDistance: droneState.distance.toFixed(2)
+              newDistance: droneState.distance.toFixed(2),
+              timeSinceInterrupt: timeSinceInterrupt.toFixed(0)
             });
           }
         } else {
           // Still waiting for user to finish - don't do any drone movement
+          if (debugMode && Math.random() < 0.1) { // Occasional debug
+            logger.debug('Waiting for user interaction to end', {
+              timeSinceInterrupt: timeSinceInterrupt.toFixed(0),
+              userInteracting: userInteractingRef.current
+            });
+          }
           return;
         }
       }
@@ -723,6 +740,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         droneStateRef.current.initialized = false;
         droneStateRef.current.homingPhase = false;
         droneStateRef.current.userInterrupted = false;
+
+        // Set flag to prevent drift mode from interfering with camera position
+        justExitedDroneModeRef.current = true;
 
         if (debugMode) {
           const currentPosition = camera.position;
