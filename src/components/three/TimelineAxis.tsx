@@ -174,6 +174,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   const handleAxisClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
 
+    // Always allow marker movement when clicking on the timeline
+    // The yellow pin should be showing when hovering, but we also want to handle
+    // cases where the hover state might not be properly set
     if (onPositionChange) {
       // Get the clicked position along the Z axis (timeline runs along Z)
       const clickedPosition = e.point.z;
@@ -185,6 +188,15 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
       // Update position through callback
       onPositionChange(clampedPosition);
+
+      // Ensure hover state is set when clicking (in case it wasn't set properly)
+      if (!isHovering) {
+        setIsHovering(true);
+        setHoverPosition(clampedPosition);
+        if (onTimelineHoverChange) {
+          onTimelineHoverChange(true);
+        }
+      }
     }
   };
 
@@ -231,9 +243,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     <group>
       {/* Invisible plane for click detection along the entire timeline */}
       <mesh
-        position={[0, 1.9, 0]}
+        position={[0, 1.5, 0]}
         rotation={[Math.PI / 2, 0, 0]}
-        renderOrder={900}
+        renderOrder={1000} // Higher render order to ensure it's on top for click detection
         onClick={handleAxisClick}
         onPointerEnter={(e) => {
           // Disable timeline hover during drone mode
@@ -264,7 +276,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         }}
         onPointerMove={handlePointerMove}
       >
-        <planeGeometry args={[6, length]} /> {/* Slightly wider plane for easier interaction */}
+        <planeGeometry args={[3, length]} /> {/* Narrower plane to avoid interfering with card hover */}
         <primitive object={fadingMaterial} />
       </mesh>
 

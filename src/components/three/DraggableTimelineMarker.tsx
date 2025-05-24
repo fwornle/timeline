@@ -123,6 +123,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
   // Handle pointer down event to start dragging
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Only stop propagation and start dragging if the click is directly on the marker
+    // This allows timeline clicks to work when clicking away from the marker
     e.stopPropagation();
 
     // Set dragging state
@@ -153,8 +155,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         position={[0, 0, 0]}
         onPointerDown={handlePointerDown}
       >
-        {/* Plane is perpendicular to Z (time axis), covers the timeline height */}
-        <planeGeometry args={[4, 2]} />
+        {/* Smaller plane to reduce interference with timeline clicks */}
+        <planeGeometry args={[2, 2]} />
         {/* Custom shader material for edge fade */}
         <shaderMaterial
           attach="material"
