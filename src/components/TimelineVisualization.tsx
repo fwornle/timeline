@@ -203,6 +203,20 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     initialMarkerPosition: currentMarkerPositionRef.current,
   });
 
+  // Store callbacks in refs to avoid dependency issues
+  const onLoadingChangeRef = useRef(onLoadingChange);
+  const onErrorRef = useRef(onError);
+  const onDataLoadedRef = useRef(onDataLoaded);
+  const onPositionUpdateRef = useRef(onPositionUpdate);
+
+  // Update refs when props change
+  useEffect(() => {
+    onLoadingChangeRef.current = onLoadingChange;
+    onErrorRef.current = onError;
+    onDataLoadedRef.current = onDataLoaded;
+    onPositionUpdateRef.current = onPositionUpdate;
+  }, [onLoadingChange, onError, onDataLoaded, onPositionUpdate]);
+
   // Determine which view to show based on state - with stable error handling
   useEffect(() => {
     // Welcome screen logic remains the same
@@ -232,23 +246,23 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Update parent loading state
   useEffect(() => {
-    onLoadingChange(isLoading);
-  }, [isLoading]); // Remove onLoadingChange from dependencies to prevent infinite loops
+    onLoadingChangeRef.current(isLoading);
+  }, [isLoading]);
 
   // Update parent error state
   useEffect(() => {
     if (hasError) {
       const errorMessage = errors.git?.message || errors.spec?.message || 'Unknown error';
-      onError(new Error(errorMessage));
+      onErrorRef.current(new Error(errorMessage));
     } else {
-      onError(null);
+      onErrorRef.current(null);
     }
-  }, [hasError, errors]); // Remove onError from dependencies to prevent infinite loops
+  }, [hasError, errors]);
 
   // Update animation speed when prop changes
   useEffect(() => {
     setScrollSpeed(animationSpeed);
-  }, [animationSpeed]); // Remove setScrollSpeed from dependencies to prevent infinite loops
+  }, [animationSpeed, setScrollSpeed]);
 
   // Update auto-drift when prop changes - preserve marker position
   useEffect(() => {
@@ -277,8 +291,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         currentMarkerPositionRef.current = currentAnimationPosition;
 
         // Immediately notify parent of the final position to keep everything in sync
-        if (onPositionUpdate) {
-          onPositionUpdate(currentAnimationPosition);
+        if (onPositionUpdateRef.current) {
+          onPositionUpdateRef.current(currentAnimationPosition);
           lastReportedPositionRef.current = currentAnimationPosition;
           lastPositionUpdateRef.current = Date.now();
         }
@@ -292,7 +306,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
       toggleAutoScroll();
     }
-  }, [autoDrift, isAutoScrolling]); // Simplified dependencies to prevent infinite loops
+  }, [autoDrift, isAutoScrolling, toggleAutoScroll, setCameraTarget, cameraTarget.x, cameraTarget.y, cameraTarget.z, initialMarkerPosition, debugMode]);
 
   // Listen for reset events
   useEffect(() => {
@@ -324,24 +338,24 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     return () => {
       window.removeEventListener('timeline-reset', handleReset);
     };
-  }, [events, isAutoScrolling]); // Remove function dependencies to prevent infinite loops
+  }, [events, isAutoScrolling, toggleAutoScroll, selectCard, cardPositionsRef]);
 
   // Throttle position updates to prevent excessive re-renders
   const lastPositionUpdateRef = useRef<number>(0);
   const lastReportedPositionRef = useRef<number>(0);
-  const positionUpdateThrottleMs = 16; // 60fps for smooth updates
+  const positionUpdateThrottleMs = 50; // Reduce update frequency to improve performance
 
   // Update position for parent component
   // During auto-scrolling, update more frequently for smooth animation
   useEffect(() => {
-    if (onPositionUpdate && cameraTarget) {
+    if (onPositionUpdateRef.current && cameraTarget) {
       const now = Date.now();
       const newPosition = cameraTarget.z;
       const positionDelta = Math.abs(newPosition - lastReportedPositionRef.current);
 
       // Different thresholds for auto-scrolling vs manual movement
-      const timeThreshold = isAutoScrolling ? 16 : positionUpdateThrottleMs; // 60fps during auto-scroll
-      const positionThreshold = isAutoScrolling ? 0.01 : 0.5; // Much smaller threshold during auto-scroll
+      const timeThreshold = isAutoScrolling ? 50 : positionUpdateThrottleMs; // Reduce update frequency
+      const positionThreshold = isAutoScrolling ? 0.1 : 0.5; // Increase threshold to reduce updates
 
       // Only report position changes if enough time has passed AND position changed significantly
       // AND the position is different from what we received from parent (to prevent loops)
@@ -350,26 +364,26 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       const isDifferentFromInitial = Math.abs(newPosition - (initialMarkerPosition || 0)) > 0.1;
 
       if (isTimeThresholdMet && isSignificantChange && isDifferentFromInitial) {
-        onPositionUpdate(newPosition);
+        onPositionUpdateRef.current(newPosition);
         lastPositionUpdateRef.current = now;
         lastReportedPositionRef.current = newPosition;
       }
     }
-  }, [cameraTarget?.z, isAutoScrolling]); // Simplified dependencies to prevent infinite loops
+  }, [cameraTarget.z, isAutoScrolling, initialMarkerPosition]);
 
   // Also update position when a card is selected
   useEffect(() => {
-    if (onPositionUpdate && selectedCardId) {
+    if (onPositionUpdateRef.current && selectedCardId) {
       // Access the card positions from the animation hook
       if (cardPositionsRef && cardPositionsRef.current && cardPositionsRef.current.has(selectedCardId)) {
         const position = cardPositionsRef.current.get(selectedCardId)!;
-        onPositionUpdate(position.z);
+        onPositionUpdateRef.current(position.z);
         if (debugMode) {
           logger.debug('Position updated from card selection', { position: position.z });
         }
       }
     }
-  }, [selectedCardId]); // Simplified dependencies to prevent infinite loops
+  }, [selectedCardId, cardPositionsRef, debugMode]);
 
   // Log significant state changes and notify parent
   useEffect(() => {
@@ -382,12 +396,12 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     }
 
     // Call onDataLoaded callback when we have events
-    if (onDataLoaded && events.length > 0) {
+    if (onDataLoadedRef.current && events.length > 0) {
       const gitEvents = events.filter(e => e.type === 'git');
       const specEvents = events.filter(e => e.type === 'spec');
-      onDataLoaded(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
+      onDataLoadedRef.current(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
     }
-  }, [events, period]); // Simplified dependencies to prevent infinite loops
+  }, [events, period, isGitHistoryMocked, isSpecHistoryMocked, debugMode]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {
@@ -495,8 +509,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             // Track the current marker position for drift mode preservation
             currentMarkerPositionRef.current = position;
             // Also notify parent component immediately (not throttled)
-            if (onPositionUpdate) {
-              onPositionUpdate(position);
+            if (onPositionUpdateRef.current) {
+              onPositionUpdateRef.current(position);
               // Update our tracking refs to prevent duplicate updates
               lastReportedPositionRef.current = position;
               lastPositionUpdateRef.current = Date.now();

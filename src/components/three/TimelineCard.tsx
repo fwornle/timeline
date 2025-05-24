@@ -305,7 +305,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         animationDuration, // Store the duration for use in the animation frame
       });
     }
-  }, [isHovered, event.id]); // Simplified dependencies to prevent infinite loops
+  }, [isHovered, calculateCameraValues, position]);
 
   // Animation frame (throttled for performance)
   const lastAnimationUpdateRef = useRef(0);
@@ -314,8 +314,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     const now = performance.now();
 
-    // Only update animation every 50ms (~20fps) to reduce performance impact
-    if (now - lastAnimationUpdateRef.current < 50) {
+    // Only update animation every 16ms (~60fps) to reduce performance impact
+    if (now - lastAnimationUpdateRef.current < 16) {
       return;
     }
     lastAnimationUpdateRef.current = now;

@@ -177,89 +177,91 @@ export function useTimelineAnimation(config: TimelineAnimationConfig = {}) {
   }, []);
 
   // Animation loop with smooth movement
-  const animate = useCallback((time: number) => {
-    // Calculate delta time for smooth movement
-    // Prevent huge deltaTime jumps (e.g., when tab was inactive)
-    const rawDeltaTime = (time - lastTimeRef.current) / 1000;
-    const deltaTime = Math.min(rawDeltaTime, 0.1); // Cap at 100ms to prevent huge jumps
-    lastTimeRef.current = time;
+  const animateRef = useRef<(() => void) | null>(null);
 
-    // Use refs to access current state values to avoid dependencies
-    const currentState = stateRef.current;
-    const isAutoScrolling = currentState.isAutoScrolling;
-    const scrollSpeed = currentState.scrollSpeed;
-
-    if (isAutoScrolling && scrollSpeed !== 0) {
-      // Apply scroll movement - always move forward (positive Z direction)
-      // This ensures we're always looking at the front of the cards
-      const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
-
-      // Update state directly for smooth movement
-      if (scrollDelta > 0) {
-        // Reduce state update frequency to prevent excessive re-renders
-        const stateUpdateInterval = 50; // Update React state every 50ms (~20fps) instead of 60fps
-
-        if (time - lastStateUpdateRef.current >= stateUpdateInterval) {
-          // Use functional update to avoid stale closure issues
-          setState(prev => {
-            // Create a new Vector3 to ensure React detects the change
-            const newTarget = new THREE.Vector3(
-              prev.cameraTarget.x,
-              prev.cameraTarget.y,
-              prev.cameraTarget.z + scrollDelta
-            );
-            return {
-              ...prev,
-              cameraTarget: newTarget,
-            };
-          });
-          lastStateUpdateRef.current = time;
+  const startAnimation = useCallback(() => {
+    if (!animateRef.current) {
+      animateRef.current = () => {
+        // Schedule next frame immediately to ensure smooth animation
+        if (animateRef.current) {
+          animationFrameRef.current = requestAnimationFrame(animateRef.current);
         }
-      }
+        
+        const time = performance.now();
+        
+        // Calculate delta time for smooth movement
+        // Prevent huge deltaTime jumps (e.g., when tab was inactive)
+        const rawDeltaTime = (time - lastTimeRef.current) / 1000;
+        const deltaTime = Math.min(rawDeltaTime, 0.1); // Cap at 100ms to prevent huge jumps
+        lastTimeRef.current = time;
+
+        // Use refs to access current state values to avoid dependencies
+        const currentState = stateRef.current;
+        const isAutoScrolling = currentState.isAutoScrolling;
+        const scrollSpeed = currentState.scrollSpeed;
+
+        if (isAutoScrolling && scrollSpeed !== 0) {
+          // Apply scroll movement - always move forward (positive Z direction)
+          // This ensures we're always looking at the front of the cards
+          const scrollDelta = Math.abs(scrollSpeed) * deltaTime;
+
+          // Update state directly for smooth movement
+          if (scrollDelta > 0) {
+            // Reduce state update frequency to prevent excessive re-renders
+            const stateUpdateInterval = 50; // Update React state every 50ms (~20fps) instead of 60fps
+
+            if (time - lastStateUpdateRef.current >= stateUpdateInterval) {
+              // Use functional update to avoid stale closure issues
+              setState(prev => {
+                // Create a new Vector3 to ensure React detects the change
+                const newTarget = new THREE.Vector3(
+                  prev.cameraTarget.x,
+                  prev.cameraTarget.y,
+                  prev.cameraTarget.z + scrollDelta
+                );
+                return {
+                  ...prev,
+                  cameraTarget: newTarget,
+                };
+              });
+              lastStateUpdateRef.current = time;
+            }
+          }
+        }
+      };
     }
 
-    // Only continue animation loop if auto-scrolling is active
-    if (isAutoScrolling) {
-      animationFrameRef.current = requestAnimationFrame(animate);
+    if (animateRef.current && !animationFrameRef.current) {
+      animationFrameRef.current = requestAnimationFrame(animateRef.current);
     }
   }, []);
 
-  // Track auto-scrolling state changes separately to avoid infinite loops
-  const isAutoScrollingRef = useRef(state.isAutoScrolling);
-
   // Start/stop animation loop based on auto-scrolling state
   useEffect(() => {
-    // Only react to actual changes in auto-scrolling state
-    if (isAutoScrollingRef.current !== state.isAutoScrolling) {
-      isAutoScrollingRef.current = state.isAutoScrolling;
+    if (state.isAutoScrolling) {
+      // When starting animation, reset time references to prevent deltaTime issues
+      const now = performance.now();
+      lastTimeRef.current = now;
+      lastStateUpdateRef.current = now;
 
-      if (state.isAutoScrolling) {
-        // When starting animation, reset time references to prevent deltaTime issues
-        // But don't reset to 0 - use current time to avoid skipping frames
-        const now = performance.now();
-        lastTimeRef.current = now;
-        lastStateUpdateRef.current = now;
-
-        // Only start animation loop if auto-scrolling is enabled
-        if (!animationFrameRef.current) {
-          animationFrameRef.current = requestAnimationFrame(animate);
-        }
-      } else {
-        // Stop animation loop when auto-scrolling is disabled
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = undefined;
-        }
+      // Start animation
+      startAnimation();
+    } else {
+      // Stop animation loop when auto-scrolling is disabled
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = undefined;
       }
     }
 
+    // Cleanup function
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = undefined;
       }
     };
-  }, [state.isAutoScrolling]); // Remove animate from dependencies to prevent infinite loops
+  }, [state.isAutoScrolling, startAnimation]);
 
   return {
     isAutoScrolling: state.isAutoScrolling,

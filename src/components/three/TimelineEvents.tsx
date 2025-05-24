@@ -36,6 +36,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   // Track the currently hovered card to enforce exclusivity
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
+  // Store onPositionUpdate in ref to avoid dependency issues
+  const onPositionUpdateRef = useRef(onPositionUpdate);
+  onPositionUpdateRef.current = onPositionUpdate;
+
   // Handle hover with exclusivity
   const handleCardHover = useCallback((cardId: string | null) => {
     // Use functional update to avoid stale closure issues
@@ -47,7 +51,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       }
       return prev;
     });
-  }, [onHover]); // Safe to exclude hoveredCardId since we use functional update
+  }, [onHover]);
+
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -135,21 +140,21 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     if (eventsHash !== lastEventsHashRef.current) {
       events.forEach((event) => {
         const position = getEventPosition(event);
-        onPositionUpdate(
+        onPositionUpdateRef.current(
           event.id,
           new Vector3(position[0], position[1], position[2])
         );
       });
       lastEventsHashRef.current = eventsHash;
     }
-  }, [events, onPositionUpdate, getEventPosition]);
+  }, [events, getEventPosition]);
 
   // Track active wiggle timeouts to prevent memory leaks
   const wiggleTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     // Throttle wiggle checks to prevent excessive updates during animation
-    const threshold = 0.5; // Increase threshold to reduce frequency
+    const threshold = 1.0; // Increase threshold to reduce frequency
     const prevNow = prevNowRef.current;
 
     if (Math.abs(currentPosition - prevNow) < threshold) {
@@ -178,7 +183,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           const timeout = setTimeout(() => {
             setWiggleMap((prev) => ({ ...prev, [event.id]: false }));
             wiggleTimeoutsRef.current.delete(event.id);
-          }, 200); // Shorter duration to prevent interference with animation
+          }, 300); // Slightly longer duration for better visibility
 
           wiggleTimeoutsRef.current.set(event.id, timeout);
         }
@@ -188,7 +193,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
     // Defer the wiggle check to the next frame to prevent blocking
     requestAnimationFrame(checkWiggle);
-  }, [currentPosition]); // Remove events and getEventPosition from dependencies to prevent infinite loops
+  }, [currentPosition, events, getEventPosition]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -198,29 +203,34 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     };
   }, []);
 
+  // Memoize the cards to prevent unnecessary re-renders
+  const renderedCards = useMemo(() => {
+    return events.map((event) => {
+      const position = getEventPosition(event);
+
+      return (
+        <TimelineCard
+          key={event.id}
+          event={event}
+          position={position}
+          selected={event.id === selectedCardId}
+          onSelect={onSelect}
+          onHover={handleCardHover}
+          animationProps={{
+            ...getAnimationProps(event.id),
+            rotation: getAnimationProps(event.id).rotation as [number, number, number]
+          }}
+          wiggle={!!wiggleMap[event.id]}
+          isMarkerDragging={isMarkerDragging}
+          isHovered={hoveredCardId === event.id}
+        />
+      );
+    });
+  }, [events, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, hoveredCardId]);
+
   return (
     <group>
-      {events.map((event) => {
-        const position = getEventPosition(event);
-
-        return (
-          <TimelineCard
-            key={event.id}
-            event={event}
-            position={position}
-            selected={event.id === selectedCardId}
-            onSelect={onSelect}
-            onHover={handleCardHover}
-            animationProps={{
-              ...getAnimationProps(event.id),
-              rotation: getAnimationProps(event.id).rotation as [number, number, number]
-            }}
-            wiggle={!!wiggleMap[event.id]}
-            isMarkerDragging={isMarkerDragging}
-            isHovered={hoveredCardId === event.id}
-          />
-        );
-      })}
+      {renderedCards}
     </group>
   );
 };
