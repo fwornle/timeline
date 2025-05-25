@@ -6,32 +6,18 @@ import { useLogger } from '../utils/logging/hooks/useLogger';
 
 interface MainPageProps {
   repoUrl: string;
-  animationSpeed: number;
-  autoDrift: boolean;
   onLoadingChange: (isLoading: boolean) => void;
   onError: (error: Error | null) => void;
-  viewAllMode?: boolean;
-  focusCurrentMode?: boolean;
-  forceReload?: boolean;
   onEventCountsChange?: (gitEvents: number, specEvents: number) => void;
   onMockStatusChange?: (mocked: boolean) => void;
-  onPositionChange?: (pos: number) => void;
-  debugMode?: boolean;
 }
 
 const MainPage: React.FC<MainPageProps> = ({
   repoUrl,
-  animationSpeed,
-  autoDrift,
   onLoadingChange,
   onError,
-  viewAllMode,
-  focusCurrentMode,
-  forceReload,
   onEventCountsChange,
   onMockStatusChange,
-  onPositionChange,
-  debugMode = false,
 }) => {
   const logger = useLogger({ component: 'MainPage', topic: 'ui' });
   const [error, setError] = useState<Error | null>(null);

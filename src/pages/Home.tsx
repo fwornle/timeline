@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAppSelector } from '../store';
 import { TimelineVisualization } from '../components/TimelineVisualization';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import type { CameraState } from '../components/three/TimelineCamera';
@@ -14,14 +13,12 @@ interface HomeProps {
   onCameraPositionChange?: (position: Vector3) => void;
   onCameraStateChange?: (state: CameraState) => void;
   initialCameraState?: CameraState;
-  initialMarkerPosition?: number;
   onTimelineDatesChange?: (startDate: Date, endDate: Date) => void;
   onTimelineLengthChange?: (timelineLength: number) => void;
   forceReload?: boolean;
   viewAllMode?: boolean;
   focusCurrentMode?: boolean;
   debugMode?: boolean;
-  droneMode?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({
@@ -32,17 +29,14 @@ const Home: React.FC<HomeProps> = ({
   onCameraPositionChange,
   onCameraStateChange,
   initialCameraState,
-  initialMarkerPosition = 0,
   onTimelineDatesChange,
   onTimelineLengthChange,
   forceReload = false,
   viewAllMode = false,
   focusCurrentMode = false,
-  debugMode = false,
-  droneMode = false
+  debugMode = false
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
-  const preferences = useAppSelector(state => state.preferences);
   const [error, setError] = useState<Error | null>(null);
 
   // Debug logging for props received only when in debug mode
@@ -78,10 +72,7 @@ const Home: React.FC<HomeProps> = ({
   }, [error, logger]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Get repository URL from preferences
-  const repoUrl = preferences.repoUrl || '';
-  const animationSpeed = preferences.animationSpeed || 1;
-  const autoDrift = preferences.autoDrift || false;
+  // Get repository URL from preferences (needed for loading check)
 
   // Handle loading state changes
   const handleLoadingChange = (loading: boolean) => {

@@ -126,7 +126,7 @@ export const focusOnCurrentPosition = createAsyncThunk<
   'ui/focusOnCurrentPosition',
   async (_, { dispatch, getState }) => {
     const state = getState();
-    const currentPosition = state.timeline.currentPosition;
+    const currentPosition = state.timeline.markerPosition;
 
     // First, disable conflicting modes
     dispatch(setViewAll(false));
@@ -170,5 +170,35 @@ export const updateCameraWithSync = createAsyncThunk<
       target: new THREE.Vector3(newTarget.x, newTarget.y, newTarget.z),
       zoom: newZoom,
     }));
+  }
+);
+
+// Intent to reset timeline marker to beginning
+export const resetTimelineToStart = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
+  'ui/resetTimelineToStart',
+  async (_, { dispatch, getState }) => {
+    const state = getState();
+    const events = state.timeline.events;
+    
+    // Find the earliest position (first event or 0)
+    let startPosition = 0;
+    if (events.length > 0) {
+      // Calculate the start position based on events
+      const minSpacing = 5;
+      startPosition = -(events.length * minSpacing) / 2;
+    }
+
+    // Disable conflicting modes
+    dispatch(setViewAll(false));
+    dispatch(setDroneMode(false));
+    dispatch(setFocusCurrentMode(false));
+    dispatch(setIsAutoScrolling(false));
+
+    // Update timeline position and camera
+    dispatch(updateTimelinePosition({ position: startPosition, updateCamera: true }));
   }
 );

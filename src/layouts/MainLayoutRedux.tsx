@@ -25,7 +25,8 @@ import {
   toggleViewAll,
   toggleDroneMode,
   updateCameraWithSync,
-  focusOnCurrentPosition
+  focusOnCurrentPosition,
+  resetTimelineToStart
 } from '../store/intents/uiIntents';
 import type { CameraState } from '../components/three/TimelineCamera';
 import { Vector3 } from 'three';
@@ -189,8 +190,8 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     onFocusCurrentClick: () => handleFocusCurrentModeChange(true),
     onDebugModeChange: handleDebugModeChange,
     onResetTimeline: () => {
-      // Reset timeline position
-      dispatch(updateTimelinePosition({ position: 0 }));
+      // Reset timeline to start position
+      dispatch(resetTimelineToStart());
     },
   };
 

@@ -3,6 +3,7 @@ import { Environment, Grid } from '@react-three/drei';
 import { TimelineCamera } from './TimelineCamera';
 import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
+import { TimelineDriftController } from './TimelineDriftController';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { Vector3 } from 'three';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -157,6 +158,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
 
   return (
     <div className="w-full h-full" style={{ height: '100%' }}>
+      {/* Timeline drift animation controller */}
+      <TimelineDriftController />
+      
       <Canvas
         shadows
         camera={{ position: [-35, 30, -50], fov: 45 }}

@@ -42,25 +42,23 @@ const calculateViewAllPosition = (_target: Vector3, events: TimelineEvent[] = []
     const spacing = 5;
     const timelineLength = Math.max(events.length * spacing, 100);
 
-    // Calculate distance based on timeline length
-    // The longer the timeline, the further back we need to be
-    const distance = Math.max(60, timelineLength * 0.9);
+    // Calculate distance based on timeline length to see the full timeline
+    const distance = Math.max(80, timelineLength * 1.2);
 
-    // Position camera at an angle to see the timeline from above
-    // This will show the timeline stretching from top left to bottom right
-    // with cards facing into the camera
+    // Position camera so the timeline appears to run from top-left to bottom-right
+    // This means camera is positioned above and to the upper-left of the timeline center
     return new Vector3(
-      -distance * 0.8,        // Position to the left
-      distance * 1.0,         // Position higher above for a more top-down view
-      -timelineLength * 0.5   // Position toward the start of the timeline
+      -distance * 0.7,        // Position to the left (negative X for left side)
+      distance * 0.8,         // Position above (positive Y for height)
+      -timelineLength * 0.3   // Position toward the beginning but not too far back
     );
   }
 
   // Fallback for when we don't have events or can't calculate bounds
   return new Vector3(
-    -35, // Position further to the left
-    30,  // Position higher above for a more top-down view
-    -50  // Position further toward the start of the timeline
+    -60, // Position further to the left
+    45,  // Position higher above for a more top-down view
+    -40  // Position toward the start but not too far back
   );
 };
 
@@ -95,13 +93,15 @@ function getPositionForZoom(target: Vector3, direction: Vector3, zoom: number) {
   return target.clone().add(direction.clone().setLength(distance));
 }
 
-// Debug camera positions for cycling (DISABLED - kept for future reference)
-// const DEBUG_CAMERA_POSITIONS = [
-//   { position: new Vector3(-35, 30, -50), target: new Vector3(0, 0, 0) },
-//   { position: new Vector3(-20, 40, -30), target: new Vector3(0, 0, 0) },
-//   { position: new Vector3(-50, 20, -70), target: new Vector3(0, 0, 0) },
-//   { position: new Vector3(-30, 50, -40), target: new Vector3(0, 0, 0) },
-// ];
+// Debug camera positions for cycling
+const DEBUG_CAMERA_POSITIONS = [
+  { position: new Vector3(-35, 30, -50), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(-20, 40, -30), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(-50, 20, -70), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(-30, 50, -40), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(0, 60, 0), target: new Vector3(0, 0, 0) },
+  { position: new Vector3(40, 25, -30), target: new Vector3(0, 0, 0) },
+];
 
 export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
@@ -360,7 +360,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     });
   }, [applyCameraState, cameraState, logger]);
 
-2  // Update camera when cameraState changes (only after initialization)
+  // Update camera when cameraState changes (only after initialization)
   // Use a ref to track the last applied state to prevent circular updates
   const lastAppliedStateRef = useRef<CameraState | null>(null);
   const isApplyingStateRef = useRef(false);
@@ -695,12 +695,27 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       droneState.offsetZ += (droneState.targetOffsetZ - droneState.offsetZ) * lerpFactor;
       droneState.distance += (droneState.targetDistance - droneState.distance) * lerpFactor;
 
+      // Add gentle drifting around hover points for more natural bee-like movement
+      const driftFrequency = 0.003; // Lower frequency for slower drifting
+      const driftAmplitude = 0.8; // Smaller amplitude for subtle movement
+      const timeInSeconds = now / 1000;
+      
+      // Create slight sinusoidal drift patterns
+      const driftX = Math.sin(timeInSeconds * driftFrequency * 1.2) * driftAmplitude;
+      const driftY = Math.cos(timeInSeconds * driftFrequency * 0.8) * driftAmplitude * 0.6; // Less vertical drift
+      const driftZ = Math.sin(timeInSeconds * driftFrequency * 1.5 + Math.PI / 3) * driftAmplitude * 0.7;
+      
+      // Apply the drift to the current offsets
+      const driftedOffsetX = droneState.offsetX + driftX;
+      const driftedOffsetY = droneState.offsetY + driftY;
+      const driftedOffsetZ = droneState.offsetZ + driftZ;
+
       // Calculate drone camera position - fly freely around the target like a bee
-      // Position camera at desired distance from target in the direction of current offsets
+      // Position camera at desired distance from target in the direction of drifted offsets
       const offsetDirection = new Vector3(
-        droneState.offsetX, // Free left/right movement (±15 units)
-        droneState.offsetY, // Free up/down movement (±10 units, including below)
-        droneState.offsetZ  // Free forward/backward movement (-10 to +30 units)
+        driftedOffsetX, // Free left/right movement with drift (±15 units + drift)
+        driftedOffsetY, // Free up/down movement with drift (±10 units + drift, including below)
+        driftedOffsetZ  // Free forward/backward movement with drift (-10 to +30 units + drift)
       ).normalize();
 
       // Use target for drone positioning
@@ -733,10 +748,12 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
       // Debug logging for drone mode (only occasionally to avoid spam)
       if (debugMode && Math.random() < 0.01) { // Log ~1% of frames
-        logger.debug('FREE-FLYING Drone mode active', {
+        logger.debug('FREE-FLYING Drone mode active with drift', {
           markerPos: `(${currentTarget.x.toFixed(1)}, ${currentTarget.y.toFixed(1)}, ${currentTarget.z.toFixed(1)})`,
           dronePos: `(${dronePosition.x.toFixed(1)}, ${dronePosition.y.toFixed(1)}, ${dronePosition.z.toFixed(1)})`,
-          offsets: `X:${droneState.offsetX.toFixed(2)} (±15), Y:${droneState.offsetY.toFixed(2)} (±10), Z:${droneState.offsetZ.toFixed(2)} (-10/+30)`,
+          baseOffsets: `X:${droneState.offsetX.toFixed(2)}, Y:${droneState.offsetY.toFixed(2)}, Z:${droneState.offsetZ.toFixed(2)}`,
+          drift: `X:${driftX.toFixed(2)}, Y:${driftY.toFixed(2)}, Z:${driftZ.toFixed(2)}`,
+          driftedOffsets: `X:${driftedOffsetX.toFixed(2)}, Y:${driftedOffsetY.toFixed(2)}, Z:${driftedOffsetZ.toFixed(2)}`,
           distance: `${droneState.distance.toFixed(2)} (8-20 range)`,
           direction: `(${offsetDirection.x.toFixed(2)}, ${offsetDirection.y.toFixed(2)}, ${offsetDirection.z.toFixed(2)})`
         });
@@ -854,19 +871,59 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
   });
 
-  // Debug camera cycling effect (DISABLED to prevent infinite loops)
+  // Debug camera cycling effect
   useEffect(() => {
-    // Disable debug cycling completely to prevent infinite loops
-    // This feature can be re-enabled later with proper state isolation
+    if (debugMode && !viewAllMode && !focusCurrentMode && !droneMode) {
+      let currentIndex = 0;
+      
+      // Start cycling through debug positions
+      debugCycleTimer.current = window.setInterval(() => {
+        if (!userInteractingRef.current) {
+          const debugPosition = DEBUG_CAMERA_POSITIONS[currentIndex];
+          
+          updateCameraState({
+            position: debugPosition.position.clone(),
+            target: debugPosition.target.clone(),
+            zoom: camera.zoom
+          }, 'mode');
+          
+          if (debugMode) {
+            logger.debug(`Debug mode: Moving to position ${currentIndex + 1}/${DEBUG_CAMERA_POSITIONS.length}`, {
+              position: {
+                x: debugPosition.position.x,
+                y: debugPosition.position.y,
+                z: debugPosition.position.z
+              },
+              target: {
+                x: debugPosition.target.x,
+                y: debugPosition.target.y,
+                z: debugPosition.target.z
+              }
+            });
+          }
+          
+          currentIndex = (currentIndex + 1) % DEBUG_CAMERA_POSITIONS.length;
+        }
+      }, 3000); // Change position every 3 seconds
+      
+      logger.info('Debug mode camera cycling started');
+    } else {
+      // Clear timer when debug mode is disabled or other modes are active
+      if (debugCycleTimer.current) {
+        window.clearInterval(debugCycleTimer.current);
+        debugCycleTimer.current = null;
+        logger.info('Debug mode camera cycling stopped');
+      }
+    }
 
-    // Cleanup on unmount
+    // Cleanup on unmount or dependencies change
     return () => {
       if (debugCycleTimer.current) {
         window.clearInterval(debugCycleTimer.current);
         debugCycleTimer.current = null;
       }
     };
-  }, [debugMode]);
+  }, [debugMode, viewAllMode, focusCurrentMode, droneMode, updateCameraState, camera.zoom, logger]);
 
   return (
     <OrbitControls
