@@ -50,7 +50,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     setHoveredCardId(prev => {
       // Only update if the hover state actually changed
       if (prev !== cardId) {
-        onHover(cardId);
+        // Defer the parent callback to avoid setState-in-render
+        setTimeout(() => onHover(cardId), 0);
         return cardId;
       }
       return prev;
@@ -142,12 +143,15 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
     // Only update if events actually changed
     if (eventsHash !== lastEventsHashRef.current) {
-      events.forEach((event) => {
-        const position = getEventPosition(event);
-        onPositionUpdateRef.current(
-          event.id,
-          new Vector3(position[0], position[1], position[2])
-        );
+      // Use requestAnimationFrame to defer the position updates until after render
+      requestAnimationFrame(() => {
+        events.forEach((event) => {
+          const position = getEventPosition(event);
+          onPositionUpdateRef.current(
+            event.id,
+            new Vector3(position[0], position[1], position[2])
+          );
+        });
       });
       lastEventsHashRef.current = eventsHash;
     }

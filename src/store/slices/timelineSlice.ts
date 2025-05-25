@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
+import { loadPreferences } from '../../services/storage';
 
 interface TimelineState {
   events: TimelineEvent[];
@@ -20,14 +21,17 @@ interface TimelineState {
   };
 }
 
+// Load saved preferences to restore marker position
+const savedPreferences = loadPreferences();
+
 const initialState: TimelineState = {
   events: [],
   loading: false,
   error: null,
   gitCount: 0,
   specCount: 0,
-  currentPosition: 0,
-  markerPosition: 0,
+  currentPosition: savedPreferences.markerPosition || 0,
+  markerPosition: savedPreferences.markerPosition || 0,
   sourceType: 'both',
   isUsingMockData: false,
   lastFetchTime: null,
