@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Line, Text } from '@react-three/drei';
+import { Line } from '@react-three/drei';
 import { DraggableTimelineMarker } from './DraggableTimelineMarker';
 import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { threeColors } from '../../config';
+import { SafeText } from './SafeText';
 
 interface TimelineAxisProps {
   length?: number;
@@ -127,7 +128,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       const label = date ? formatDate(date) : `${i}`;
 
       ticks.push(
-        <Text
+        <SafeText
           key={`label-${i}`}
           position={[0, 2 + tickSize * 2, i]}
           color={color}
@@ -136,7 +137,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           anchorY="bottom"
         >
           {label}
-        </Text>
+        </SafeText>
       );
     }
   }

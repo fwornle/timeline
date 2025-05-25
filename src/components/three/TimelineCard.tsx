@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
-import { Text } from '@react-three/drei';
 import { Group, Vector3, PerspectiveCamera, MathUtils } from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { SafeText } from './SafeText';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, threeColors, threeOpacities } from '../../config';
@@ -739,7 +739,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         </mesh>
 
         {/* Header title */}
-        <Text
+        <SafeText
           position={[
             dimensions.typography.card.headerTitle.position.x,
             dimensions.typography.card.headerTitle.position.y,
@@ -749,13 +749,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           color={cardColors.text}
           anchorX="left"
           anchorY="middle"
-          fontWeight="bold"
         >
           {textContent.headerText}
-        </Text>
+        </SafeText>
 
         {/* Main content - left-justified with proper padding */}
-        <Text
+        <SafeText
           position={[-1.3, 0.6, 0]} // Left-aligned with top padding
           fontSize={0.22}
           maxWidth={2.5}
@@ -767,7 +766,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           overflowWrap="break-word"
         >
           {textContent.mainText}
-        </Text>
+        </SafeText>
 
         {/* Bottom bar with type and date */}
         <mesh position={[0, -0.95, 0]}>
@@ -780,7 +779,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         </mesh>
 
         {/* Type indicator - bottom left */}
-        <Text
+        <SafeText
           position={[
             dimensions.typography.card.typeIndicator.position.x,
             dimensions.typography.card.typeIndicator.position.y,
@@ -790,14 +789,13 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           color={cardColors.accent}
           anchorX="left"
           anchorY="middle"
-          fontWeight="bold"
         >
           {textContent.typeText}
-        </Text>
+        </SafeText>
 
         {/* Stats - bottom center - split into two lines for better readability */}
         <group position={[0, -0.95, 0.01]}>
-          <Text
+          <SafeText
             position={[0, 0.15, 0]}
             fontSize={0.11}
             color="#e0e0e0"
@@ -805,8 +803,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
             anchorY="middle"
           >
             {textContent.statsLine1}
-          </Text>
-          <Text
+          </SafeText>
+          <SafeText
             position={[0, -0.1, 0]}
             fontSize={0.11}
             color="#e0e0e0"
@@ -814,11 +812,11 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
             anchorY="middle"
           >
             {textContent.statsLine2}
-          </Text>
+          </SafeText>
         </group>
 
         {/* Date - bottom right */}
-        <Text
+        <SafeText
           position={[
             dimensions.typography.card.dateText.position.x,
             dimensions.typography.card.dateText.position.y,
@@ -830,7 +828,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           anchorY="middle"
         >
           {textContent.dateText}
-        </Text>
+        </SafeText>
       </group>
 
       {/* Selection indicator */}

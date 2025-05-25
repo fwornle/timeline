@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Line, Text } from '@react-three/drei';
+import { Line } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { Group, Vector3, Vector2, Raycaster } from 'three';
 import { threeColors } from '../../config';
+import { SafeText } from './SafeText';
 
 interface DraggableTimelineMarkerProps {
   position: number;
@@ -213,16 +214,15 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
 
       {/* Label */}
       {showLabel && (
-        <Text
+        <SafeText
           position={[0, 1.2, 0]}
           color={color}
           fontSize={0.5}
           anchorX="center"
           anchorY="bottom"
-          fontWeight="bold"
         >
           {labelText}
-        </Text>
+        </SafeText>
       )}
     </group>
   );
