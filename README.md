@@ -1,42 +1,95 @@
 # Timeline Visualization
 
-An interactive 3D timeline visualization tool built with React, Three.js, and TypeScript. Visualize git commit history with features like auto-scrolling, animation controls, and interactive 3D elements.
+A sophisticated 3D timeline visualization application that transforms git repository history and specification files into an interactive, immersive 3D experience. Built with React, Three.js, TypeScript, and a Node.js backend, it provides real-time visualization of development workflows with advanced animation and interaction capabilities.
 
-## Features
+## ✨ Features
 
-- 3D visualization of git commit history
-- Interactive timeline navigation
-- Automatic scrolling with adjustable speed
-- Commit details on hover
-- Responsive 3D rendering
-- TypeScript support
-- Performance optimized
+### 🎯 Core Visualization
+- **3D Timeline Rendering**: Interactive 3D visualization of git commits and spec history
+- **Dual Data Sources**: Displays both git commit history and specification/story timeline
+- **Real-time Data**: Fetches live data from repositories with intelligent caching
+- **Mock Data Fallback**: Seamless fallback to mock data when repositories unavailable
 
-## Requirements
+### 🎮 Interactive Controls
+- **Timeline Navigation**: Click-to-move timeline marker with smooth animations
+- **Card Interactions**: Hover and click timeline cards for detailed information
+- **Camera Controls**: Multiple camera modes (manual, view-all, focus, drone mode)
+- **Auto-drift Mode**: Automated timeline playback with adjustable speed
 
-- Node.js 18.0 or higher
-- Git (for repository integration)
-- Modern web browser with WebGL support
+### 🎨 Advanced Animations
+- **Smooth Transitions**: Fluid camera movements and card animations
+- **Exclusive Card Opening**: Only one card open at a time with guaranteed animation completion
+- **Global State Management**: Sophisticated interaction handling prevents stuck UI states
+- **Performance Optimized**: 60fps animations with efficient rendering
 
-## Installation
+### 🛠️ Developer Features
+- **Professional Logging**: Category-based logging system with real-time control
+- **Debug Mode**: Comprehensive debugging tools and performance monitoring
+- **Hot Module Replacement**: Instant development feedback with Vite
+- **TypeScript**: Full type safety throughout the application
 
-1. Clone the repository:
+### 🎨 User Experience
+- **Responsive Design**: Works on desktop, tablet, and mobile devices
+- **Theme Support**: Light, dark, and system theme options
+- **Persistent Settings**: User preferences saved across sessions
+- **Professional UI**: Modern Bootstrap-based interface with custom styling
+
+## 🏗️ Architecture
+
+### Frontend Stack
+- **React 19** + **TypeScript** for type-safe component development
+- **Three.js** + **React Three Fiber** for 3D rendering and interactions
+- **Vite** for fast development and optimized builds
+- **Bootstrap 5** for responsive UI components
+
+### Backend Stack
+- **Node.js** + **Express** for REST API and git processing
+- **File System Caching** for persistent data storage
+- **Git Integration** for repository cloning and parsing
+- **Mock Data Generation** for development and fallback scenarios
+
+### Key Technologies
+- **React Three Fiber**: Declarative 3D programming with React patterns
+- **Custom Hooks**: Sophisticated state management for complex interactions
+- **CSS Variables**: Dynamic theming and consistent styling
+- **Context API**: Global state management for preferences and themes
+
+## 📋 Requirements
+
+- **Node.js 18.0+** (for backend and build tools)
+- **Git** (for repository integration and cloning)
+- **Modern Browser** with WebGL support (Chrome, Firefox, Safari, Edge)
+- **4GB RAM** minimum (8GB recommended for large repositories)
+
+## 🚀 Quick Start
+
+### 1. Installation
+
 ```bash
+# Clone the repository
 git clone [repository-url]
 cd timeline
-```
 
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
 ```
 
-3. Start the development server and API server:
+### 2. Development
+
 ```bash
-npm run start
+# Start both frontend and backend servers
+npm run dev
+
+# Alternative: Start individually
+npm run server  # Backend only (port 3030)
+npm run start   # Frontend only (port 3001)
 ```
 
-The frontend will be available at `http://localhost:3001` and the API server at `http://localhost:5173`.
+### 3. Access Application
+
+Open your browser and navigate to `http://localhost:3001`
+
+The application automatically starts both React frontend and Node.js backend servers.
 
 ## Usage Guide
 
@@ -150,7 +203,36 @@ Common issues and solutions:
    - Check network connection
    - Ensure repository is public or credentials are provided
 
-For more detailed documentation, see:
-- [Architecture Overview](docs/architecture.md)
-- [Development Guide](docs/development.md)
-- [API Reference](docs/api.md)
+## 📚 Documentation
+
+### Comprehensive Guides
+- **[Architecture Overview](docs/architecture.md)**: Complete system architecture and design decisions
+- **[Development Guide](docs/development-guide.md)**: Comprehensive development setup and workflows
+- **[API Reference](docs/api-reference.md)**: Detailed API documentation and component interfaces
+
+### Quick References
+- **[Product Requirements](docs/product-requirements.md)**: Original product specifications
+- **Component Structure**: See `src/components/` for React components
+- **Type Definitions**: See `src/data/types/` for TypeScript interfaces
+- **Configuration**: See `src/config/` for app configuration
+- **Logging System**: See `src/utils/logging/` for debug tools
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Development Guide](docs/development-guide.md) for:
+- Development environment setup
+- Code style guidelines
+- Testing procedures
+- Pull request process
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For help and support:
+1. Check the [comprehensive documentation](docs/)
+2. Review [common troubleshooting issues](docs/development-guide.md#troubleshooting)
+3. Create an issue in the repository
+4. Use the built-in logging system for debugging
