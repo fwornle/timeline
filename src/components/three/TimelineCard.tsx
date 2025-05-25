@@ -6,7 +6,13 @@ import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../d
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, threeColors, threeOpacities } from '../../config';
 import {
-  globalClickHandlers
+  globalClickHandlers,
+  registerOpenCard,
+  unregisterOpenCard,
+  registerAnimatingCard,
+  unregisterAnimatingCard,
+  addForceCloseCallback,
+  removeForceCloseCallback
 } from '../../utils/three/cardUtils';
 
 
@@ -203,8 +209,17 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       }
     };
 
-    // Store the clear hover callback
+    // Create a force close callback specific to this card
+    const forceClose = (cardId: string) => {
+      if (cardId === event.id && onHover) {
+        console.log('Force closing card:', cardId);
+        onHover(null);
+      }
+    };
+
+    // Store the callbacks
     globalClickHandlers.clearHoverCallbacks.add(clearHover);
+    addForceCloseCallback(forceClose);
 
     // Set up document listener if needed
     globalClickHandlers.setupDocumentListener();
@@ -213,6 +228,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     return () => {
       globalClickHandlers.activeCards.delete(event.id);
       globalClickHandlers.clearHoverCallbacks.delete(clearHover);
+      removeForceCloseCallback(forceClose);
 
       // Clean up document listener if no more cards
       globalClickHandlers.cleanupDocumentListener();
@@ -348,6 +364,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       if (newIsHovered) {
         // HOVER: Start simultaneous slide + swirl/zoom animation
         animationCompletionRef.current = { targetState: 'open', mustComplete: true, cardId: event.id };
+        registerAnimatingCard(event.id);
 
         const cardWidth = dimensions.card.width;
         const cardHeight = dimensions.card.height;
@@ -393,6 +410,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       } else {
         // UNHOVER: Return to original position (single stage)
         animationCompletionRef.current = { targetState: 'closed', mustComplete: true, cardId: event.id };
+        registerAnimatingCard(event.id);
 
         const targetRotationY = 0;
         const targetPositionX = position[0];
@@ -532,6 +550,16 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         setAnimState(prev => ({ ...prev, isAnimating: false }));
         // Mark animation as completed - this allows other interactions again
         animationCompletionRef.current.mustComplete = false;
+
+        // Unregister card as animating
+        unregisterAnimatingCard(event.id);
+
+        // Register/unregister card as open based on target state
+        if (animationCompletionRef.current.targetState === 'open') {
+          registerOpenCard(event.id);
+        } else if (animationCompletionRef.current.targetState === 'closed') {
+          unregisterOpenCard(event.id);
+        }
       }
     }
 

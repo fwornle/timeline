@@ -169,11 +169,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     // Reset counts when repo changes
     setGitCount(0);
     setSpecCount(0);
-    setIsLoading(true);
+    // Only set loading to true if the URL actually changed and is not empty
+    if (url && url !== repoUrl) {
+      setIsLoading(true);
+      // Set a timeout to reset loading state if it doesn't get reset naturally
+      // This prevents buttons from staying disabled indefinitely
+      setTimeout(() => {
+        setIsLoading(false);
+        logger.warn('Loading state auto-reset after timeout');
+      }, 10000); // 10 second timeout
+    }
     setIsGitHistoryMocked(false);
     setIsSpecHistoryMocked(false);
-    logger.info('Repository URL changed', { url });
-  }, []);
+    logger.info('Repository URL changed', { url, wasLoading: url && url !== repoUrl });
+  }, [repoUrl, logger]);
 
   // Handle loading state change from TimelineVisualization
   const handleLoadingChange = (loading: boolean) => {
