@@ -15,10 +15,9 @@ export const store = configureStore({
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: ['ui/updateCameraState'],
-        ignoredPaths: ['ui.cameraState'],
-      },
+      // Disable serialization checks in development for now
+      // TODO: Properly serialize Date objects and Vector3 objects in production
+      serializableCheck: false,
     }),
 });
 

@@ -100,20 +100,8 @@ const Home: React.FC<HomeProps> = ({
   return (
     <div className="w-100 h-100 position-relative">
       <TimelineVisualization
-        repoUrl={repoUrl}
-        animationSpeed={animationSpeed}
-        autoDrift={autoDrift}
-        droneMode={droneMode}
         onLoadingChange={handleLoadingChange}
         onError={handleError}
-        forceReload={forceReload}
-        viewAllMode={viewAllMode}
-        focusCurrentMode={focusCurrentMode}
-        debugMode={debugMode}
-        initialCameraState={initialCameraState}
-        initialMarkerPosition={initialMarkerPosition}
-        onCameraPositionChange={onCameraPositionChange}
-        onCameraStateChange={onCameraStateChange}
         onDataLoaded={(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked) => {
           if (debugMode) {
             logger.debug('Home.onDataLoaded called', {
@@ -154,14 +142,6 @@ const Home: React.FC<HomeProps> = ({
                 onTimelineLengthChange(timelineLength);
               }
             }
-          }
-        }}
-        onPositionUpdate={(position) => {
-          if (debugMode) {
-            logger.debug('Home.onPositionUpdate called', { position });
-          }
-          if (onPositionChange) {
-            onPositionChange(position);
           }
         }}
       />

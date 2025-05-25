@@ -24,10 +24,11 @@ import {
   updateTimelinePosition,
   toggleViewAll,
   toggleDroneMode,
-  updateCameraWithSync
+  updateCameraWithSync,
+  focusOnCurrentPosition
 } from '../store/intents/uiIntents';
-import { fetchTimelineData } from '../store/intents/timelineIntents';
 import type { CameraState } from '../components/three/TimelineCamera';
+import { Vector3 } from 'three';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -58,9 +59,6 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     isUsingMockData,
   } = useAppSelector(state => state.timeline);
 
-  const {
-    url: repoUrl,
-  } = useAppSelector(state => state.repository);
 
   // Local state for timeline metadata
   const [timelineStartDate, setTimelineStartDate] = React.useState<Date | undefined>(undefined);
@@ -95,8 +93,17 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
       setForceReloadFlag(prev => !prev);
     };
 
+    const handleResetFocusCurrentMode = () => {
+      dispatch(setFocusCurrentMode(false));
+    };
+
     window.addEventListener('timeline-reset', handleTimelineReset);
-    return () => window.removeEventListener('timeline-reset', handleTimelineReset);
+    window.addEventListener('resetFocusCurrentMode', handleResetFocusCurrentMode);
+
+    return () => {
+      window.removeEventListener('timeline-reset', handleTimelineReset);
+      window.removeEventListener('resetFocusCurrentMode', handleResetFocusCurrentMode);
+    };
   }, [dispatch]);
 
   // Handlers that dispatch intents
@@ -122,7 +129,12 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
   }, [dispatch]);
 
   const handleFocusCurrentModeChange = useCallback((enabled: boolean) => {
-    dispatch(setFocusCurrentMode(enabled));
+    if (enabled) {
+      // Use the proper intent for focusing on current position
+      dispatch(focusOnCurrentPosition());
+    } else {
+      dispatch(setFocusCurrentMode(enabled));
+    }
   }, [dispatch]);
 
   const handleDebugModeChange = useCallback((enabled: boolean) => {
@@ -141,11 +153,6 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     }));
   }, [dispatch]);
 
-  const handleTimelineDataFetch = useCallback((sourceType: 'git' | 'spec' | 'both', useMockData = false) => {
-    if (repoUrl) {
-      dispatch(fetchTimelineData({ repoUrl, sourceType, useMockData }));
-    }
-  }, [dispatch, repoUrl]);
 
   // Create props for TopBar
   const topBarProps = {
@@ -189,17 +196,17 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Create props for Home component (passed through AppRoutes)
   const homeProps = {
-    onLoadingChange: (_loading: boolean) => {
+    onLoadingChange: () => {
       // Handle loading state changes if needed
     },
-    onEventCountsChange: (_gitCount: number, _specCount: number) => {
+    onEventCountsChange: () => {
       // These are handled by Redux store updates
     },
-    onMockStatusChange: (_isGitHistoryMocked: boolean, _isSpecHistoryMocked: boolean) => {
+    onMockStatusChange: () => {
       // These are handled by Redux store updates
     },
     onPositionChange: handlePositionChange,
-    onCameraPositionChange: (position: any) => {
+    onCameraPositionChange: (position: Vector3) => {
       setCameraPosition({ x: position.x, y: position.y, z: position.z });
     },
     onCameraStateChange: handleCameraStateChange,

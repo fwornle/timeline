@@ -1,9 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import * as THREE from 'three';
 
+// Use plain objects instead of Three.js Vector3 for Redux serialization
 export interface CameraState {
-  position: THREE.Vector3;
-  target: THREE.Vector3;
+  position: { x: number; y: number; z: number };
+  target: { x: number; y: number; z: number };
   zoom: number;
 }
 
@@ -13,26 +13,26 @@ interface UIState {
   autoDrift: boolean;
   droneMode: boolean;
   isAutoScrolling: boolean;
-  
+
   // View modes
   viewAll: boolean;
   focusCurrentMode: boolean;
   debugMode: boolean;
-  
+
   // Camera state
   cameraState: CameraState;
-  
+
   // Card states
   selectedCardId: string | null;
   hoveredCardId: string | null;
-  
+
   // Modal states
   showPreferences: boolean;
   showLoggingControl: boolean;
-  
+
   // Layout states
   sidebarOpen: boolean;
-  
+
   // Loading states
   isInitializing: boolean;
 }
@@ -46,8 +46,8 @@ const initialState: UIState = {
   focusCurrentMode: false,
   debugMode: false,
   cameraState: {
-    position: new THREE.Vector3(0, 20, 50),
-    target: new THREE.Vector3(0, 0, 0),
+    position: { x: 0, y: 20, z: 50 },
+    target: { x: 0, y: 0, z: 0 },
     zoom: 1,
   },
   selectedCardId: null,

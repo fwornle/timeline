@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { useAppSelector } from '../store';
-import type { CameraState } from './three/TimelineCamera';
+import type { CameraState } from '../store/slices/uiSlice';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
 interface BottomBarProps {

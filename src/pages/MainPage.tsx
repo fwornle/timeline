@@ -119,15 +119,8 @@ const MainPage: React.FC<MainPageProps> = ({
             <WelcomeMessage />
           ) : (
             <TimelineVisualization
-              repoUrl={repoUrl}
-              animationSpeed={animationSpeed}
-              autoDrift={autoDrift}
               onLoadingChange={handleLoadingChange}
               onError={handleError}
-              viewAllMode={viewAllMode}
-              focusCurrentMode={focusCurrentMode}
-              forceReload={forceReload}
-              debugMode={debugMode}
               onDataLoaded={(gitEvents, specEvents, isMocked) => {
                 logger.debug('MainPage onDataLoaded:', {
                   gitEventsCount: gitEvents.length,
@@ -144,7 +137,6 @@ const MainPage: React.FC<MainPageProps> = ({
                   onMockStatusChange(isMocked);
                 }
               }}
-              onPositionUpdate={onPositionChange}
             />
           )}
         </ErrorBoundary>

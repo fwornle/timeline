@@ -1,29 +1,35 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Vector3, PerspectiveCamera, OrthographicCamera } from 'three';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
+import { useAppDispatch, useAppSelector } from '../../store';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { updateCameraWithSync } from '../../store/intents/uiIntents';
 
 
-// Define camera states interface
+// Define camera states interface - using Vector3 for Three.js operations
 export interface CameraState {
   position: Vector3;
   target: Vector3;
   zoom: number;
 }
 
+// Helper functions to convert between Redux plain objects and Three.js Vector3
+const toVector3 = (obj: { x: number; y: number; z: number }): Vector3 => {
+  return new Vector3(obj.x, obj.y, obj.z);
+};
+
+const toPlainObject = (vec: Vector3): { x: number; y: number; z: number } => {
+  return { x: vec.x, y: vec.y, z: vec.z };
+};
+
 interface TimelineCameraProps {
   target: Vector3;
-  viewAllMode?: boolean;
-  focusCurrentMode?: boolean;
-  droneMode?: boolean; // Enable drone-like camera movement during play mode
   events?: TimelineEvent[]; // For calculating the bounds of all events
-  debugMode?: boolean; // Enable camera position cycling for debugging
   onCameraPositionChange?: (position: Vector3) => void; // Callback for camera position changes
   onCameraStateChange?: (state: CameraState) => void; // Callback for full camera state changes
-  initialCameraState?: CameraState; // Initial camera state to restore
   disableControls?: boolean; // Disable camera controls temporarily (e.g., during marker dragging)
 }
 
@@ -99,53 +105,41 @@ function getPositionForZoom(target: Vector3, direction: Vector3, zoom: number) {
 
 export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   target,
-  viewAllMode = false,
-  focusCurrentMode = false,
-  droneMode = false,
   events = [],
-  debugMode = false,
   onCameraPositionChange,
   onCameraStateChange,
-  initialCameraState,
   disableControls = false,
 }) => {
+  const dispatch = useAppDispatch();
+
+  // Get state from Redux store
+  const {
+    cameraState: reduxCameraState,
+    viewAll: viewAllMode,
+    focusCurrentMode,
+    droneMode,
+    debugMode,
+  } = useAppSelector(state => state.ui);
   const { camera } = useThree();
   const logger = useLogger({ component: 'TimelineCamera', topic: 'ui' });
   const orbitControlsRef = useRef<OrbitControlsImpl>(null);
 
-  // Create a single source of truth for camera state
-  const [cameraState, setCameraState] = useState<CameraState>(() => {
-    // Initialize with initialCameraState if provided, otherwise use default
-    if (initialCameraState) {
-      // Create a new state object with pristine Vector3 instances
-      return {
-        position: new Vector3(
-          Number(initialCameraState.position.x),
-          Number(initialCameraState.position.y),
-          Number(initialCameraState.position.z)
-        ),
-        target: new Vector3(
-          Number(initialCameraState.target.x),
-          Number(initialCameraState.target.y),
-          Number(initialCameraState.target.z)
-        ),
-        zoom: Number(initialCameraState.zoom)
-      };
-    }
+  // Add debouncing for camera updates
+  const lastUpdateTimeRef = useRef<number>(0);
+  const updateThrottleMs = 16; // ~60fps
 
-    // Default initial state
-    return {
-      position: new Vector3(-35, 30, -50),
-      target: target.clone() || new Vector3(0, 0, 0),
-      zoom: 1.0
-    };
-  });
+  // Convert Redux camera state to Three.js Vector3 objects
+  const cameraState: CameraState = {
+    position: toVector3(reduxCameraState.position),
+    target: toVector3(reduxCameraState.target),
+    zoom: reduxCameraState.zoom,
+  };
 
   // Add a dedicated zoom tracking state to ensure we capture it correctly
-  const [currentZoom, setCurrentZoom] = useState(initialCameraState?.zoom || 1.0);
+  const currentZoomRef = useRef(cameraState.zoom);
 
   // Track when initialization is complete
-  const [initialized, setInitialized] = useState(false);
+  const initializedRef = useRef(false);
 
   // Track the source of state changes to prevent loops
   const stateChangeSourceRef = useRef<'init' | 'controls' | 'mode' | 'frame' | null>(null);
@@ -188,13 +182,16 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     }
   }, [camera, debugMode, logger]);
 
-  // Helper to update camera state in a single place
+  // Helper to update camera state through Redux
   const updateCameraState = useCallback((
     newState: CameraState,
     source: 'init' | 'controls' | 'mode' | 'frame',
-    skipCallbacks: boolean = false
+    skipRedux: boolean = false
   ) => {
-    if (!initialized && source !== 'init') return;
+    if (!initializedRef.current && source !== 'init') return;
+
+    // Prevent updates during state application to avoid circular loops
+    if (isApplyingStateRef.current && source !== 'init') return;
 
     let zoom = newState.zoom;
     if (camera instanceof PerspectiveCamera) {
@@ -232,45 +229,47 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       zoom: Number(updatedState.zoom)
     };
 
-    // Update local state
-    setCameraState(cleanState);
-
     // Mark the source of this state change
     stateChangeSourceRef.current = source;
 
-    // Only notify parent components if not skipping callbacks
-    // This prevents circular dependencies when updating from external target changes
-    if (!skipCallbacks) {
-      if (onCameraStateChange) {
-        // Only log in debug mode to reduce console spam
-        if (debugMode) {
-          logger.debug('Sending state to parent:', {
-            id: Date.now(),
-            source,
-            position: {
-              x: cleanState.position.x.toFixed(2),
-              y: cleanState.position.y.toFixed(2),
-              z: cleanState.position.z.toFixed(2)
-            },
-            target: {
-              x: cleanState.target.x.toFixed(2),
-              y: cleanState.target.y.toFixed(2),
-              z: cleanState.target.z.toFixed(2)
-            },
-            zoom: cleanState.zoom.toFixed(2)
-          });
-        }
-        onCameraStateChange(cleanState);
-      }
+    // Update Redux state if not skipping
+    if (!skipRedux) {
+      dispatch(updateCameraWithSync({
+        position: toPlainObject(cleanState.position),
+        target: toPlainObject(cleanState.target),
+        zoom: cleanState.zoom,
+      }));
+    }
 
-      if (onCameraPositionChange) {
-        onCameraPositionChange(cleanState.position);
+    // Also notify parent components if callbacks exist
+    if (onCameraStateChange) {
+      if (debugMode) {
+        logger.debug('Sending state to parent:', {
+          id: Date.now(),
+          source,
+          position: {
+            x: cleanState.position.x.toFixed(2),
+            y: cleanState.position.y.toFixed(2),
+            z: cleanState.position.z.toFixed(2)
+          },
+          target: {
+            x: cleanState.target.x.toFixed(2),
+            y: cleanState.target.y.toFixed(2),
+            z: cleanState.target.z.toFixed(2)
+          },
+          zoom: cleanState.zoom.toFixed(2)
+        });
       }
+      onCameraStateChange(cleanState);
+    }
+
+    if (onCameraPositionChange) {
+      onCameraPositionChange(cleanState.position);
     }
 
     if (debugMode) {
       logger.debug(`Camera state updated from ${source}:`, {
-        skipCallbacks,
+        skipRedux,
         position: {
           x: cleanState.position.x.toFixed(1),
           y: cleanState.position.y.toFixed(1),
@@ -284,7 +283,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         zoom: cleanState.zoom.toFixed(1)
       });
     }
-  }, [initialized, camera, cameraState, debugMode, logger, onCameraStateChange, onCameraPositionChange]);
+  }, [camera, cameraState, debugMode, logger, onCameraStateChange, onCameraPositionChange, dispatch]);
 
   // Apply camera state to Three.js camera and controls
   const applyCameraState = useCallback((state: CameraState) => {
@@ -302,7 +301,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       orbitControlsRef.current.target.copy(state.target);
       orbitControlsRef.current.update();
     }
-    setCurrentZoom(state.zoom);
+    currentZoomRef.current = state.zoom;
 
     // Add detailed camera information logging (only in debug mode)
     if (debugMode) {
@@ -310,7 +309,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         type: camera.type,
         zoom: camera.zoom,
         stateZoom: state.zoom,
-        trackingZoom: currentZoom,
+        trackingZoom: currentZoomRef.current,
         distanceToTarget: camera.position.distanceTo(
           orbitControlsRef.current?.target || new Vector3()
         )
@@ -334,17 +333,17 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         cameraDotZoom: camera.zoom.toFixed(2)
       });
     }
-  }, [camera, debugMode, logger, currentZoom]);
+  }, [camera, debugMode, logger, currentZoomRef]);
 
   // Initial setup - Apply initial camera state once
   useEffect(() => {
-    if (initialized) return;
+    if (initializedRef.current) return;
 
     // Apply the initial state to the camera
     applyCameraState(cameraState);
 
     // Mark as initialized
-    setInitialized(true);
+    initializedRef.current = true;
 
     logger.info('Initial camera state applied', {
       position: {
@@ -359,15 +358,15 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       },
       zoom: cameraState.zoom
     });
-  }, [initialized, applyCameraState, cameraState, logger]); // Now safe to include memoized functions
+  }, [applyCameraState, cameraState, logger]);
 
-  // Update camera when cameraState changes (only after initialization)
+2  // Update camera when cameraState changes (only after initialization)
   // Use a ref to track the last applied state to prevent circular updates
   const lastAppliedStateRef = useRef<CameraState | null>(null);
   const isApplyingStateRef = useRef(false);
 
   useEffect(() => {
-    if (!initialized || isApplyingStateRef.current) return;
+    if (!initializedRef.current || isApplyingStateRef.current) return;
 
     // Skip if this is the same state we just applied
     if (lastAppliedStateRef.current &&
@@ -395,11 +394,11 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       isApplyingStateRef.current = false;
     }, 50);
 
-  }, [cameraState, initialized, applyCameraState]); // Now safe to include memoized functions
+  }, [cameraState, applyCameraState]); // Now safe to include memoized functions
 
   // Handle view mode changes (viewAllMode or focusCurrentMode)
   useEffect(() => {
-    if (!initialized) return;
+    if (!initializedRef.current) return;
 
     // Skip if user is currently interacting
     if (userInteractingRef.current) return;
@@ -442,8 +441,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         desiredZoom,
         calculatedDistance: newPosition.distanceTo(target)
       });
+
+      // Auto-reset focus current mode after camera has moved
+      setTimeout(() => {
+        // Reset focus current mode through Redux
+        if (onCameraStateChange) {
+          // We need to signal to reset focus current mode
+          // This will be handled by the parent component
+          const resetEvent = new CustomEvent('resetFocusCurrentMode');
+          window.dispatchEvent(resetEvent);
+        }
+      }, 200);
     }
-  }, [viewAllMode, focusCurrentMode, target, initialized, events, updateCameraState, camera, logger]); // Now safe to include memoized functions
+  }, [viewAllMode, focusCurrentMode, target, events, updateCameraState, camera, logger]); // Now safe to include memoized functions
 
   // Update when target changes (for timeline movement)
   // Use a ref to track the last target to prevent circular updates
@@ -453,7 +463,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
   const justExitedDroneModeRef = useRef(false);
 
   useEffect(() => {
-    if (!initialized) return;
+    if (!initializedRef.current) return;
 
     // Skip if user is currently interacting with camera controls (but not if controls are disabled)
     // This allows marker dragging to update the camera state even when controls are disabled
@@ -488,18 +498,18 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       orbitControlsRef.current.update();
 
       // Update state to reflect the new positions
-      setCameraState(prev => ({
-        position: newCameraPosition.clone(),
-        target: target.clone(),
-        zoom: prev.zoom
-      }));
+      updateCameraState({
+        position: newCameraPosition,
+        target: target,
+        zoom: cameraState.zoom
+      }, 'mode');
     }
 
-  }, [target, initialized, disableControls, viewAllMode, focusCurrentMode, droneMode]); // Remove setCameraState dependency
+  }, [target, disableControls, viewAllMode, focusCurrentMode, droneMode, updateCameraState, cameraState.zoom]); // Remove setCameraState dependency
 
   // Monitor camera changes from OrbitControls using useFrame
   useFrame(() => {
-    if (!initialized || userInteractingRef.current) return;
+    if (!initializedRef.current || userInteractingRef.current) return;
 
     const now = performance.now();
 
@@ -758,10 +768,19 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       }
     }
 
+    // Skip frame updates if user is currently interacting (OrbitControls will handle updates)
+    if (userInteractingRef.current) return;
+
+    // Skip if we just processed a controls update
     if (stateChangeSourceRef.current === 'controls') {
       stateChangeSourceRef.current = null;
       return;
     }
+
+    // Throttle frame updates to prevent excessive Redux dispatches
+    const currentTime = now; // Reuse the existing 'now' variable from line 514
+    if (currentTime - lastUpdateTimeRef.current < updateThrottleMs) return;
+
     const currentPosition = new Vector3(
       camera.position.x,
       camera.position.y,
@@ -803,6 +822,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     if ((positionChanged || targetChanged || zoomChanged) &&
         !droneMode &&
         !isApplyingStateRef.current) {
+
+      // Update throttle timestamp
+      lastUpdateTimeRef.current = currentTime;
+
       // Create new state object with fresh values
       const newState: CameraState = {
         position: new Vector3(
@@ -849,7 +872,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     <OrbitControls
       ref={orbitControlsRef}
       makeDefault
-      target={cameraState.target}
+      target={[cameraState.target.x, cameraState.target.y, cameraState.target.z]}
       enablePan={(!debugMode || droneMode) && !disableControls}
       enableZoom={!disableControls}
       enableRotate={(!debugMode || droneMode) && !disableControls}
@@ -872,6 +895,10 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       onChange={() => {
         if (!userInteractingRef.current) return;
 
+        // Throttle onChange updates to prevent excessive Redux dispatches during dragging
+        const changeTime = Date.now();
+        if (changeTime - lastUpdateTimeRef.current < updateThrottleMs) return;
+
         const currentPosition = new Vector3(
           camera.position.x,
           camera.position.y,
@@ -886,7 +913,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         if (camera instanceof PerspectiveCamera) {
           cameraZoom = getZoomFactor(currentPosition, currentTarget);
         }
-        setCurrentZoom(cameraZoom);
+        currentZoomRef.current = cameraZoom;
 
         // Only update state if there are significant changes to prevent circular updates
         // Skip state updates during drone mode to prevent infinite loops
@@ -895,6 +922,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         const zoomChanged = Math.abs(cameraZoom - cameraState.zoom) > 0.1;
 
         if ((positionChanged || targetChanged || zoomChanged) && !droneMode) {
+          // Update throttle timestamp
+          lastUpdateTimeRef.current = changeTime;
+
           const newState: CameraState = {
             position: currentPosition,
             target: currentTarget,
@@ -918,7 +948,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         if (camera instanceof PerspectiveCamera) {
           cameraZoom = getZoomFactor(currentPosition, currentTarget);
         }
-        setCurrentZoom(cameraZoom);
+        currentZoomRef.current = cameraZoom;
         // ...
         // Skip state updates during drone mode to prevent infinite loops
         if (!droneMode) {

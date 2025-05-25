@@ -1,13 +1,14 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '../index';
 import * as THREE from 'three';
-import { 
-  setSelectedCardId, 
-  setHoveredCardId, 
+import {
+  setSelectedCardId,
+  setHoveredCardId,
   updateCameraState,
   setViewAll,
   setIsAutoScrolling,
-  setDroneMode 
+  setDroneMode,
+  setFocusCurrentMode
 } from '../slices/uiSlice';
 import { setMarkerPosition } from '../slices/timelineSlice';
 import { updateCameraPreferences, updateMarkerPositionPreferences } from './preferencesIntents';
@@ -15,13 +16,13 @@ import { updateCameraPreferences, updateMarkerPositionPreferences } from './pref
 // Intent to select a card and update camera
 export const selectCard = createAsyncThunk<
   void,
-  { cardId: string | null; position?: THREE.Vector3 },
+  { cardId: string | null; position?: { x: number; y: number; z: number } },
   { state: RootState }
 >(
   'ui/selectCard',
   async ({ cardId, position }, { dispatch }) => {
     dispatch(setSelectedCardId(cardId));
-    
+
     if (position) {
       dispatch(updateCameraState({
         target: position,
@@ -51,17 +52,17 @@ export const updateTimelinePosition = createAsyncThunk<
   'ui/updateTimelinePosition',
   async ({ position, updateCamera = true }, { dispatch, getState }) => {
     dispatch(setMarkerPosition(position));
-    
+
     if (updateCamera) {
       const state = getState();
       const currentCamera = state.ui.cameraState;
-      
+
       // Update camera target z position to follow timeline
       dispatch(updateCameraState({
-        target: new THREE.Vector3(currentCamera.target.x, currentCamera.target.y, position),
+        target: { x: currentCamera.target.x, y: currentCamera.target.y, z: position },
       }));
     }
-    
+
     // Throttled update to preferences
     dispatch(updateMarkerPositionPreferences(position));
   }
@@ -77,17 +78,19 @@ export const toggleViewAll = createAsyncThunk<
   async (_, { dispatch, getState }) => {
     const state = getState();
     const newViewAll = !state.ui.viewAll;
-    
+
     dispatch(setViewAll(newViewAll));
-    
+
     if (newViewAll) {
-      // Stop auto scrolling when viewing all
+      // Disable other modes when viewing all
+      dispatch(setFocusCurrentMode(false));
+      dispatch(setDroneMode(false));
       dispatch(setIsAutoScrolling(false));
-      
+
       // Reset camera to overview position
       dispatch(updateCameraState({
-        position: new THREE.Vector3(0, 50, 0),
-        target: new THREE.Vector3(0, 0, 0),
+        position: { x: 0, y: 50, z: 0 },
+        target: { x: 0, y: 0, z: 0 },
         zoom: 0.5,
       }));
     }
@@ -104,9 +107,9 @@ export const toggleDroneMode = createAsyncThunk<
   async (_, { dispatch, getState }) => {
     const state = getState();
     const newDroneMode = !state.ui.droneMode;
-    
+
     dispatch(setDroneMode(newDroneMode));
-    
+
     if (newDroneMode) {
       // Enable auto scrolling for drone mode
       dispatch(setIsAutoScrolling(true));
@@ -114,31 +117,57 @@ export const toggleDroneMode = createAsyncThunk<
   }
 );
 
+// Intent to focus on current marker position
+export const focusOnCurrentPosition = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
+  'ui/focusOnCurrentPosition',
+  async (_, { dispatch, getState }) => {
+    const state = getState();
+    const currentPosition = state.timeline.currentPosition;
+
+    // First, disable conflicting modes
+    dispatch(setViewAll(false));
+    dispatch(setDroneMode(false));
+    dispatch(setIsAutoScrolling(false));
+
+    // Update camera target to current marker position first
+    dispatch(updateCameraState({
+      target: { x: 0, y: 0, z: currentPosition },
+    }));
+
+    // Then enable focus current mode (this will trigger the camera to focus)
+    dispatch(setFocusCurrentMode(true));
+  }
+);
+
 // Intent to update camera state with preferences sync
 export const updateCameraWithSync = createAsyncThunk<
   void,
-  { position?: THREE.Vector3; target?: THREE.Vector3; zoom?: number },
+  { position?: { x: number; y: number; z: number }; target?: { x: number; y: number; z: number }; zoom?: number },
   { state: RootState }
 >(
   'ui/updateCameraWithSync',
   async (cameraUpdate, { dispatch, getState }) => {
     const state = getState();
     const currentCamera = state.ui.cameraState;
-    
+
     const newPosition = cameraUpdate.position || currentCamera.position;
     const newTarget = cameraUpdate.target || currentCamera.target;
     const newZoom = cameraUpdate.zoom !== undefined ? cameraUpdate.zoom : currentCamera.zoom;
-    
+
     dispatch(updateCameraState({
       position: newPosition,
       target: newTarget,
       zoom: newZoom,
     }));
-    
-    // Sync with preferences (throttled)
+
+    // Sync with preferences (throttled) - convert to Vector3 for preferences
     dispatch(updateCameraPreferences({
-      position: newPosition,
-      target: newTarget,
+      position: new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
+      target: new THREE.Vector3(newTarget.x, newTarget.y, newTarget.z),
       zoom: newZoom,
     }));
   }

@@ -1,37 +1,34 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+import { useAppDispatch, useAppSelector } from '../store';
 import { useTimelineData } from '../data/hooks/useTimelineData';
-import { useTimelineAnimation } from '../animation/useTimelineAnimation';
 import { TimelineScene } from './three/TimelineScene';
 import type { TimelineEvent } from '../data/types/TimelineEvent';
 import { mockGitHistory } from '../data/mocks/mockGitHistory';
 import { mockSpecHistory } from '../data/mocks/mockSpecHistory';
 import { Vector3 } from 'three';
-import type { CameraState } from './three/TimelineCamera';
-
+import {
+  setSelectedCardId,
+  setHoveredCardId,
+  updateCameraState
+} from '../store/slices/uiSlice';
+import {
+  setEvents,
+  setLoading,
+  setError
+} from '../store/slices/timelineSlice';
+import { selectCard, hoverCard, updateTimelinePosition } from '../store/intents/uiIntents';
 
 interface TimelineVisualizationProps {
-  repoUrl: string;
-  animationSpeed: number;
-  autoDrift: boolean;
-  droneMode?: boolean;
-  onLoadingChange: (isLoading: boolean) => void;
-  onError: (error: Error | null) => void;
+  // Optional legacy props for compatibility
+  onLoadingChange?: (isLoading: boolean) => void;
+  onError?: (error: Error | null) => void;
   onDataLoaded?: (
     gitEvents: TimelineEvent[],
     specEvents: TimelineEvent[],
     isGitHistoryMocked: boolean,
     isSpecHistoryMocked: boolean
   ) => void;
-  onPositionUpdate?: (position: number) => void;
-  onCameraPositionChange?: (position: Vector3) => void;
-  onCameraStateChange?: (state: CameraState) => void;
-  initialCameraState?: CameraState;
-  initialMarkerPosition?: number;
-  forceReload?: boolean;
-  viewAllMode?: boolean;
-  focusCurrentMode?: boolean;
-  debugMode?: boolean;
 }
 
 // Loading component
@@ -93,244 +90,150 @@ const ErrorView: React.FC<{
 
 // Main component
 export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
-  repoUrl,
-  animationSpeed,
-  autoDrift,
-  droneMode = false,
   onLoadingChange,
   onError,
   onDataLoaded,
-  onPositionUpdate,
-  onCameraPositionChange,
-  onCameraStateChange,
-  initialCameraState,
-  initialMarkerPosition = 0,
-  forceReload = false,
-  viewAllMode: externalViewAllMode = false,
-  focusCurrentMode: externalFocusCurrentMode = false,
-  debugMode = false,
 }) => {
-  // Always initialize hooks regardless of repoUrl to maintain hook order
+  const dispatch = useAppDispatch();
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
 
-  // Log received props for camera state callbacks
-  useEffect(() => {
-    logger.debug('TimelineVisualization received camera props:', {
-      hasOnCameraPositionChange: !!onCameraPositionChange,
-      hasOnCameraStateChange: !!onCameraStateChange,
-      hasInitialCameraState: !!initialCameraState,
-      debugMode
-    });
-  }, [onCameraPositionChange, onCameraStateChange, initialCameraState, debugMode]);
+  // Get state from Redux store
+  const {
+    cameraState,
+    selectedCardId,
+    hoveredCardId,
+    viewAll: viewAllMode,
+    focusCurrentMode,
+    debugMode,
+    droneMode,
+  } = useAppSelector(state => state.ui);
 
-  // Component state
-  const [showWelcome, setShowWelcome] = useState(!repoUrl);
-  const [showLoading, setShowLoading] = useState(false);
-  const [showError, setShowError] = useState(false);
-
-  // Timeline data
   const {
     events,
-    isLoading,
-    hasError,
-    errors,
-    sources,
-    period,
-    refresh,
-    purgeAndRefresh,
-    isGitHistoryMocked,
-    isSpecHistoryMocked,
-    usingMockedData,
-  } = useTimelineData(repoUrl);
+    loading: isLoading,
+    error: hasError,
+    markerPosition,
+  } = useAppSelector(state => state.timeline);
 
-  // Track the previous forceReload value to detect changes
-  const prevForceReloadRef = useRef<boolean | undefined>(undefined);
-
-  // Handle force reload when the prop changes
-  useEffect(() => {
-    // Only trigger reload if forceReload changed from false to true
-    if (forceReload && prevForceReloadRef.current !== forceReload && repoUrl && !isLoading) {
-      logger.info('Forcing data reload with cache purge', { repoUrl });
-
-      // Use purgeAndRefresh to clear the cache first, then reload
-      // Wrap in a try/catch to ensure we don't get stuck in a loading state
-      try {
-        purgeAndRefresh();
-      } catch (error) {
-        logger.error('Error during forced reload', { error });
-        // The purgeAndRefresh function should handle its own errors and reset loading state
-      }
-    }
-
-    // Update the ref with current value for next comparison
-    prevForceReloadRef.current = forceReload;
-  }, [forceReload, repoUrl, isLoading]); // Remove function dependencies to prevent infinite loops
-
-  // Track external view mode changes
-  useEffect(() => {
-    if (externalViewAllMode) {
-      logger.info('External view all mode activated');
-    }
-    if (externalFocusCurrentMode) {
-      logger.info('External focus mode activated');
-    }
-  }, [externalViewAllMode, externalFocusCurrentMode]); // Remove logger from dependencies to prevent infinite loops
-
-  // Use external props directly - we don't need internal state anymore
-  const viewAllMode = externalViewAllMode;
-  const focusCurrentMode = externalFocusCurrentMode;
-
-  // Track current marker position to preserve it when entering drift mode
-  const currentMarkerPositionRef = useRef<number>(initialMarkerPosition);
-
-  // Animation state
   const {
-    isAutoScrolling,
-    selectedCardId,
-    cameraTarget,
-    cardPositionsRef,
-    getCardAnimationProps,
-    updateCardPosition,
-    selectCard,
-    setHoveredCard,
-    toggleAutoScroll,
-    setScrollSpeed,
-    setCameraTargetZ,
-    setCameraTarget,
-  } = useTimelineAnimation({
-    enableAutoScroll: autoDrift,
-    initialScrollSpeed: animationSpeed,
-    initialMarkerPosition: currentMarkerPositionRef.current,
-  });
+    url: repoUrl,
+  } = useAppSelector(state => state.repository);
+
+  // Use the timeline data hook to fetch data
+  const timelineData = useTimelineData(repoUrl);
+
+  // Sync timeline data with Redux state
+  useEffect(() => {
+    if (timelineData.events.length > 0) {
+      dispatch(setEvents(timelineData.events));
+      dispatch(setLoading(false));
+      dispatch(setError(null));
+    } else if (timelineData.hasError) {
+      dispatch(setError('Failed to load timeline data'));
+      dispatch(setLoading(false));
+    } else if (timelineData.isLoading) {
+      dispatch(setLoading(true));
+      dispatch(setError(null));
+    }
+  }, [timelineData.events, timelineData.isLoading, timelineData.hasError, dispatch]);
+
+  // Use data from the hook for compatibility flags
+  const isGitHistoryMocked = timelineData.isGitHistoryMocked;
+  const isSpecHistoryMocked = timelineData.isSpecHistoryMocked;
+  const usingMockedData = timelineData.usingMockedData;
+
+  // Legacy error handling
+  const sources = timelineData.sources;
+
+  // Track component state
+  const showWelcome = !repoUrl;
+  const showLoading = isLoading && events.length === 0 && !hasError;
+  const showError = hasError && events.length === 0;
+
+  // Track card positions for position updates
+  const cardPositionsRef = useRef<Map<string, Vector3>>(new Map());
+
+  // Simple card animation props function
+  const getCardAnimationProps = useCallback((id: string) => {
+    const isSelected = selectedCardId === id;
+    const isHovered = hoveredCardId === id;
+
+    return {
+      scale: isSelected ? 1.2 : isHovered ? 1.1 : 1 as 1 | 1.1 | 1.2,
+      rotation: [0, 0, 0] as readonly [0, number, 0],
+      positionY: isSelected ? 0.5 : isHovered ? 0.2 : 0 as 0 | 0.5 | 0.2,
+      springConfig: { mass: 1, tension: 120, friction: 30 }
+    };
+  }, [selectedCardId, hoveredCardId]);
+
+  // Card interaction handlers - now dispatch to Redux
+  const handleSelectCard = useCallback((id: string | null) => {
+    if (id && cardPositionsRef.current.has(id)) {
+      const position = cardPositionsRef.current.get(id)!;
+      dispatch(selectCard({
+        cardId: id,
+        position: { x: position.x, y: position.y, z: position.z }
+      }));
+    } else {
+      dispatch(setSelectedCardId(id));
+    }
+  }, [dispatch]);
+
+  const handleHoverCard = useCallback((id: string | null) => {
+    dispatch(setHoveredCardId(id));
+    if (id) {
+      dispatch(hoverCard(id));
+    }
+  }, [dispatch]);
+
+  const updateCardPosition = useCallback((id: string, position: Vector3) => {
+    cardPositionsRef.current.set(id, position.clone());
+  }, []);
 
   // Store callbacks in refs to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
   const onErrorRef = useRef(onError);
   const onDataLoadedRef = useRef(onDataLoaded);
-  const onPositionUpdateRef = useRef(onPositionUpdate);
 
   // Update refs when props change
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
     onErrorRef.current = onError;
     onDataLoadedRef.current = onDataLoaded;
-    onPositionUpdateRef.current = onPositionUpdate;
-  }, [onLoadingChange, onError, onDataLoaded, onPositionUpdate]);
-
-  // Determine which view to show based on state - with stable error handling
-  useEffect(() => {
-    // Welcome screen logic remains the same
-    setShowWelcome(!repoUrl);
-
-    // If we have events, we should show the timeline regardless of error state
-    if (!!repoUrl && events.length > 0) {
-      setShowLoading(false);
-      setShowError(false);
-    }
-    // Only show loading on initial load, not during error states
-    else if (!!repoUrl && isLoading && events.length === 0 && !hasError) {
-      setShowLoading(true);
-      setShowError(false);
-    }
-    // Show error screen only if we have no events AND there's an error
-    else if (!!repoUrl && !!hasError && events.length === 0) {
-      setShowLoading(false);
-      setShowError(true);
-    }
-    // Normal state - no error, no loading
-    else if (!isLoading) {
-      setShowLoading(false);
-      setShowError(false);
-    }
-  }, [repoUrl, isLoading, hasError, events.length]);
+  }, [onLoadingChange, onError, onDataLoaded]);
 
   // Update parent loading state
   useEffect(() => {
-    onLoadingChangeRef.current(isLoading);
+    if (onLoadingChangeRef.current) {
+      onLoadingChangeRef.current(isLoading);
+    }
   }, [isLoading]);
 
   // Update parent error state
   useEffect(() => {
-    if (hasError) {
-      const errorMessage = errors.git?.message || errors.spec?.message || 'Unknown error';
-      onErrorRef.current(new Error(errorMessage));
-    } else {
-      onErrorRef.current(null);
-    }
-  }, [hasError, errors]);
-
-  // Update animation speed when prop changes
-  useEffect(() => {
-    setScrollSpeed(animationSpeed);
-  }, [animationSpeed, setScrollSpeed]);
-
-  // Update auto-drift when prop changes - preserve marker position
-  useEffect(() => {
-    if (autoDrift !== isAutoScrolling) {
-      // If we're entering drift mode, use the exact position from the parent (MainLayout)
-      // This ensures single source of truth and prevents position jumping
-      if (autoDrift && !isAutoScrolling) {
-        // Use the initialMarkerPosition (from MainLayout) as the authoritative position
-        const authoritativePosition = initialMarkerPosition || 0;
-        currentMarkerPositionRef.current = authoritativePosition;
-
-        // IMMEDIATELY set the camera target to the authoritative position to prevent jumping
-        // This must happen BEFORE toggling auto scroll to ensure no position drift
-        setCameraTarget(new Vector3(cameraTarget.x, cameraTarget.y, authoritativePosition));
-
-        if (debugMode) {
-          logger.debug('Entering drift mode with authoritative position', {
-            authoritativePosition,
-            previousCameraTargetZ: cameraTarget.z,
-            difference: Math.abs(authoritativePosition - cameraTarget.z)
-          });
-        }
-      } else if (!autoDrift && isAutoScrolling) {
-        // When exiting drift mode, immediately freeze the current position to prevent inertia
-        const currentAnimationPosition = cameraTarget.z;
-        currentMarkerPositionRef.current = currentAnimationPosition;
-
-        // Immediately notify parent of the final position to keep everything in sync
-        if (onPositionUpdateRef.current) {
-          onPositionUpdateRef.current(currentAnimationPosition);
-          lastReportedPositionRef.current = currentAnimationPosition;
-          lastPositionUpdateRef.current = Date.now();
-        }
-
-        if (debugMode) {
-          logger.debug('Exiting drift mode with final position', {
-            finalPosition: currentAnimationPosition
-          });
-        }
+    if (onErrorRef.current) {
+      if (hasError) {
+        onErrorRef.current(new Error('Timeline data fetch error'));
+      } else {
+        onErrorRef.current(null);
       }
-
-      toggleAutoScroll();
     }
-  }, [autoDrift, isAutoScrolling, toggleAutoScroll, setCameraTarget, cameraTarget.x, cameraTarget.y, cameraTarget.z, initialMarkerPosition, debugMode]);
+  }, [hasError]);
 
   // Listen for reset events
   useEffect(() => {
     const handleReset = () => {
       logger.info('Resetting timeline view');
-
-      // Reset camera to the beginning of the timeline (-length/2)
+      // Reset is now handled by Redux
       if (events.length > 0) {
-        // Sort events by timestamp to find the earliest
         const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         const firstEvent = sortedEvents[0];
-
-        // Select the first event (which should be at -length/2)
         if (cardPositionsRef.current.has(firstEvent.id)) {
-          selectCard(firstEvent.id);
+          const position = cardPositionsRef.current.get(firstEvent.id)!;
+          dispatch(selectCard({ cardId: firstEvent.id, position }));
         }
       } else {
-        // If no events, reset to origin
-        selectCard(null);
-      }
-
-      // Ensure auto-scrolling is stopped
-      if (isAutoScrolling) {
-        toggleAutoScroll();
+        dispatch(setSelectedCardId(null));
       }
     };
 
@@ -338,57 +241,12 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     return () => {
       window.removeEventListener('timeline-reset', handleReset);
     };
-  }, [events, isAutoScrolling, toggleAutoScroll, selectCard, cardPositionsRef]);
-
-  // Throttle position updates to prevent excessive re-renders
-  const lastPositionUpdateRef = useRef<number>(0);
-  const lastReportedPositionRef = useRef<number>(0);
-  const positionUpdateThrottleMs = 50; // Reduce update frequency to improve performance
-
-  // Update position for parent component
-  // During auto-scrolling, update more frequently for smooth animation
-  useEffect(() => {
-    if (onPositionUpdateRef.current && cameraTarget) {
-      const now = Date.now();
-      const newPosition = cameraTarget.z;
-      const positionDelta = Math.abs(newPosition - lastReportedPositionRef.current);
-
-      // Different thresholds for auto-scrolling vs manual movement
-      const timeThreshold = isAutoScrolling ? 50 : positionUpdateThrottleMs; // Reduce update frequency
-      const positionThreshold = isAutoScrolling ? 0.1 : 0.5; // Increase threshold to reduce updates
-
-      // Only report position changes if enough time has passed AND position changed significantly
-      // AND the position is different from what we received from parent (to prevent loops)
-      const isSignificantChange = positionDelta > positionThreshold;
-      const isTimeThresholdMet = now - lastPositionUpdateRef.current >= timeThreshold;
-      const isDifferentFromInitial = Math.abs(newPosition - (initialMarkerPosition || 0)) > 0.1;
-
-      if (isTimeThresholdMet && isSignificantChange && isDifferentFromInitial) {
-        onPositionUpdateRef.current(newPosition);
-        lastPositionUpdateRef.current = now;
-        lastReportedPositionRef.current = newPosition;
-      }
-    }
-  }, [cameraTarget.z, isAutoScrolling, initialMarkerPosition]);
-
-  // Also update position when a card is selected
-  useEffect(() => {
-    if (onPositionUpdateRef.current && selectedCardId) {
-      // Access the card positions from the animation hook
-      if (cardPositionsRef && cardPositionsRef.current && cardPositionsRef.current.has(selectedCardId)) {
-        const position = cardPositionsRef.current.get(selectedCardId)!;
-        onPositionUpdateRef.current(position.z);
-        if (debugMode) {
-          logger.debug('Position updated from card selection', { position: position.z });
-        }
-      }
-    }
-  }, [selectedCardId, cardPositionsRef, debugMode]);
+  }, [events, dispatch, logger]);
 
   // Log significant state changes and notify parent
   useEffect(() => {
     if (debugMode) {
-      logger.debug('TimelineVisualization - events or period changed', {
+      logger.debug('TimelineVisualization - events changed', {
         eventsCount: events.length,
         gitCount: events.filter(e => e.type === 'git').length,
         specCount: events.filter(e => e.type === 'spec').length
@@ -401,16 +259,36 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       const specEvents = events.filter(e => e.type === 'spec');
       onDataLoadedRef.current(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
     }
-  }, [events, period, isGitHistoryMocked, isSpecHistoryMocked, debugMode]);
+  }, [events, isGitHistoryMocked, isSpecHistoryMocked, debugMode, logger]);
 
   // Event handlers
   const handleRefresh = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    refresh();
-  }, [refresh]);
+    logger.info('Refresh requested');
+    timelineData.refresh();
+  }, [logger, timelineData]);
 
-  // Camera control handlers - these are now handled by the parent component
-  // but we keep them for reference and potential future use
+  const handleUseMockData = useCallback(() => {
+    // Load mock data and clear error state
+    const mockGitEvents = mockGitHistory();
+    const mockSpecEvents = mockSpecHistory();
+    const allMockEvents = [...mockGitEvents, ...mockSpecEvents];
+
+    // Update Redux state
+    dispatch(setEvents(allMockEvents));
+    dispatch(setError(null));
+    dispatch(setLoading(false));
+
+    // Update parent component if callback exists
+    if (onDataLoadedRef.current) {
+      onDataLoadedRef.current(mockGitEvents, mockSpecEvents, true, true);
+    }
+
+    logger.info('Using mock data', {
+      gitCount: mockGitEvents.length,
+      specCount: mockSpecEvents.length
+    });
+  }, [dispatch, logger]);
 
   // Render the appropriate view
   if (showWelcome) {
@@ -447,37 +325,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     return (
       <ErrorView
         onRetryAll={handleRefresh}
-        onUseMockData={() => {
-          // Load mock data and clear error state
-          const mockGitEvents = mockGitHistory();
-          const mockSpecEvents = mockSpecHistory();
-
-          // Clear error state to show the timeline
-          setShowError(false);
-
-          // Update local state with mock data
-          const allMockEvents = [...mockGitEvents, ...mockSpecEvents];
-          allMockEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-          // Update the parent component with mock data
-          if (onDataLoaded) {
-            onDataLoaded(mockGitEvents, mockSpecEvents, true, true);
-          }
-
-          // If there's an onError handler, clear the error
-          if (onError) {
-            onError(null);
-          }
-
-          // Log that we're using mock data
-          logger.info('Using mock data after error', {
-            gitCount: mockGitEvents.length,
-            specCount: mockSpecEvents.length
-          });
-
-          // Force a refresh with mock data
-          refresh();
-        }}
+        onUseMockData={handleUseMockData}
       />
     );
   }
@@ -494,38 +342,24 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         <TimelineScene
           events={events}
           selectedCardId={selectedCardId}
-          cameraTarget={cameraTarget}
-          onCardSelect={selectCard}
-          onCardHover={setHoveredCard}
+          cameraTarget={new Vector3(0, 0, markerPosition || 0)}
+          onCardSelect={handleSelectCard}
+          onCardHover={handleHoverCard}
           onCardPositionUpdate={updateCardPosition}
           getCardAnimationProps={getCardAnimationProps}
           viewAllMode={viewAllMode}
           focusCurrentMode={focusCurrentMode}
           droneMode={droneMode}
-          currentPosition={cameraTarget.z}
+          currentPosition={markerPosition || 0}
           onMarkerPositionChange={(position) => {
-            // Update camera target Z position when marker is moved
-            setCameraTargetZ(position);
-            // Track the current marker position for drift mode preservation
-            currentMarkerPositionRef.current = position;
-            // Also notify parent component immediately (not throttled)
-            if (onPositionUpdateRef.current) {
-              onPositionUpdateRef.current(position);
-              // Update our tracking refs to prevent duplicate updates
-              lastReportedPositionRef.current = position;
-              lastPositionUpdateRef.current = Date.now();
-            }
+            dispatch(updateTimelinePosition({ position }));
           }}
-          onCameraPositionChange={(position) => {
-            if (onCameraPositionChange) {
-              onCameraPositionChange(position);
-            }
+          onCameraPositionChange={() => {
+            // Camera position changes are handled by Redux through TimelineCamera
           }}
           onCameraStateChange={(state) => {
-            // Only log in debug mode
             if (debugMode) {
-              logger.debug('[TimelineVisualization] Passing camera state:', {
-                id: Date.now(),
+              logger.debug('[TimelineVisualization] Camera state from TimelineScene:', {
                 position: {
                   x: state.position.x.toFixed(2),
                   y: state.position.y.toFixed(2),
@@ -536,32 +370,22 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
                   y: state.target.y.toFixed(2),
                   z: state.target.z.toFixed(2)
                 },
-                zoom: state.zoom.toFixed(2),
-                targetIsZero: state.target.x === 0 && state.target.y === 0 && state.target.z === 0,
-                zoomIsOne: state.zoom === 1
+                zoom: state.zoom.toFixed(2)
               });
             }
 
-            if (onCameraStateChange) {
-              // Create a clean state object with proper Vector3 instances before passing up
-              const cleanState: CameraState = {
-                position: new Vector3(
-                  Number(state.position.x),
-                  Number(state.position.y),
-                  Number(state.position.z)
-                ),
-                target: new Vector3(
-                  Number(state.target.x),
-                  Number(state.target.y),
-                  Number(state.target.z)
-                ),
-                zoom: Number(state.zoom)
-              };
-
-              onCameraStateChange(cleanState);
-            }
+            // Update Redux state - convert Vector3 to plain objects
+            dispatch(updateCameraState({
+              position: { x: state.position.x, y: state.position.y, z: state.position.z },
+              target: { x: state.target.x, y: state.target.y, z: state.target.z },
+              zoom: state.zoom
+            }));
           }}
-          initialCameraState={initialCameraState}
+          initialCameraState={{
+            position: new Vector3(cameraState.position.x, cameraState.position.y, cameraState.position.z),
+            target: new Vector3(cameraState.target.x, cameraState.target.y, cameraState.target.z),
+            zoom: cameraState.zoom,
+          }}
           debugMode={debugMode}
         />
       </div>
@@ -624,24 +448,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
                     Retry
                   </button>
                   <button
-                    onClick={() => {
-                      // Load mock data and clear error state
-                      const mockGitEvents = mockGitHistory();
-                      const mockSpecEvents = mockSpecHistory();
-
-                      // Update the parent component with mock data
-                      if (onDataLoaded) {
-                        onDataLoaded(mockGitEvents, mockSpecEvents, true, true);
-                      }
-
-                      // Clear error state
-                      if (onError) {
-                        onError(null);
-                      }
-
-                      // Force a refresh with mock data
-                      refresh();
-                    }}
+                    onClick={handleUseMockData}
                     className="btn btn-sm btn-warning text-dark"
                   >
                     Use Mocked Data

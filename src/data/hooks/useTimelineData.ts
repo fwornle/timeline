@@ -25,8 +25,8 @@ interface TimelineFilter {
   endDate?: Date;
 }
 
-// API base URL
-const API_BASE_URL = 'http://localhost:3030/api/v1';
+// API base URL - use 3031 as server auto-detects port conflicts
+const API_BASE_URL = 'http://localhost:3031/api/v1';
 
 export function useTimelineData(repoUrl: string) {
   // State

@@ -49,8 +49,6 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   onCardHover,
   onCardPositionUpdate,
   getCardAnimationProps,
-  viewAllMode = false,
-  focusCurrentMode = false,
   droneMode = false,
   currentPosition = 0,
   onMarkerPositionChange,
@@ -202,14 +200,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
         {/* Core Components */}
         <TimelineCamera
           target={cameraTarget}
-          viewAllMode={viewAllMode}
-          focusCurrentMode={focusCurrentMode}
-          droneMode={droneMode}
           events={events}
-          debugMode={debugMode}
           onCameraPositionChange={onCameraPositionChange}
           onCameraStateChange={onCameraStateChange}
-          initialCameraState={initialCameraState}
           disableControls={disableCameraControls || isMarkerDragging}
         />
         <TimelineAxis
