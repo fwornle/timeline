@@ -1,0 +1,96 @@
+@startuml redux-store-structure
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam classStyle rectangle
+
+title Redux Store Structure
+
+class RootState {
+  +timeline: TimelineState
+  +ui: UIState
+  +preferences: PreferencesState
+  +repository: RepositoryState
+}
+
+class TimelineState {
+  +events: TimelineEvent[]
+  +loading: boolean
+  +error: string | null
+  +gitCount: number
+  +specCount: number
+  +currentPosition: number
+  +markerPosition: number
+  +sourceType: 'git' | 'spec' | 'both'
+  +isUsingMockData: boolean
+  +lastFetchTime: number | null
+  +cache: CacheData
+}
+
+class UIState {
+  +animationSpeed: number
+  +autoDrift: boolean
+  +droneMode: boolean
+  +isAutoScrolling: boolean
+  +viewAll: boolean
+  +focusCurrentMode: boolean
+  +debugMode: boolean
+  +cameraState: CameraState
+  +selectedCardId: string | null
+  +hoveredCardId: string | null
+  +showPreferences: boolean
+  +showLoggingControl: boolean
+  +sidebarOpen: boolean
+  +isInitializing: boolean
+}
+
+class RepositoryState {
+  +url: string
+  +username: string
+  +isConnected: boolean
+  +lastSyncTime: number | null
+  +connectionError: string | null
+  +isValidating: boolean
+  +metadata: RepositoryMetadata | null
+}
+
+class PreferencesState {
+  +repoUrl?: string
+  +username?: string
+  +animationSpeed?: number
+  +autoDrift?: boolean
+  +theme?: 'light' | 'dark' | 'system'
+  +cameraState?: StoredCameraState
+  +markerPosition?: number
+  +isLoaded: boolean
+}
+
+class CameraState {
+  +position: {x: number, y: number, z: number}
+  +target: {x: number, y: number, z: number}
+  +zoom: number
+}
+
+class TimelineEvent {
+  +id: string
+  +type: 'git' | 'spec'
+  +timestamp: string
+  +title: string
+  +authorName?: string
+  +authorEmail?: string
+  +branch?: string
+  +commitHash?: string
+  +specType?: string
+  +status?: string
+  +version?: string
+  +files?: FileChange[]
+  +stats: EventStats
+}
+
+RootState --> TimelineState
+RootState --> UIState
+RootState --> RepositoryState
+RootState --> PreferencesState
+UIState --> CameraState
+TimelineState --> TimelineEvent
+
+@enduml

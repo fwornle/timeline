@@ -106,6 +106,190 @@ timeline/
 - **Caching System**: File system cache for performance
 - **Mock Data**: Fallback data generation
 
+## MVI Development Patterns
+
+### State Management with Redux
+
+The application uses Redux Toolkit following the MVI pattern:
+
+#### **Setting Up Redux in Components**
+
+```typescript
+// Import typed hooks
+import { useAppDispatch, useAppSelector } from '../store';
+
+// Import actions and intents
+import { setSelectedCardId } from '../store/slices/uiSlice';
+import { selectCard, updateTimelinePosition } from '../store/intents/uiIntents';
+
+const MyComponent: React.FC = () => {
+  const dispatch = useAppDispatch();
+
+  // Select state (View layer)
+  const selectedCardId = useAppSelector(state => state.ui.selectedCardId);
+  const events = useAppSelector(state => state.timeline.events);
+
+  // Dispatch intents (Intent layer)
+  const handleCardClick = useCallback((cardId: string) => {
+    dispatch(selectCard({ cardId }));
+  }, [dispatch]);
+
+  return (
+    <div>
+      {events.map(event => (
+        <Card
+          key={event.id}
+          selected={selectedCardId === event.id}
+          onClick={() => handleCardClick(event.id)}
+        />
+      ))}
+    </div>
+  );
+};
+```
+
+#### **Creating New State Slices**
+
+```typescript
+// src/store/slices/newFeatureSlice.ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+interface NewFeatureState {
+  data: any[];
+  loading: boolean;
+  error: string | null;
+}
+
+const initialState: NewFeatureState = {
+  data: [],
+  loading: false,
+  error: null,
+};
+
+const newFeatureSlice = createSlice({
+  name: 'newFeature',
+  initialState,
+  reducers: {
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    setData: (state, action: PayloadAction<any[]>) => {
+      state.data = action.payload;
+      state.loading = false;
+    },
+    setError: (state, action: PayloadAction<string>) => {
+      state.error = action.payload;
+      state.loading = false;
+    },
+  },
+});
+
+export const { setLoading, setData, setError } = newFeatureSlice.actions;
+export default newFeatureSlice.reducer;
+```
+
+#### **Creating Async Intents**
+
+```typescript
+// src/store/intents/newFeatureIntents.ts
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import type { RootState } from '../index';
+import { setLoading, setData, setError } from '../slices/newFeatureSlice';
+
+export const fetchNewFeatureData = createAsyncThunk<
+  any[],
+  { param: string },
+  { state: RootState }
+>(
+  'newFeature/fetchData',
+  async ({ param }, { dispatch, getState }) => {
+    dispatch(setLoading(true));
+
+    try {
+      const response = await fetch(`/api/data/${param}`);
+      const data = await response.json();
+
+      dispatch(setData(data));
+      return data;
+    } catch (error) {
+      dispatch(setError(error.message));
+      throw error;
+    }
+  }
+);
+```
+
+### Redux DevTools Integration
+
+#### **Debugging State Changes**
+
+1. Install Redux DevTools browser extension
+2. Open browser DevTools → Redux tab
+3. Monitor dispatched actions and state changes
+4. Use time-travel debugging to replay actions
+
+#### **Action Naming Conventions**
+
+```typescript
+// Use descriptive action names
+dispatch(setSelectedCardId('card-123'));           // ✅ Clear intent
+dispatch(updateTimelinePosition({ position: 100 })); // ✅ Descriptive
+
+// Avoid generic names
+dispatch(setState({ cardId: 'card-123' }));        // ❌ Too generic
+dispatch(update({ pos: 100 }));                    // ❌ Unclear
+```
+
+### Performance Best Practices
+
+#### **Selective State Selection**
+
+```typescript
+// ✅ Good: Select only what you need
+const selectedCardId = useAppSelector(state => state.ui.selectedCardId);
+const loading = useAppSelector(state => state.timeline.loading);
+
+// ❌ Bad: Selecting entire state objects
+const uiState = useAppSelector(state => state.ui);
+const timelineState = useAppSelector(state => state.timeline);
+```
+
+#### **Memoized Selectors**
+
+```typescript
+import { createSelector } from '@reduxjs/toolkit';
+
+// Memoized selector for expensive computations
+const selectVisibleEvents = createSelector(
+  [
+    (state: RootState) => state.timeline.events,
+    (state: RootState) => state.timeline.sourceType,
+  ],
+  (events, sourceType) => {
+    // Expensive filtering logic
+    return events.filter(event =>
+      sourceType === 'both' || event.type === sourceType
+    );
+  }
+);
+
+// Use in component
+const visibleEvents = useAppSelector(selectVisibleEvents);
+```
+
+#### **Callback Memoization**
+
+```typescript
+// Memoize callbacks to prevent unnecessary re-renders
+const handleCardSelect = useCallback((cardId: string) => {
+  dispatch(selectCard({ cardId }));
+}, [dispatch]);
+
+const handleMarkerMove = useCallback((position: number) => {
+  dispatch(updateTimelinePosition({ position }));
+}, [dispatch]);
+```
+
 ## Development Workflow
 
 ### 1. Feature Development

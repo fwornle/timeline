@@ -1,0 +1,50 @@
+@startuml state-flow-diagram
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam activityStyle rectangle
+
+title State Flow in MVI Architecture
+
+start
+
+:User Interaction;
+note right: Click, hover, keyboard input
+
+:Dispatch Intent;
+note right: selectCard(), updateTimelinePosition(), etc.
+
+if (Async Operation?) then (yes)
+  :Create Async Thunk;
+  note right: Redux Toolkit createAsyncThunk
+  
+  :Execute Side Effects;
+  note right: API calls, animations, calculations
+  
+  if (Success?) then (yes)
+    :Dispatch Success Action;
+  else (no)
+    :Dispatch Error Action;
+  endif
+else (no)
+  :Dispatch Sync Action;
+endif
+
+:Reducer Updates State;
+note right: Pure function, immutable updates
+
+:State Change Notification;
+note right: React-Redux subscription
+
+:Component Re-render;
+note right: useAppSelector triggers re-render
+
+:Update UI;
+note right: New props, 3D scene updates
+
+if (More Interactions?) then (yes)
+  :User Interaction;
+else (no)
+  stop
+endif
+
+@enduml

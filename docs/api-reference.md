@@ -1,5 +1,120 @@
 # Timeline API Reference
 
+## Redux Store API
+
+### Store Configuration
+
+```typescript
+import { store, useAppDispatch, useAppSelector } from '../store';
+
+// Typed hooks for Redux integration
+const dispatch = useAppDispatch();
+const state = useAppSelector(state => state);
+```
+
+### State Selectors
+
+#### Timeline State
+```typescript
+const timelineState = useAppSelector(state => state.timeline);
+const events = useAppSelector(state => state.timeline.events);
+const loading = useAppSelector(state => state.timeline.loading);
+const markerPosition = useAppSelector(state => state.timeline.markerPosition);
+```
+
+#### UI State
+```typescript
+const uiState = useAppSelector(state => state.ui);
+const selectedCardId = useAppSelector(state => state.ui.selectedCardId);
+const cameraState = useAppSelector(state => state.ui.cameraState);
+const droneMode = useAppSelector(state => state.ui.droneMode);
+```
+
+#### Repository State
+```typescript
+const repositoryState = useAppSelector(state => state.repository);
+const repoUrl = useAppSelector(state => state.repository.url);
+const isConnected = useAppSelector(state => state.repository.isConnected);
+```
+
+### Action Creators
+
+#### Timeline Actions
+```typescript
+import {
+  setLoading,
+  setEvents,
+  setMarkerPosition,
+  resetTimeline
+} from '../store/slices/timelineSlice';
+
+dispatch(setLoading(true));
+dispatch(setEvents(timelineEvents));
+dispatch(setMarkerPosition(100));
+dispatch(resetTimeline());
+```
+
+#### UI Actions
+```typescript
+import {
+  setSelectedCardId,
+  updateCameraState,
+  setDroneMode,
+  setViewAll
+} from '../store/slices/uiSlice';
+
+dispatch(setSelectedCardId('card-123'));
+dispatch(updateCameraState({ position: { x: 0, y: 10, z: 5 } }));
+dispatch(setDroneMode(true));
+dispatch(setViewAll(false));
+```
+
+### Async Thunks (Intents)
+
+#### Timeline Intents
+```typescript
+import {
+  fetchTimelineData,
+  purgeTimelineCache
+} from '../store/intents/timelineIntents';
+
+// Fetch timeline data
+dispatch(fetchTimelineData({
+  repoUrl: 'https://github.com/user/repo',
+  sourceType: 'both',
+  useMockData: false
+}));
+
+// Purge cache
+dispatch(purgeTimelineCache({ repoUrl }));
+```
+
+#### UI Intents
+```typescript
+import {
+  selectCard,
+  updateTimelinePosition,
+  toggleViewAll,
+  toggleDroneMode
+} from '../store/intents/uiIntents';
+
+// Select a card
+dispatch(selectCard({
+  cardId: 'card-123',
+  position: { x: 0, y: 0, z: 100 }
+}));
+
+// Update timeline position
+dispatch(updateTimelinePosition({
+  position: 150,
+  updateCamera: true
+}));
+
+// Toggle view modes
+dispatch(toggleViewAll());
+dispatch(toggleDroneMode());
+```
+
 ## Backend API Endpoints
 
 ### Base URL
@@ -243,6 +358,107 @@ interface TimelineCardProps {
   isMarkerDragging?: boolean;
   isTimelineHovering?: boolean;
   droneMode?: boolean;
+}
+```
+
+## Redux State Types
+
+### RootState
+
+```typescript
+interface RootState {
+  timeline: TimelineState;
+  ui: UIState;
+  preferences: PreferencesState;
+  repository: RepositoryState;
+}
+```
+
+### TimelineState
+
+```typescript
+interface TimelineState {
+  events: TimelineEvent[];
+  loading: boolean;
+  error: string | null;
+  gitCount: number;
+  specCount: number;
+  currentPosition: number;
+  markerPosition: number;
+  sourceType: 'git' | 'spec' | 'both';
+  isUsingMockData: boolean;
+  lastFetchTime: number | null;
+  cache: {
+    [key: string]: {
+      data: TimelineEvent[];
+      timestamp: number;
+    };
+  };
+}
+```
+
+### UIState
+
+```typescript
+interface UIState {
+  // Animation settings
+  animationSpeed: number;
+  autoDrift: boolean;
+  droneMode: boolean;
+  isAutoScrolling: boolean;
+
+  // View modes
+  viewAll: boolean;
+  focusCurrentMode: boolean;
+  debugMode: boolean;
+
+  // Camera state
+  cameraState: CameraState;
+
+  // Card states
+  selectedCardId: string | null;
+  hoveredCardId: string | null;
+
+  // Modal states
+  showPreferences: boolean;
+  showLoggingControl: boolean;
+
+  // Layout states
+  sidebarOpen: boolean;
+  isInitializing: boolean;
+}
+```
+
+### RepositoryState
+
+```typescript
+interface RepositoryState {
+  url: string;
+  username: string;
+  isConnected: boolean;
+  lastSyncTime: number | null;
+  connectionError: string | null;
+  isValidating: boolean;
+  metadata: {
+    branch: string;
+    lastCommitHash: string;
+    lastCommitTime: number | null;
+  } | null;
+}
+```
+
+### PreferencesState
+
+```typescript
+interface PreferencesState {
+  repoUrl?: string;
+  username?: string;
+  animationSpeed?: number;
+  autoDrift?: boolean;
+  theme?: 'light' | 'dark' | 'system';
+  cameraState?: StoredCameraState;
+  markerPosition?: number;
+  isLoaded: boolean;
 }
 ```
 

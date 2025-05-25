@@ -1,0 +1,65 @@
+@startuml mvi-architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+title MVI (Model-View-Intent) Architecture
+
+package "Intent Layer" as IntentLayer {
+  component "UI Intents" as UIIntents
+  component "Timeline Intents" as TimelineIntents
+  component "Repository Intents" as RepoIntents
+  component "Preferences Intents" as PrefIntents
+
+  note right of UIIntents : selectCard()\nhoverCard()\nupdateTimelinePosition()\ntoggleViewAll()
+  note right of TimelineIntents : fetchTimelineData()\npurgeCache()\nreloadData()
+  note right of RepoIntents : validateRepository()\nconnectRepository()
+  note right of PrefIntents : updateAnimationPrefs()\nupdateCameraPrefs()
+}
+
+package "Model Layer (Redux Store)" as ModelLayer {
+  component "UI Slice" as UISlice
+  component "Timeline Slice" as TimelineSlice
+  component "Repository Slice" as RepoSlice
+  component "Preferences Slice" as PrefSlice
+
+  note right of UISlice : cameraState\nselectedCardId\nanimationSpeed\ndroneMode
+  note right of TimelineSlice : events[]\nloading\nerror\nmarkerPosition
+  note right of RepoSlice : url\nisConnected\nmetadata
+  note right of PrefSlice : theme\ncameraState\nanimationSpeed
+}
+
+package "View Layer (React Components)" as ViewLayer {
+  component "Layout Components" as LayoutComponents
+  component "UI Components" as UIComponents
+  component "3D Components" as ThreeDComponents
+  component "Control Components" as ControlComponents
+
+  note right of LayoutComponents : MainLayoutRedux\nTopBar\nBottomBar
+  note right of UIComponents : PreferencesModal\nLoggingControl
+  note right of ThreeDComponents : TimelineScene\nTimelineCamera\nTimelineCard
+  note right of ControlComponents : SpeedControl\nAnimationControls
+}
+
+' Intent to Model Flow
+UIIntents --> UISlice : dispatch actions
+TimelineIntents --> TimelineSlice : dispatch actions
+RepoIntents --> RepoSlice : dispatch actions
+PrefIntents --> PrefSlice : dispatch actions
+
+' Model to View Flow
+UISlice --> ViewLayer : useAppSelector
+TimelineSlice --> ViewLayer : useAppSelector
+RepoSlice --> ViewLayer : useAppSelector
+PrefSlice --> ViewLayer : useAppSelector
+
+' View to Intent Flow
+ViewLayer --> UIIntents : user interactions
+ViewLayer --> TimelineIntents : data requests
+ViewLayer --> RepoIntents : repo operations
+ViewLayer --> PrefIntents : settings changes
+
+
+
+@enduml

@@ -1,0 +1,54 @@
+@startuml mvi-sequence-diagram
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title MVI Data Flow - Card Selection Example
+
+actor User
+participant "React Component\n(View)" as View
+participant "Intent Layer\n(Thunk)" as Intent
+participant "Redux Store\n(Model)" as Store
+participant "API Service" as API
+
+User -> View : Click on timeline card
+activate View
+
+View -> Intent : dispatch(selectCard({ cardId, position }))
+activate Intent
+
+Intent -> Store : dispatch(setSelectedCardId(cardId))
+activate Store
+Store -> Store : Update UI state
+Store --> Intent : State updated
+deactivate Store
+
+Intent -> Store : dispatch(updateCameraState({ target: position }))
+activate Store
+Store -> Store : Update camera state
+Store --> Intent : State updated
+deactivate Store
+
+Intent -> API : updateCameraPreferences()
+activate API
+API -> API : Save to localStorage
+API --> Intent : Preferences saved
+deactivate API
+
+Intent --> View : Action completed
+deactivate Intent
+
+Store -> View : State change notification
+activate View
+View -> View : Re-render with new state
+View -> User : UI updated (card selected, camera moved)
+deactivate View
+
+note over User, API
+  This flow demonstrates the unidirectional data flow in MVI:
+  1. User interaction triggers intent
+  2. Intent coordinates state updates
+  3. Store notifies components of changes
+  4. Components re-render with new state
+end note
+
+@enduml

@@ -36,8 +36,16 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 
 ## 🏗️ Architecture
 
+### MVI (Model-View-Intent) Pattern
+The application follows the **MVI architectural pattern** with **Redux Toolkit** for predictable state management:
+
+- **Model**: Redux store with organized state slices (timeline, ui, repository, preferences)
+- **View**: Pure React components that render based on state
+- **Intent**: Action creators and async thunks that handle user interactions and side effects
+
 ### Frontend Stack
 - **React 19** + **TypeScript** for type-safe component development
+- **Redux Toolkit** for centralized state management with MVI pattern
 - **Three.js** + **React Three Fiber** for 3D rendering and interactions
 - **Vite** for fast development and optimized builds
 - **Bootstrap 5** for responsive UI components
@@ -49,10 +57,11 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 - **Mock Data Generation** for development and fallback scenarios
 
 ### Key Technologies
+- **Redux Toolkit**: Modern Redux with excellent TypeScript support
 - **React Three Fiber**: Declarative 3D programming with React patterns
-- **Custom Hooks**: Sophisticated state management for complex interactions
+- **MVI Pattern**: Unidirectional data flow with clear separation of concerns
 - **CSS Variables**: Dynamic theming and consistent styling
-- **Context API**: Global state management for preferences and themes
+- **Typed Hooks**: Full TypeScript integration for state management
 
 ## 📋 Requirements
 
@@ -205,17 +214,38 @@ Common issues and solutions:
 
 ## 📚 Documentation
 
-### Comprehensive Guides
-- **[Architecture Overview](docs/architecture.md)**: Complete system architecture and design decisions
-- **[Development Guide](docs/development-guide.md)**: Comprehensive development setup and workflows
-- **[API Reference](docs/api-reference.md)**: Detailed API documentation and component interfaces
+### **Architecture & Design**
 
-### Quick References
-- **[Product Requirements](docs/product-requirements.md)**: Original product specifications
+- **[Architecture Overview](docs/architecture.md)**: Complete system architecture and design decisions
+- **[MVI Architecture](docs/mvi-architecture.md)**: Model-View-Intent pattern implementation with Redux
+- **[State Management](docs/state-management.md)**: Redux Toolkit guide with async thunks and best practices
+
+### **Development Resources**
+
+- **[Development Guide](docs/development-guide.md)**: Setup, workflows, and MVI development patterns
+- **[API Reference](docs/api-reference.md)**: Redux store APIs, backend endpoints, and component interfaces
+- **[Product Requirements](docs/product-requirements.md)**: Original product specifications and features
+
+### **Visual Documentation**
+
+All architecture diagrams are available as PNG files in `docs/images/`:
+
+- **Core Architecture**: System overview and technology stack
+- **MVI Architecture**: Model-View-Intent pattern visualization
+- **Redux Store Structure**: State management organization
+- **Component Integration**: How React components connect to Redux
+- **State Flow Diagram**: Data flow in MVI architecture
+- **Sequence Diagrams**: Detailed interaction flows
+
+### **Quick References**
+
 - **Component Structure**: See `src/components/` for React components
+- **Redux Store**: See `src/store/` for state management (slices, intents, types)
 - **Type Definitions**: See `src/data/types/` for TypeScript interfaces
 - **Configuration**: See `src/config/` for app configuration
 - **Logging System**: See `src/utils/logging/` for debug tools
+
+> **Note**: All PlantUML source files are available in `docs/puml/` for easy modification and regeneration of diagrams.
 
 ## 🤝 Contributing
 

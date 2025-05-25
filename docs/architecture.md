@@ -4,21 +4,11 @@
 
 The Timeline Visualization application is a sophisticated 3D timeline visualization tool that displays both git commit history and specification history in an interactive 3D environment. Built with React, TypeScript, Three.js, and a Node.js backend, it provides real-time visualization of repository data with advanced animation and interaction capabilities.
 
+The application follows the **MVI (Model-View-Intent)** architectural pattern with **Redux Toolkit** for centralized state management, providing predictable state updates and excellent developer experience.
+
 ### Core Architecture
 
-```mermaid
-graph TD
-    A[Git Repository] -->|Clone & Parse| B[Node.js Backend]
-    B -->|REST API| C[Frontend Services]
-    C -->|Timeline Events| D[React Components]
-    D -->|3D Scene| E[Three.js/R3F]
-    E -->|User Interactions| F[Animation System]
-    F -->|State Updates| D
-
-    G[Spec Files] -->|Parse| B
-    B -->|Cache| H[File System Cache]
-    H -->|Serve| C
-```
+![Core Architecture](images/core-architecture.png)
 
 ### Technology Stack
 
@@ -26,9 +16,35 @@ graph TD
 - **3D Rendering**: Three.js + React Three Fiber + Drei
 - **Backend**: Node.js + Express (server.mjs)
 - **Styling**: Bootstrap 5 + Custom CSS Variables
-- **State Management**: React Context + Custom Hooks
+- **State Management**: Redux Toolkit + MVI Pattern
 - **Build Tool**: Vite with HMR
 - **Package Manager**: npm
+
+## MVI (Model-View-Intent) Architecture
+
+The application implements the MVI architectural pattern, which provides a unidirectional data flow and clear separation of concerns:
+
+### MVI Components
+
+![MVI Architecture](images/mvi-architecture.png)
+
+#### **Model (Redux Store)**
+- **Central State Store**: Single source of truth for all application state
+- **Immutable State**: State updates through pure reducer functions
+- **Time Travel Debugging**: Redux DevTools for state inspection and debugging
+- **Predictable Updates**: All state changes are traceable and reproducible
+
+#### **View (React Components)**
+- **Pure Presentation**: Components receive state via props and render UI
+- **No Direct State Mutation**: Components only dispatch intents/actions
+- **Reactive Updates**: Automatic re-rendering when state changes
+- **Component Isolation**: Each component focuses on specific UI concerns
+
+#### **Intent (Action Creators & Thunks)**
+- **User Intent Capture**: Translate user interactions into actionable intents
+- **Async Operations**: Handle complex async workflows with Redux Thunks
+- **Side Effect Management**: Coordinate API calls, animations, and state updates
+- **Business Logic**: Encapsulate domain logic in reusable intent functions
 
 ## Application Architecture
 
@@ -91,9 +107,58 @@ graph TD
   - Coordinates camera, timeline, and event components
   - Provides lighting and environment setup
 
+## Redux State Management
+
+The application uses Redux Toolkit with the MVI pattern for centralized state management:
+
+![Redux Store Structure](images/redux-store-structure.png)
+
+### Store Architecture
+
+The Redux store is organized into four main slices:
+
+#### **Timeline Slice** (`src/store/slices/timelineSlice.ts`)
+- **Purpose**: Manages timeline events and data state
+- **State**: Events array, loading states, error handling, marker position
+- **Actions**: setEvents, setLoading, setMarkerPosition, resetTimeline
+- **Cache Management**: Handles data caching and mock data fallback
+
+#### **UI Slice** (`src/store/slices/uiSlice.ts`)
+- **Purpose**: Controls user interface state and interactions
+- **State**: Camera state, animation settings, card selection, view modes
+- **Actions**: updateCameraState, setSelectedCardId, setDroneMode, setViewAll
+- **Interaction Management**: Handles complex UI state coordination
+
+#### **Repository Slice** (`src/store/slices/repositorySlice.ts`)
+- **Purpose**: Manages repository connection and metadata
+- **State**: Repository URL, connection status, validation state, metadata
+- **Actions**: setRepositoryUrl, setIsConnected, setMetadata, resetRepository
+- **Connection Handling**: Tracks repository validation and sync status
+
+#### **Preferences Slice** (`src/store/slices/preferencesSlice.ts`)
+- **Purpose**: Handles user preferences with automatic persistence
+- **State**: Theme, animation settings, camera preferences, repository settings
+- **Actions**: updatePreferences, setPreferences, refreshPreferences
+- **Persistence**: Automatically saves to localStorage on updates
+
+### Intent Layer (Async Thunks)
+
+Complex user interactions are handled through async thunks in the intent layer:
+
+#### **UI Intents** (`src/store/intents/uiIntents.ts`)
+- `selectCard()`: Handles card selection with camera coordination
+- `updateTimelinePosition()`: Updates marker position with camera sync
+- `toggleViewAll()`: Manages view mode transitions
+- `focusOnCurrentPosition()`: Coordinates camera focus operations
+
+#### **Timeline Intents** (`src/store/intents/timelineIntents.ts`)
+- `fetchTimelineData()`: Handles data fetching with caching and error recovery
+- `purgeTimelineCache()`: Manages cache invalidation
+- `reloadTimelineData()`: Coordinates data refresh operations
+
 ### State Management Architecture
 
-The application uses a hybrid approach combining React Context, custom hooks, and local component state:
+The application combines Redux Toolkit with React patterns for optimal performance:
 
 #### **1. Global Context Providers**
 

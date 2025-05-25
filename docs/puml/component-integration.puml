@@ -1,0 +1,64 @@
+@startuml component-integration
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+
+title Component Integration with Redux Store
+
+package "React Components" {
+  component "MainLayoutRedux" as MainLayout
+  component "TimelineVisualization" as Timeline
+  component "TimelineScene" as Scene
+  component "TimelineCard" as Card
+  component "TopBar" as TopBar
+  component "BottomBar" as BottomBar
+}
+
+package "Redux Store" {
+  component "Timeline Slice" as TimelineSlice
+  component "UI Slice" as UISlice
+  component "Repository Slice" as RepoSlice
+  component "Preferences Slice" as PrefSlice
+}
+
+package "Intent Layer" {
+  component "UI Intents" as UIIntents
+  component "Timeline Intents" as TimelineIntents
+  component "Repository Intents" as RepoIntents
+}
+
+package "Hooks & Selectors" {
+  component "useAppSelector" as Selector
+  component "useAppDispatch" as Dispatch
+}
+
+' Component to Store connections
+MainLayout --> Selector : useAppSelector(state => state.*)
+Timeline --> Selector : useAppSelector(state => state.timeline)
+Scene --> Selector : useAppSelector(state => state.ui)
+Card --> Selector : useAppSelector(state => state.ui.selectedCardId)
+TopBar --> Selector : useAppSelector(state => state.repository)
+BottomBar --> Selector : useAppSelector(state => state.timeline)
+
+' Component to Intent connections
+MainLayout --> Dispatch : useAppDispatch()
+Timeline --> UIIntents : dispatch(selectCard())
+Scene --> UIIntents : dispatch(updateTimelinePosition())
+Card --> UIIntents : dispatch(hoverCard())
+TopBar --> RepoIntents : dispatch(validateRepository())
+BottomBar --> TimelineIntents : dispatch(fetchTimelineData())
+
+' Intent to Store connections
+UIIntents --> UISlice : setSelectedCardId()
+UIIntents --> UISlice : updateCameraState()
+TimelineIntents --> TimelineSlice : setEvents()
+TimelineIntents --> TimelineSlice : setLoading()
+RepoIntents --> RepoSlice : setRepositoryUrl()
+
+' Store to Selector connections
+TimelineSlice --> Selector : state.timeline
+UISlice --> Selector : state.ui
+RepoSlice --> Selector : state.repository
+PrefSlice --> Selector : state.preferences
+
+@enduml

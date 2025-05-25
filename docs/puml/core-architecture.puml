@@ -1,0 +1,48 @@
+@startuml core-architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+title Timeline Visualization - Core Architecture
+
+package "Frontend (React + TypeScript)" as Frontend {
+  component "React Components" as ReactComponents
+  component "Redux Store" as ReduxStore
+  component "Three.js/R3F" as ThreeJS
+  component "API Services" as APIServices
+
+  ReactComponents --> ReduxStore : dispatch actions
+  ReduxStore --> ReactComponents : state updates
+  ReactComponents --> ThreeJS : 3D rendering
+  ReactComponents --> APIServices : data requests
+}
+
+package "Backend (Node.js)" as Backend {
+  component "Express Server" as ExpressServer
+  component "Git Processor" as GitProcessor
+  component "Spec Parser" as SpecParser
+  component "Cache Manager" as CacheManager
+
+  ExpressServer --> GitProcessor : process repos
+  ExpressServer --> SpecParser : parse specs
+  ExpressServer --> CacheManager : cache operations
+}
+
+package "External Systems" as External {
+  database "Git Repository" as GitRepo
+  database "Spec Files" as SpecFiles
+  storage "File System Cache" as FileCache
+  storage "Browser Storage" as BrowserStorage
+}
+
+' Data Flow
+APIServices --> ExpressServer : REST API calls
+GitProcessor --> GitRepo : clone & parse
+SpecParser --> SpecFiles : read & parse
+CacheManager --> FileCache : read/write cache
+ReduxStore --> BrowserStorage : persist state
+
+
+
+@enduml
