@@ -1,15 +1,15 @@
 import React, { useEffect } from 'react';
-import { usePreferences } from './PreferencesContext';
+import { useAppSelector } from '../store';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { preferences } = usePreferences();
+  const theme = useAppSelector(state => state.preferences.theme);
 
   useEffect(() => {
-    const theme = preferences.theme || 'system';
-    if (theme === 'light') {
+    const currentTheme = theme || 'system';
+    if (currentTheme === 'light') {
       document.body.classList.add('theme-light');
       document.body.classList.remove('theme-dark');
-    } else if (theme === 'dark') {
+    } else if (currentTheme === 'dark') {
       document.body.classList.add('theme-dark');
       document.body.classList.remove('theme-light');
     } else {
@@ -17,7 +17,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       document.body.classList.remove('theme-light');
       document.body.classList.remove('theme-dark');
     }
-  }, [preferences.theme]);
+  }, [theme]);
 
   return <>{children}</>;
-}; 
+};

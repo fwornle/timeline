@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Navbar, Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import PreferencesModal from './PreferencesModal';
 import { LoggingControl } from './ui/LoggingControl';
-import { usePreferences } from '../context/PreferencesContext';
+import { useAppSelector } from '../store';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
 interface TopBarProps {
@@ -21,7 +21,7 @@ const TopBar: React.FC<TopBarProps> = ({
   const [showPrefs, setShowPrefs] = useState(false);
   const [showLoggingControl, setShowLoggingControl] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const { preferences } = usePreferences();
+  const repoUrl = useAppSelector(state => state.preferences.repoUrl);
   const logger = useLogger({ component: 'TopBar', topic: 'ui' });
 
   const handleRepoUrlChange = (url: string) => {
@@ -82,7 +82,7 @@ const TopBar: React.FC<TopBarProps> = ({
           <div className={collapseClassName} id="navbarNav">
             {/* Center area - Display repo URL */}
             <div className="navbar-nav mx-lg-auto text-center">
-              {preferences.repoUrl && (
+              {repoUrl && (
                 <span
                   className="d-none d-md-inline"
                   style={{
@@ -91,14 +91,14 @@ const TopBar: React.FC<TopBarProps> = ({
                     fontFamily: 'monospace'
                   }}
                 >
-                  {preferences.repoUrl}
+                  {repoUrl}
                 </span>
               )}
             </div>
 
             {/* Quick Action Buttons (right) */}
             <div className="d-flex align-items-center gap-2 justify-content-end mt-2 mt-lg-0">
-              {preferences.repoUrl && (
+              {repoUrl && (
                 <>
                   {/* Reload Data Button */}
                   <OverlayTrigger

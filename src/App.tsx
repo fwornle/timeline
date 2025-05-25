@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import MainLayout from './layouts/MainLayout';
+import MainLayoutRedux from './layouts/MainLayoutRedux';
 import AppRoutes from './Routes';
 import { Logger } from './utils/logging/Logger';
 
@@ -12,7 +12,7 @@ const App: React.FC = () => {
     Logger.trace(Logger.Categories.CONFIG, 'Configuration loaded');
 
     // Make Logger available globally for console testing
-    (window as any).Logger = Logger;
+    (window as unknown as Record<string, unknown>).Logger = Logger;
 
     Logger.info(Logger.Categories.LIFECYCLE, 'Logger is now available globally as window.Logger');
     Logger.info(Logger.Categories.LIFECYCLE, 'Try: Logger.info(Logger.Categories.UI, "Test message")');
@@ -20,9 +20,9 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <MainLayout>
+      <MainLayoutRedux>
         <AppRoutes />
-      </MainLayout>
+      </MainLayoutRedux>
     </BrowserRouter>
   );
 };

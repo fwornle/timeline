@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Form, Alert } from 'react-bootstrap';
 import type { Preferences } from '../services/storage';
-import { usePreferences } from '../context/PreferencesContext';
+import { useAppSelector, useAppDispatch } from '../store';
+import { updatePreferences } from '../store/slices/preferencesSlice';
 
 interface PreferencesModalProps {
   show: boolean;
@@ -10,7 +11,8 @@ interface PreferencesModalProps {
 }
 
 const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRepoUrlChange }) => {
-  const { preferences, setPreferences, refreshPreferences } = usePreferences();
+  const dispatch = useAppDispatch();
+  const preferences = useAppSelector(state => state.preferences);
   const [prefs, setPrefs] = useState<Preferences>({});
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
@@ -54,7 +56,7 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
       username: username || undefined
     };
 
-    setPreferences(updatedPrefs);
+    dispatch(updatePreferences(updatedPrefs));
 
     // Store credentials if provided for HTTPS URLs
     if (repoUrl.startsWith('http') && username && password) {
@@ -70,7 +72,6 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
 
     setSuccess(true);
     setTimeout(() => setSuccess(false), 1500);
-    refreshPreferences();
     onClose();
   };
 

@@ -5,15 +5,16 @@ import App from './App.tsx'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { PreferencesProvider } from './context/PreferencesContext';
+import { Provider } from 'react-redux';
+import { store } from './store';
 import { ThemeProvider } from './context/ThemeProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PreferencesProvider>
+    <Provider store={store}>
       <ThemeProvider>
         <App />
       </ThemeProvider>
-    </PreferencesProvider>
+    </Provider>
   </StrictMode>,
 )

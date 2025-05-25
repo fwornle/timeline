@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
-import { usePreferences } from '../context/PreferencesContext';
+import { useAppSelector } from '../store';
 import type { CameraState } from './three/TimelineCamera';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 
@@ -54,8 +54,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   onResetTimeline
 }) => {
   const logger = useLogger({ component: 'BottomBar', topic: 'ui' });
-  const { preferences } = usePreferences();
-  const repoUrl = preferences.repoUrl || '';
+  const repoUrl = useAppSelector(state => state.preferences.repoUrl);
   const showControls = !!repoUrl;
 
   // Force re-render on debug mode changes

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { usePreferences } from '../context/PreferencesContext';
+import { useAppSelector } from '../store';
 import { TimelineVisualization } from '../components/TimelineVisualization';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import type { CameraState } from '../components/three/TimelineCamera';
@@ -42,7 +42,7 @@ const Home: React.FC<HomeProps> = ({
   droneMode = false
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
-  const { preferences } = usePreferences();
+  const preferences = useAppSelector(state => state.preferences);
   const [error, setError] = useState<Error | null>(null);
 
   // Debug logging for props received only when in debug mode
