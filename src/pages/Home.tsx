@@ -98,7 +98,7 @@ const Home: React.FC<HomeProps> = ({
   };
 
   return (
-    <div className="w-100 h-100 position-absolute top-0 start-0 bottom-0 end-0">
+    <div className="w-100 h-100 position-relative">
       <TimelineVisualization
         repoUrl={repoUrl}
         animationSpeed={animationSpeed}
