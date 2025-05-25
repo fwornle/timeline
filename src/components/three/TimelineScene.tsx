@@ -177,7 +177,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           renderOrder={-1000}
           onClick={(e) => {
             e.stopPropagation();
-            // Clear all selections and hovers when clicking background
+            // Clear all selections and hovers when clicking background (outside interactive elements)
+            logger.debug('Background click detected - closing all cards');
             onCardSelect(null);
             onCardHover(null);
             clearAllCardHovers();

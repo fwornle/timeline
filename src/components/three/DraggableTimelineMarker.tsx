@@ -191,11 +191,11 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         />
       </mesh>
 
-      {/* Vertical line */}
+      {/* Vertical line - shortened to not pierce through timeline catch zone surface */}
       <Line
         points={[
-          [0, -1, 0] as [number, number, number],
-          [0, 1, 0] as [number, number, number],
+          [0, -0.5, 0] as [number, number, number], // Stop at Y=1.5 (catch zone surface)
+          [0, 1, 0] as [number, number, number],    // Extend upward as before
         ]}
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
