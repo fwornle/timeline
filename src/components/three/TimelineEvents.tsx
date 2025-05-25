@@ -226,7 +226,6 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           }}
           wiggle={!!wiggleMap[event.id]}
           isMarkerDragging={isMarkerDragging}
-          isTimelineHovering={isTimelineHovering}
           droneMode={droneMode}
           isHovered={hoveredCardId === event.id}
         />

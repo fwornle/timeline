@@ -24,7 +24,6 @@ interface TimelineCardProps {
   };
   wiggle?: boolean;
   isMarkerDragging?: boolean;
-  isTimelineHovering?: boolean;
   droneMode?: boolean;
   isHovered?: boolean; // Explicit hover state from parent
 }
@@ -94,7 +93,6 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   },
   wiggle = false,
   isMarkerDragging = false,
-  isTimelineHovering = false,
   droneMode = false,
   isHovered = false
 }) => {
@@ -146,11 +144,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Track if we need to check for delayed hover clearing
   const pendingHoverClearRef = useRef(false);
 
-  // Track animation completion to prevent getting stuck
+  // Track animation completion to prevent getting stuck and ensure exclusivity
   const animationCompletionRef = useRef<{
     targetState: 'open' | 'closed';
     mustComplete: boolean;
-  }>({ targetState: 'closed', mustComplete: false });
+    cardId: string;
+  }>({ targetState: 'closed', mustComplete: false, cardId: '' });
 
   // Animation state with two-stage animation support
   const [animState, setAnimState] = useState({
@@ -347,8 +346,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       const { angle, zoomFactor, moveDistance } = calculateCameraValues();
 
       if (newIsHovered) {
-        // HOVER: Start two-stage animation
-        animationCompletionRef.current = { targetState: 'open', mustComplete: true };
+        // HOVER: Start simultaneous slide + swirl/zoom animation
+        animationCompletionRef.current = { targetState: 'open', mustComplete: true, cardId: event.id };
 
         const cardWidth = dimensions.card.width;
         const cardHeight = dimensions.card.height;
@@ -361,42 +360,39 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         // Cards on the left side of timeline should move left, cards on right should move right
         const sideMultiplier = position[0] >= 0 ? 1 : -1; // Move away from center
 
-        // Stage 1: Slide away from timeline and up (no rotation or zoom yet)
+        // Calculate final position: slide away from timeline and up + move toward camera
         const slideDistance = cardWidth * 0.5; // Half card width away from timeline
         const upDistance = cardHeight * 0.5; // Half card height up
 
-        const intermediateX = position[0] + (awayFromTimeline.x * slideDistance * sideMultiplier);
-        const intermediateY = position[1] + upDistance;
-        const intermediateZ = position[2]; // No Z movement in first stage
+        const finalX = position[0] + (awayFromTimeline.x * slideDistance * sideMultiplier);
+        const finalY = position[1] + upDistance + 0.5; // Additional lift for better visibility
+        const finalZ = position[2] - moveDistance; // Move toward camera
 
-        // Start first stage animation
+        // Start simultaneous animation (slide + swirl/zoom together)
         setAnimState({
-          targetRotationY: 0, // No rotation in first stage
-          targetPositionX: intermediateX,
-          targetPositionY: intermediateY,
-          targetPositionZ: intermediateZ,
-          targetScale: 1, // No scaling in first stage
+          targetRotationY: angle, // Full rotation
+          targetPositionX: finalX,
+          targetPositionY: finalY,
+          targetPositionZ: finalZ,
+          targetScale: zoomFactor, // Full scale
           animationStartTime: performance.now(),
           isAnimating: true,
-          isFirstStage: true,
-          firstStageDuration: 200,
-          secondStageDuration: 400,
+          isFirstStage: false, // Single stage with all effects
+          firstStageDuration: 600, // Longer duration for smooth combined animation
+          secondStageDuration: 0,
           startRotationY: currentRotationY,
           startPositionX: currentPositionX,
           startPositionY: currentPositionY,
           startPositionZ: currentPositionZ,
           startScale: currentScale,
-          // Store final targets for second stage
-          intermediatePositionX: intermediateX,
-          intermediatePositionY: intermediateY,
-          intermediatePositionZ: intermediateZ,
-          animationDuration: 200, // First stage duration
+          intermediatePositionX: finalX,
+          intermediatePositionY: finalY,
+          intermediatePositionZ: finalZ,
+          animationDuration: 600, // Combined animation duration
         });
-
-        // We'll set up the second stage when the first stage completes
       } else {
         // UNHOVER: Return to original position (single stage)
-        animationCompletionRef.current = { targetState: 'closed', mustComplete: true };
+        animationCompletionRef.current = { targetState: 'closed', mustComplete: true, cardId: event.id };
 
         const targetRotationY = 0;
         const targetPositionX = position[0];
@@ -413,7 +409,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           animationStartTime: performance.now(),
           isAnimating: true,
           isFirstStage: false, // Single stage unhover
-          firstStageDuration: 300,
+          firstStageDuration: 400,
           secondStageDuration: 0,
           startRotationY: currentRotationY,
           startPositionX: currentPositionX,
@@ -423,7 +419,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           intermediatePositionX: currentPositionX,
           intermediatePositionY: currentPositionY,
           intermediatePositionZ: currentPositionZ,
-          animationDuration: 300,
+          animationDuration: 400,
         });
       }
     }
@@ -486,123 +482,56 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     if (animState.isAnimating) {
       // Calculate animation progress using cached now value
       const elapsedTime = now - animState.animationStartTime;
+      const progress = Math.min(elapsedTime / animState.animationDuration, 1);
 
-      if (animState.isFirstStage && isHovered) {
-        // FIRST STAGE: Slide out animation
-        const progress = Math.min(elapsedTime / animState.firstStageDuration, 1);
+      // Easing function (ease-in-out for smooth combined animation)
+      const easedProgress = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-        // Easing function (ease-out for smooth slide)
-        const easedProgress = 1 - Math.pow(1 - progress, 3);
+      // Interpolate all values simultaneously (slide + swirl + zoom)
+      const newRotationY = MathUtils.lerp(
+        animState.startRotationY,
+        animState.targetRotationY,
+        easedProgress
+      );
 
-        // Interpolate values for first stage (slide out)
-        const newPositionX = MathUtils.lerp(
-          animState.startPositionX,
-          animState.targetPositionX,
-          easedProgress
-        );
+      const newPositionX = MathUtils.lerp(
+        animState.startPositionX,
+        animState.targetPositionX,
+        easedProgress
+      );
 
-        const newPositionY = MathUtils.lerp(
-          animState.startPositionY,
-          animState.targetPositionY,
-          easedProgress
-        );
+      const newPositionY = MathUtils.lerp(
+        animState.startPositionY,
+        animState.targetPositionY,
+        easedProgress
+      );
 
-        const newPositionZ = MathUtils.lerp(
-          animState.startPositionZ,
-          animState.targetPositionZ,
-          easedProgress
-        );
+      const newPositionZ = MathUtils.lerp(
+        animState.startPositionZ,
+        animState.targetPositionZ,
+        easedProgress
+      );
 
-        // No rotation or scaling in first stage
-        const newRotationY = animState.startRotationY;
-        const newScale = animState.startScale;
+      const newScale = MathUtils.lerp(
+        animState.startScale,
+        animState.targetScale,
+        easedProgress
+      );
 
-        // Apply values
-        groupRef.current.rotation.y = newRotationY;
-        groupRef.current.position.x = newPositionX;
-        groupRef.current.position.y = newPositionY;
-        groupRef.current.position.z = newPositionZ;
-        groupRef.current.scale.set(newScale, newScale, newScale);
+      // Apply values
+      groupRef.current.rotation.y = newRotationY;
+      groupRef.current.position.x = newPositionX;
+      groupRef.current.position.y = newPositionY;
+      groupRef.current.position.z = newPositionZ;
+      groupRef.current.scale.set(newScale, newScale, newScale);
 
-        // Check if first stage is complete
-        if (progress >= 1) {
-          // Start second stage: swirl and zoom
-          const { angle, zoomFactor, moveDistance } = calculateCameraValues();
-
-          setAnimState(prev => ({
-            ...prev,
-            isFirstStage: false,
-            animationStartTime: now,
-            animationDuration: prev.secondStageDuration,
-            // Update start values to current position (end of first stage)
-            startRotationY: newRotationY,
-            startPositionX: newPositionX,
-            startPositionY: newPositionY,
-            startPositionZ: newPositionZ,
-            startScale: newScale,
-            // Set final targets for second stage
-            targetRotationY: angle,
-            targetPositionX: prev.intermediatePositionX, // Stay at slid-out position
-            targetPositionY: prev.intermediatePositionY + 0.5, // Additional lift
-            targetPositionZ: position[2] - moveDistance, // Move toward camera
-            targetScale: zoomFactor,
-          }));
-          // First stage completed, but second stage must still complete
-          // Don't set mustComplete to false yet
-        }
-      } else {
-        // SECOND STAGE or SINGLE STAGE: Swirl and zoom (or unhover)
-        const progress = Math.min(elapsedTime / animState.animationDuration, 1);
-
-        // Easing function (ease-in-out)
-        const easedProgress = progress < 0.5
-          ? 4 * progress * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-        // Interpolate values
-        const newRotationY = MathUtils.lerp(
-          animState.startRotationY,
-          animState.targetRotationY,
-          easedProgress
-        );
-
-        const newPositionX = MathUtils.lerp(
-          animState.startPositionX,
-          animState.targetPositionX,
-          easedProgress
-        );
-
-        const newPositionY = MathUtils.lerp(
-          animState.startPositionY,
-          animState.targetPositionY,
-          easedProgress
-        );
-
-        const newPositionZ = MathUtils.lerp(
-          animState.startPositionZ,
-          animState.targetPositionZ,
-          easedProgress
-        );
-
-        const newScale = MathUtils.lerp(
-          animState.startScale,
-          animState.targetScale,
-          easedProgress
-        );
-
-        // Apply values
-        groupRef.current.rotation.y = newRotationY;
-        groupRef.current.position.x = newPositionX;
-        groupRef.current.position.y = newPositionY;
-        groupRef.current.position.z = newPositionZ;
-        groupRef.current.scale.set(newScale, newScale, newScale);
-
-        // End animation when complete
-        if (progress >= 1) {
-          setAnimState(prev => ({ ...prev, isAnimating: false }));
-          // Mark animation as completed
-          animationCompletionRef.current.mustComplete = false;
-        }
+      // End animation when complete
+      if (progress >= 1) {
+        setAnimState(prev => ({ ...prev, isAnimating: false }));
+        // Mark animation as completed - this allows other interactions again
+        animationCompletionRef.current.mustComplete = false;
       }
     }
 
@@ -618,6 +547,11 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Event handlers
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+
+    // Block clicks if any animation is in progress (exclusive card animations)
+    if (animationCompletionRef.current.mustComplete) {
+      return;
+    }
 
     // Clicking on a card should both select it AND open it (hover)
     // This ensures cards can be opened even if hover detection is having issues
@@ -641,7 +575,11 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Update mouse position tracking
     updateMousePosition(e.nativeEvent.clientX, e.nativeEvent.clientY);
 
-    // Simplified hover logic - only block for essential conditions
+    // Block hover if any animation is in progress (exclusive card animations)
+    if (animationCompletionRef.current.mustComplete) {
+      return;
+    }
+
     // If marker is being dragged, ignore hover events
     if (isMarkerDragging) {
       return;
@@ -667,7 +605,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Update mouse position tracking
     updateMousePosition(e.nativeEvent.clientX, e.nativeEvent.clientY);
 
-    // Simplified pointer out - use mouse stability check but don't block for animations
+    // If an animation is in progress that must complete, don't interrupt it
+    // The card will complete its opening animation even if mouse moves away
+    if (animationCompletionRef.current.mustComplete) {
+      return;
+    }
+
     // Only clear hover if mouse has been stable (not moving due to card animation)
     if (isMouseStable()) {
       // Simply notify parent to clear hover
