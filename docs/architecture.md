@@ -291,7 +291,30 @@ sequenceDiagram
 - Extracts metadata (prompts, tool invocations, file changes)
 - Generates timeline events with statistics
 
-## 3D Visualization System
+## Visualization Systems
+
+### Horizontal Metrics Plot (PlotJuggler-Inspired)
+
+#### **HorizontalMetricsPlot.tsx**
+- **Purpose**: Real-time code evolution visualization showing metrics over time
+- **Features**:
+  - Interactive charts displaying Lines of Code, Files, and Commits
+  - Time interpolation algorithm for realistic activity patterns
+  - Synchronized navigation with 3D timeline
+  - Expandable interface (compact 60px / expanded 150px)
+  - Color-coded filter buttons (Blue: LOC, Green: Files, Orange: Commits)
+  - Professional SVG-based rendering with grid lines and hover interactions
+
+#### **Code Metrics Calculation**
+- **Time Interpolation**: Creates regular time intervals to show periods of inactivity
+- **Cumulative Tracking**: Maintains running totals of LOC, files, and commits
+- **Activity Patterns**: Visualizes realistic development cycles with gaps
+- **Performance Optimized**: Efficient calculation with debug logging support
+
+#### **Synchronization Features**
+- **Bidirectional Sync**: Click chart to move 3D timeline marker
+- **Position Updates**: 3D timeline marker movement updates chart indicator
+- **Unified Navigation**: Seamless interaction between 2D metrics and 3D visualization
 
 ### Three.js Components Architecture
 

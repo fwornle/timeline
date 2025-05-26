@@ -1,14 +1,24 @@
 # Timeline Visualization
 
+![Timeline Visualization](docs/images/timeline.png)
+
 A sophisticated 3D timeline visualization application that transforms git repository history and specification files into an interactive, immersive 3D experience. Built with React, Three.js, TypeScript, and a Node.js backend, it provides real-time visualization of development workflows with advanced animation and interaction capabilities.
 
 ## ✨ Features
 
 ### 🎯 Core Visualization
 - **3D Timeline Rendering**: Interactive 3D visualization of git commits and spec history
+- **Horizontal Metrics Plot**: Real-time code evolution charts showing LOC, files, and commits over time
 - **Dual Data Sources**: Displays both git commit history and specification/story timeline
 - **Real-time Data**: Fetches live data from repositories with intelligent caching
 - **Mock Data Fallback**: Seamless fallback to mock data when repositories unavailable
+
+### 📊 Metrics Visualization
+- **Real-time Code Evolution**: Interactive charts showing Lines of Code, Files, and Commits over time
+- **Synchronized Timeline**: Metrics plot synchronized with 3D timeline for unified navigation
+- **Activity Patterns**: Visualize periods of development activity and inactivity
+- **Expandable Interface**: Compact view with expandable detailed metrics display
+- **Interactive Filtering**: Toggle individual metrics (LOC, Files, Commits) on/off
 
 ### 🎮 Interactive Controls
 - **Timeline Navigation**: Click-to-move timeline marker with smooth animations
@@ -219,6 +229,11 @@ All architecture diagrams are available as PNG files in `docs/images/`:
 #### **Sequence Diagrams**
 - **[Marker Persistence Flow](docs/images/marker-persistence-sequence.png)**: Timeline marker position persistence
 - **[MVI Sequence Diagram](docs/images/mvi-sequence-diagram.png)**: Detailed interaction flows
+- **[Metrics Visualization Flow](docs/images/metrics-visualization-sequence.png)**: Horizontal metrics plot data flow
+
+#### **Metrics Visualization Diagrams**
+- **[Metrics Architecture](docs/images/metrics-visualization-architecture.png)**: Horizontal metrics plot system design
+- **[Metrics Data Flow](docs/images/metrics-visualization-sequence.png)**: Time interpolation and synchronization
 
 #### **Legacy Diagrams**
 - **[Core Architecture](docs/images/core-architecture.png)**: System overview and technology stack
@@ -227,6 +242,7 @@ All architecture diagrams are available as PNG files in `docs/images/`:
 ### **Quick References**
 
 - **Component Structure**: See `src/components/` for React components
+- **Metrics Visualization**: See [Metrics API Documentation](docs/metrics-visualization-api.md) for detailed usage
 - **Redux Store**: See `src/store/` for state management (slices, intents, types)
 - **Type Definitions**: See `src/data/types/` for TypeScript interfaces
 - **Configuration**: See `src/config/` for app configuration

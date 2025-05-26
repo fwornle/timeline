@@ -1,0 +1,96 @@
+@startuml metrics-visualization-sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title Metrics Visualization Data Flow
+
+actor User
+participant "TimelineVisualization" as TLViz
+participant "HorizontalMetricsPlot" as HMP
+participant "calculateCodeMetrics" as CalcMetrics
+participant "SVG Chart" as SVG
+participant "Filter Buttons" as Filters
+participant "Redux Store" as Redux
+participant "TimelineScene" as Scene
+
+== Initial Data Load ==
+User -> TLViz : Load repository data
+TLViz -> TLViz : Fetch git/spec events
+TLViz -> HMP : Pass events array
+activate HMP
+
+HMP -> CalcMetrics : calculateCodeMetrics(events)
+activate CalcMetrics
+
+CalcMetrics -> CalcMetrics : Filter & sort git events
+CalcMetrics -> CalcMetrics : Create time intervals
+note right : Daily intervals or\nbased on data density
+
+CalcMetrics -> CalcMetrics : Process events chronologically
+loop For each time interval
+  CalcMetrics -> CalcMetrics : Update cumulative metrics
+  note right : commitCount++\ncumulativeLinesOfCode += delta\ntotalFiles += filesAdded - filesDeleted
+end
+
+CalcMetrics -> CalcMetrics : Generate CodeMetricsPoint[]
+CalcMetrics --> HMP : Return metrics points
+deactivate CalcMetrics
+
+HMP -> HMP : Normalize data for visualization
+HMP -> SVG : Render chart with metrics
+HMP -> Filters : Initialize filter buttons
+note right : LOC (Blue), Files (Green),\nCommits (Orange) - all enabled
+
+== User Interactions ==
+
+=== Filter Toggle ===
+User -> Filters : Click "Commits" button
+Filters -> HMP : toggleMetric('commitCount')
+HMP -> HMP : Update visibleMetrics state
+HMP -> SVG : Re-render without commits line
+SVG -> User : Updated chart display
+
+=== Timeline Navigation ===
+User -> SVG : Click on chart point
+SVG -> HMP : handlePointClick(index)
+HMP -> HMP : Calculate timeline position
+HMP -> Redux : onPositionChange(position)
+Redux -> Scene : Update marker position
+Scene -> User : 3D timeline moves to position
+
+=== Expand/Collapse ===
+User -> HMP : Click expand button
+HMP -> HMP : Toggle isExpanded state
+HMP -> HMP : Animate height change
+note right : Compact: 60px\nExpanded: 150px
+HMP -> HMP : Update title display
+note right : Compact: "Code Evolution"\nExpanded: "X LOC • Y Files • Z Commits"
+
+== Synchronized Updates ==
+
+=== 3D Timeline Marker Move ===
+User -> Scene : Drag timeline marker
+Scene -> Redux : Update marker position
+Redux -> HMP : Position change notification
+HMP -> HMP : Update current marker indicator
+HMP -> SVG : Highlight current position
+SVG -> User : Visual feedback on chart
+
+=== Real-time Data Updates ===
+User -> TLViz : Reload repository data
+TLViz -> HMP : New events array
+HMP -> CalcMetrics : Recalculate metrics
+CalcMetrics --> HMP : Updated metrics points
+HMP -> SVG : Re-render with new data
+HMP -> User : Updated visualization
+
+note over User, Redux
+  Key Features:
+  1. Time interpolation shows realistic activity patterns
+  2. Bidirectional sync between 2D chart and 3D timeline
+  3. Interactive filtering with color-coded buttons
+  4. Expandable interface for detailed view
+  5. Professional PlotJuggler-inspired design
+end note
+
+@enduml

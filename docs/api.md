@@ -193,12 +193,12 @@ const animationProps = useCardAnimation(id, options);
 ```typescript
 class GitService {
   constructor(baseUrl: string);
-  
+
   async fetchGitHistory(
     startDate?: Date,
     endDate?: Date
   ): Promise<GitTimelineEvent[]>;
-  
+
   async getCommitDetails(
     commitHash: string
   ): Promise<GitTimelineEvent | null>;
@@ -262,6 +262,53 @@ type EventUnsubscribe = () => void;
 // Animation type helpers
 type EasingFunction = (t: number) => number;
 type AnimationCallback = (state: AnimationState) => void;
+```
+
+## Metrics Visualization Components
+
+### HorizontalMetricsPlot
+
+Real-time code evolution visualization component.
+
+```typescript
+interface HorizontalMetricsPlotProps {
+  events: TimelineEvent[];
+  currentPosition?: number;
+  timelineLength?: number;
+  startDate?: Date;
+  endDate?: Date;
+  onPositionChange?: (position: number) => void;
+  height?: number;
+  className?: string;
+}
+```
+
+**Key Features:**
+- Interactive charts showing LOC, Files, and Commits over time
+- Time interpolation for realistic activity patterns
+- Synchronized navigation with 3D timeline
+- Expandable interface (60px compact / 150px expanded)
+- Color-coded filter buttons (Blue: LOC, Green: Files, Orange: Commits)
+
+### Code Metrics Utilities
+
+```typescript
+// Calculate metrics from timeline events
+function calculateCodeMetrics(events: TimelineEvent[]): CodeMetricsPoint[]
+
+// Find closest metrics point to timestamp
+function findClosestMetricsPoint(
+  metricsPoints: CodeMetricsPoint[],
+  timestamp: Date
+): CodeMetricsPoint | null
+
+// Convert timeline position to timestamp
+function positionToTimestamp(
+  position: number,
+  timelineLength: number,
+  startDate: Date,
+  endDate: Date
+): Date
 ```
 
 ## Custom Hooks

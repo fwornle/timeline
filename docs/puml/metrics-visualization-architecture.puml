@@ -1,0 +1,87 @@
+@startuml metrics-visualization-architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title Horizontal Metrics Plot Architecture
+
+package "Metrics Visualization System" {
+
+  component HorizontalMetricsPlot
+  note right of HorizontalMetricsPlot : Main metrics visualization component\nExpandable interface\nSynchronized with 3D timeline
+
+  component calculateCodeMetrics
+  note right of calculateCodeMetrics : Time interpolation algorithm\nCumulative metrics calculation\nRealistic activity patterns
+
+  component MetricsConfig
+  note right of MetricsConfig : Chart dimensions\nColor schemes\nLayout configuration
+
+  interface CodeMetricsPoint
+  note right of CodeMetricsPoint : timestamp: Date\ncumulativeLinesOfCode: number\ntotalFiles: number\ncommitCount: number\nlinesAdded/Deleted: number\nfilesAdded/Modified/Deleted: number
+
+  component SVGChart
+  note right of SVGChart : Custom SVG rendering\nInteractive grid lines\nHover interactions\nClick-to-navigate
+
+  component FilterButtons
+  note right of FilterButtons : LOC (Blue)\nFiles (Green)\nCommits (Orange)\nToggle visibility
+}
+
+package "Data Processing" {
+  component TimelineEvents
+  note right of TimelineEvents : Git timeline events\nSpec timeline events\nTimestamp-ordered data
+
+  component TimeInterpolation
+  note right of TimeInterpolation : Creates regular time intervals\nHandles activity/inactivity periods\nDaily or density-based intervals
+
+  component CumulativeCalculation
+  note right of CumulativeCalculation : Processes events chronologically\nMaintains running totals\nHandles edge cases
+}
+
+package "UI Integration" {
+  component TimelineVisualization
+  note right of TimelineVisualization : Parent container\nCoordinates 3D and 2D views
+
+  component TimelineScene
+  note right of TimelineScene : 3D timeline rendering\nCamera controls\nCard interactions
+
+  component PositionSync
+  note right of PositionSync : Bidirectional sync\nMarker position updates\nUnified navigation
+}
+
+package "State Management" {
+  component Redux
+  note right of Redux : Timeline slice\nUI slice\nMarker position
+
+  component Logger
+  note right of Logger : Debug logging\nData category\nPerformance monitoring
+}
+
+' Relationships
+TimelineEvents --> calculateCodeMetrics : Raw events
+calculateCodeMetrics --> TimeInterpolation : Process timeline
+TimeInterpolation --> CumulativeCalculation : Time intervals
+CumulativeCalculation --> CodeMetricsPoint : Metrics data
+
+CodeMetricsPoint --> HorizontalMetricsPlot : Display data
+MetricsConfig --> HorizontalMetricsPlot : Configuration
+HorizontalMetricsPlot --> SVGChart : Render
+HorizontalMetricsPlot --> FilterButtons : Controls
+
+TimelineVisualization --> HorizontalMetricsPlot : Contains
+TimelineVisualization --> TimelineScene : Contains
+HorizontalMetricsPlot --> PositionSync : Position updates
+TimelineScene --> PositionSync : Position updates
+
+PositionSync --> Redux : State updates
+calculateCodeMetrics --> Logger : Debug info
+HorizontalMetricsPlot --> Logger : Interaction logs
+
+note bottom
+  The Horizontal Metrics Plot provides:
+  1. Real-time code evolution visualization
+  2. Synchronized navigation with 3D timeline
+  3. Interactive filtering of metrics
+  4. Realistic development activity patterns
+  5. Professional PlotJuggler-inspired interface
+end note
+
+@enduml
