@@ -1,0 +1,73 @@
+@startuml marker-persistence-sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title Timeline Marker Position Persistence Flow
+
+actor User
+participant "TimelineAxis" as Axis
+participant "useAppDispatch" as Dispatch
+participant "updateTimelinePosition\n(Intent)" as Intent
+participant "Timeline Slice" as TimelineSlice
+participant "Preferences Intent" as PrefIntent
+participant "Preferences Slice" as PrefSlice
+participant "localStorage" as Storage
+participant "TimelineCamera" as Camera
+
+== User Interaction ==
+User -> Axis : Drag timeline marker
+Axis -> Axis : Calculate new position
+Axis -> Dispatch : dispatch(updateTimelinePosition({ position }))
+
+== Intent Processing ==
+Dispatch -> Intent : Execute async thunk
+Intent -> TimelineSlice : dispatch(setMarkerPosition(position))
+TimelineSlice -> TimelineSlice : Update markerPosition in state
+
+== Camera Sync (Optional) ==
+alt updateCamera = true
+  Intent -> Intent : Get current camera state
+  Intent -> Camera : Update camera target.z = position
+  Camera -> Camera : Apply camera position change
+end
+
+== Persistence ==
+Intent -> PrefIntent : dispatch(updateMarkerPositionPreferences(position))
+PrefIntent -> PrefSlice : dispatch(updatePreferences({ markerPosition }))
+PrefSlice -> Storage : savePreferences(state)
+Storage -> Storage : Store obfuscated JSON to localStorage
+
+== Component Re-render ==
+TimelineSlice --> Axis : State change triggers re-render
+PrefSlice --> Axis : Preferences updated
+
+note right of Intent
+  updateTimelinePosition handles:
+  1. Timeline state update
+  2. Optional camera sync
+  3. Automatic persistence
+  All in a single intent
+end note
+
+== App Reload Scenario ==
+User -> User : Reload application
+
+participant "App Initialization" as AppInit
+participant "Timeline Slice Init" as TimelineInit
+participant "loadPreferences" as LoadPrefs
+
+AppInit -> LoadPrefs : Load saved preferences
+LoadPrefs -> Storage : getItem('timeline_prefs')
+Storage -> LoadPrefs : Return obfuscated JSON
+LoadPrefs -> LoadPrefs : Decode and parse JSON
+LoadPrefs -> TimelineInit : markerPosition from preferences
+TimelineInit -> TimelineSlice : Initialize with saved markerPosition
+TimelineSlice -> Axis : Render at restored position
+
+note right of TimelineInit
+  Timeline slice initializes with:
+  markerPosition: savedPreferences.markerPosition || 0
+  This ensures position persistence across reloads
+end note
+
+@enduml

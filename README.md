@@ -15,6 +15,7 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 - **Card Interactions**: Hover and click timeline cards for detailed information
 - **Camera Controls**: Multiple camera modes (manual, view-all, focus, drone mode)
 - **Auto-drift Mode**: Automated timeline playback with adjustable speed
+- **⭐ State Persistence**: Camera position and timeline marker automatically preserved across app reloads
 
 ### 🎨 Advanced Animations
 - **Smooth Transitions**: Fluid camera movements and card animations
@@ -31,17 +32,21 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 ### 🎨 User Experience
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 - **Theme Support**: Light, dark, and system theme options
-- **Persistent Settings**: User preferences saved across sessions
+- **⭐ Persistent Settings**: User preferences, camera positions, and timeline state saved across sessions
 - **Professional UI**: Modern Bootstrap-based interface with custom styling
 
 ## 🏗️ Architecture
 
-### MVI (Model-View-Intent) Pattern
-The application follows the **MVI architectural pattern** with **Redux Toolkit** for predictable state management:
+### MVI (Model-View-Intent) Pattern with Redux Toolkit
+
+The application follows the **MVI architectural pattern** with **Redux Toolkit** for predictable state management and **automatic state persistence**:
+
+![MVI Architecture](docs/images/updated-mvi-architecture.png)
 
 - **Model**: Redux store with organized state slices (timeline, ui, repository, preferences)
 - **View**: Pure React components that render based on state
 - **Intent**: Action creators and async thunks that handle user interactions and side effects
+- **⭐ Persistence**: Automatic state persistence ensures seamless app reload experience
 
 ### Frontend Stack
 - **React 19** + **TypeScript** for type-safe component development
@@ -57,7 +62,7 @@ The application follows the **MVI architectural pattern** with **Redux Toolkit**
 - **Mock Data Generation** for development and fallback scenarios
 
 ### Key Technologies
-- **Redux Toolkit**: Modern Redux with excellent TypeScript support
+- **Redux Toolkit**: Modern Redux with excellent TypeScript support and automatic persistence
 - **React Three Fiber**: Declarative 3D programming with React patterns
 - **MVI Pattern**: Unidirectional data flow with clear separation of concerns
 - **CSS Variables**: Dynamic theming and consistent styling
@@ -91,7 +96,7 @@ npm run dev
 
 # Alternative: Start individually
 npm run server  # Backend only (port 3030)
-npm run start   # Frontend only (port 3001)
+npm start       # Frontend only (port 3001)
 ```
 
 ### 3. Access Application
@@ -113,9 +118,11 @@ The application automatically starts both React frontend and Node.js backend ser
    - Zoom: Mouse wheel / Pinch gesture
    - Rotate: Right mouse drag / Two finger drag
 
+**⭐ Your camera position and timeline marker position are automatically saved and restored when you reload the app!**
+
 ### Configuration
 
-Key configuration options can be customized in `src/config/defaultConfig.ts`:
+Key configuration options can be customized in `src/config/`:
 
 ```typescript
 {
@@ -134,44 +141,36 @@ For detailed configuration options, see [Configuration Guide](docs/api.md#config
 
 ## Development Setup
 
-1. Install additional development dependencies:
+### Commands
+
 ```bash
-npm install --save-dev @typescript-eslint/eslint-plugin @typescript-eslint/parser
+# Development
+npm run dev          # Start both frontend and backend
+npm run server       # Backend only
+npm start           # Frontend only
+
+# Build
+npm run build       # Production build
+npm run build:server # Server build
+
+# Quality
+npm run lint        # Lint code
+npm run preview     # Preview production build
 ```
 
-2. Configure ESLint with type checking:
-```js
-export default tseslint.config({
-  extends: [
-    ...tseslint.configs.recommendedTypeChecked,
-    ...tseslint.configs.strictTypeChecked,
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### Architecture Overview
 
-3. Optional: Add React-specific lint rules:
-```js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The application uses **Redux Toolkit** with **MVI (Model-View-Intent)** architecture for predictable state management:
 
-export default tseslint.config({
-  plugins: {
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+![Redux Store Structure](docs/images/updated-redux-store.png)
+
+**Key Concepts:**
+- **Timeline Slice**: Manages events and marker position (with persistence)
+- **UI Slice**: Controls camera state and interface (with persistence)
+- **Repository Slice**: Handles repository connections
+- **Preferences Slice**: Automatically persists all user settings
+
+![Component Integration](docs/images/component-integration-updated.png)
 
 ## Browser Compatibility
 
@@ -182,7 +181,7 @@ export default tseslint.config({
 | Safari           | 15+            | Full support                         |
 | Edge             | 91+            | Full support                         |
 | Chrome Mobile    | 91+            | Touch controls supported             |
-| Safari iOS      | 15+            | Touch controls supported             |
+| Safari iOS       | 15+            | Touch controls supported             |
 
 WebGL 2.0 support is required for 3D visualization.
 
@@ -192,6 +191,74 @@ WebGL 2.0 support is required for 3D visualization.
 - Enable hardware acceleration in your browser for best performance
 - Adjust animation speed and auto-drift settings based on device capabilities
 - Consider using the built-in performance profiling tools for optimization
+
+## 📚 Documentation
+
+### **Architecture & Design**
+
+- **[MVI Architecture](docs/mvi-architecture.md)**: Complete MVI pattern implementation with Redux Toolkit and automatic state persistence
+- **[State Management](docs/state-management.md)**: Redux Toolkit guide with async thunks, persistence, and best practices
+- **[Architecture Overview](docs/architecture.md)**: Complete system architecture and design decisions
+
+### **Development Resources**
+
+- **[Development Guide](docs/development-guide.md)**: Setup, workflows, and MVI development patterns
+- **[API Reference](docs/api-reference.md)**: Redux store APIs, backend endpoints, and component interfaces
+- **[Product Requirements](docs/product-requirements.md)**: Original product specifications and features
+
+### **Visual Documentation**
+
+All architecture diagrams are available as PNG files in `docs/images/`:
+
+#### **Core Architecture Diagrams**
+- **[MVI Architecture](docs/images/updated-mvi-architecture.png)**: Model-View-Intent pattern with Redux Toolkit
+- **[Redux Store Structure](docs/images/updated-redux-store.png)**: Complete state management schema
+- **[Component Integration](docs/images/component-integration-updated.png)**: How React components connect to Redux
+- **[Data Flow Diagram](docs/images/mvi-data-flow.png)**: Complete MVI data flow with persistence
+
+#### **Sequence Diagrams**
+- **[Marker Persistence Flow](docs/images/marker-persistence-sequence.png)**: Timeline marker position persistence
+- **[MVI Sequence Diagram](docs/images/mvi-sequence-diagram.png)**: Detailed interaction flows
+
+#### **Legacy Diagrams**
+- **[Core Architecture](docs/images/core-architecture.png)**: System overview and technology stack
+- **[State Flow Diagram](docs/images/state-flow-diagram.png)**: Original data flow visualization
+
+### **Quick References**
+
+- **Component Structure**: See `src/components/` for React components
+- **Redux Store**: See `src/store/` for state management (slices, intents, types)
+- **Type Definitions**: See `src/data/types/` for TypeScript interfaces
+- **Configuration**: See `src/config/` for app configuration
+- **Logging System**: See `src/utils/logging/` for debug tools
+
+> **Note**: All PlantUML source files are available in `docs/puml/` for easy modification and regeneration of diagrams.
+
+## State Persistence
+
+The application automatically preserves your session state:
+
+### **What's Persisted**
+- **Camera Position**: Exact camera position, target, and zoom level
+- **Timeline Marker**: Current position on the timeline
+- **User Preferences**: Theme, animation settings, repository URLs
+- **View Settings**: Last used camera mode and animation speed
+
+### **How It Works**
+- State is automatically saved to localStorage on every change
+- On app reload, your exact view is restored
+- Uses Redux Toolkit with MVI pattern for predictable state management
+- Persistence is handled through the intent layer for consistency
+
+![Marker Persistence Sequence](docs/images/marker-persistence-sequence.png)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Development Guide](docs/development-guide.md) for:
+- Development environment setup
+- Code style guidelines
+- Testing procedures
+- Pull request process
 
 ## Troubleshooting
 
@@ -212,48 +279,10 @@ Common issues and solutions:
    - Check network connection
    - Ensure repository is public or credentials are provided
 
-## 📚 Documentation
-
-### **Architecture & Design**
-
-- **[Architecture Overview](docs/architecture.md)**: Complete system architecture and design decisions
-- **[MVI Architecture](docs/mvi-architecture.md)**: Model-View-Intent pattern implementation with Redux
-- **[State Management](docs/state-management.md)**: Redux Toolkit guide with async thunks and best practices
-
-### **Development Resources**
-
-- **[Development Guide](docs/development-guide.md)**: Setup, workflows, and MVI development patterns
-- **[API Reference](docs/api-reference.md)**: Redux store APIs, backend endpoints, and component interfaces
-- **[Product Requirements](docs/product-requirements.md)**: Original product specifications and features
-
-### **Visual Documentation**
-
-All architecture diagrams are available as PNG files in `docs/images/`:
-
-- **Core Architecture**: System overview and technology stack
-- **MVI Architecture**: Model-View-Intent pattern visualization
-- **Redux Store Structure**: State management organization
-- **Component Integration**: How React components connect to Redux
-- **State Flow Diagram**: Data flow in MVI architecture
-- **Sequence Diagrams**: Detailed interaction flows
-
-### **Quick References**
-
-- **Component Structure**: See `src/components/` for React components
-- **Redux Store**: See `src/store/` for state management (slices, intents, types)
-- **Type Definitions**: See `src/data/types/` for TypeScript interfaces
-- **Configuration**: See `src/config/` for app configuration
-- **Logging System**: See `src/utils/logging/` for debug tools
-
-> **Note**: All PlantUML source files are available in `docs/puml/` for easy modification and regeneration of diagrams.
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Development Guide](docs/development-guide.md) for:
-- Development environment setup
-- Code style guidelines
-- Testing procedures
-- Pull request process
+4. **State not persisting**
+   - Check if localStorage is enabled in your browser
+   - Verify you're not in incognito/private mode
+   - Clear localStorage and reload if state becomes corrupted
 
 ## 📄 License
 

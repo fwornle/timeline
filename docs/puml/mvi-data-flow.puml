@@ -1,0 +1,115 @@
+@startuml mvi-data-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title MVI Data Flow - User Interaction to State Update
+
+actor User as U
+box "View Layer (React Components)" #LightBlue
+  participant "TimelineAxis\n(Timeline Marker)" as Axis
+  participant "TimelineCard\n(Event Card)" as Card
+  participant "TimelineCamera\n(3D Camera)" as Camera
+end box
+
+box "Intent Layer (Redux Thunks)" #LightGreen
+  participant "updateTimelinePosition\n(Async Thunk)" as UpdatePos
+  participant "selectCard\n(Async Thunk)" as SelectCard
+  participant "updateCameraWithSync\n(Async Thunk)" as UpdateCam
+end box
+
+box "Model Layer (Redux Slices)" #LightYellow
+  participant "Timeline Slice" as TS
+  participant "UI Slice" as US
+  participant "Preferences Slice" as PS
+end box
+
+box "Storage Layer" #LightCoral
+  participant "localStorage" as LS
+end box
+
+== Marker Position Update Flow ==
+U -> Axis : Drag timeline marker
+Axis -> Axis : Calculate new position from mouse
+Axis -> UpdatePos : dispatch(updateTimelinePosition({ position }))
+
+UpdatePos -> TS : dispatch(setMarkerPosition(position))
+TS -> TS : Update state.timeline.markerPosition
+
+alt Camera sync enabled
+  UpdatePos -> US : dispatch(updateCameraState({ target: { z: position }}))
+  US -> US : Update state.ui.cameraState.target
+  US -> Camera : State change triggers re-render
+  Camera -> Camera : Apply new camera target to Three.js
+end
+
+UpdatePos -> PS : dispatch(updateMarkerPositionPreferences(position))
+PS -> PS : Update state.preferences.markerPosition  
+PS -> LS : savePreferences(state)
+
+TS -> Axis : State change triggers re-render
+Axis -> Axis : Update marker visual position
+
+== Card Selection Flow ==
+U -> Card : Click on timeline card
+Card -> SelectCard : dispatch(selectCard({ cardId, position }))
+
+SelectCard -> US : dispatch(setSelectedCardId(cardId))
+US -> US : Update state.ui.selectedCardId
+
+alt Position provided
+  SelectCard -> US : dispatch(updateCameraState({ target: position }))
+  US -> US : Update state.ui.cameraState.target
+  US -> Camera : State change triggers re-render
+  Camera -> Camera : Move camera to focus on card
+end
+
+US -> Card : State change triggers re-render
+Card -> Card : Apply selection styling
+
+== Camera State Persistence ==
+Camera -> UpdateCam : User moves camera via orbit controls
+UpdateCam -> US : dispatch(updateCameraState({ position, target, zoom }))
+US -> US : Update state.ui.cameraState
+
+UpdateCam -> PS : dispatch(updateCameraPreferences({ position, target, zoom }))
+PS -> PS : Update state.preferences.cameraState
+PS -> LS : savePreferences(state)
+
+== App Initialization (Restore State) ==
+participant "App Startup" as AS
+AS -> LS : loadPreferences()
+LS -> AS : Return saved preferences
+
+AS -> TS : Initialize with saved markerPosition
+AS -> US : Initialize with saved cameraState
+AS -> PS : Load all preferences
+
+TS -> Axis : Render marker at saved position
+US -> Camera : Apply saved camera state
+Camera -> Camera : Position Three.js camera
+
+note right of UpdatePos
+  Single intent handles:
+  - Timeline state update
+  - Camera synchronization
+  - Automatic persistence
+  - Error handling
+end note
+
+note right of PS
+  Auto-persistence:
+  - Every preference update
+  - Automatic save to localStorage
+  - Obfuscated storage format
+  - Restoration on app load
+end note
+
+note right of LS
+  Stored data:
+  - cameraState: { position, target, zoom }
+  - markerPosition: number
+  - theme, animationSpeed, etc.
+  - All preferences automatically synced
+end note
+
+@enduml

@@ -1,0 +1,134 @@
+@startuml component-integration-updated
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+
+title Component Integration with Redux State Management
+
+package "Application Root" {
+  component App
+  note right of App : Redux Provider\nTheme Provider\nError Boundary
+}
+
+package "Layout Layer" {
+  component MainLayoutRedux
+  note right of MainLayoutRedux : Route Management\nGlobal Error Handling\nLoading States
+  
+  component TopBar
+  note right of TopBar : Repository Input\nSettings Modal\nLogging Control
+  
+  component BottomBar
+  note right of BottomBar : Animation Controls\nStatus Display\nSpeed Control
+}
+
+package "Visualization Layer" {
+  component TimelineVisualization
+  note right of TimelineVisualization : Data Fetching Coordination\nRedux State Management\nError Recovery\nMock Data Fallback
+  
+  component TimelineScene
+  note right of TimelineScene : Three.js Canvas Setup\n3D Environment\nGlobal Interaction Handling\nBackground Click Detection
+}
+
+package "3D Components" {
+  component TimelineCamera
+  note right of TimelineCamera : Camera State Sync\nMultiple View Modes\nOrbit Controls\nPersistence Integration
+  
+  component TimelineAxis
+  note right of TimelineAxis : Timeline Rendering\nMarker Interaction\nPosition Updates\nDrag Handling
+  
+  component TimelineEvents
+  note right of TimelineEvents : Event Container\nPosition Calculation\nCard Management\nHover Coordination
+  
+  component TimelineCard
+  note right of TimelineCard : Individual Event Display\nHover/Click Animations\nContent Rendering\nState Tracking
+}
+
+package "Redux Store" {
+  component Store
+  note right of Store : Timeline Slice\nUI Slice\nRepository Slice\nPreferences Slice
+}
+
+package "Intent Layer" {
+  component "UI Intents" as UIIntents
+  note right of UIIntents : selectCard()\nupdateTimelinePosition()\nupdateCameraWithSync()\ntoggleViewAll()
+  
+  component "Timeline Intents" as TimelineIntents
+  note right of TimelineIntents : fetchTimelineData()\nreloadTimelineData()
+  
+  component "Preferences Intents" as PrefsIntents
+  note right of PrefsIntents : updateMarkerPositionPreferences()\nupdateCameraPreferences()
+}
+
+package "Storage" {
+  component localStorage
+  note right of localStorage : Camera State\nMarker Position\nUser Preferences\nTheme Settings
+}
+
+' Data Flow Connections
+App --> MainLayoutRedux : Context Providers
+
+MainLayoutRedux --> TopBar : Layout
+MainLayoutRedux --> TimelineVisualization : Main Content
+MainLayoutRedux --> BottomBar : Layout
+
+TimelineVisualization --> TimelineScene : 3D Scene
+TimelineScene --> TimelineCamera : Camera
+TimelineScene --> TimelineAxis : Timeline
+TimelineScene --> TimelineEvents : Events
+TimelineEvents --> TimelineCard : Individual Cards
+
+' Redux Connections
+TimelineVisualization --> Store : useAppSelector/useAppDispatch
+TimelineCamera --> Store : useAppSelector/useAppDispatch
+TimelineAxis --> Store : useAppSelector/useAppDispatch
+TopBar --> Store : useAppSelector/useAppDispatch
+BottomBar --> Store : useAppSelector/useAppDispatch
+
+' Intent Dispatching
+TimelineVisualization --> UIIntents : dispatch()
+TimelineVisualization --> TimelineIntents : dispatch()
+TimelineAxis --> UIIntents : dispatch()
+TimelineCamera --> PrefsIntents : dispatch()
+
+' Intent to Store
+UIIntents --> Store : actions
+TimelineIntents --> Store : actions
+PrefsIntents --> Store : actions
+
+' Storage Integration
+PrefsIntents --> localStorage : savePreferences()
+Store <-- localStorage : loadPreferences()
+
+note right of TimelineVisualization
+  Main coordination point:
+  - Fetches timeline data
+  - Handles loading/error states
+  - Coordinates 3D scene props
+  - Manages Redux connections
+end note
+
+note right of TimelineCamera
+  Complex state management:
+  - Syncs Three.js camera with Redux
+  - Multiple camera modes
+  - Automatic persistence
+  - Handles user interactions
+end note
+
+note right of UIIntents
+  Centralized user interaction logic:
+  - Coordinates multiple state updates
+  - Handles side effects
+  - Manages async operations
+  - Ensures data consistency
+end note
+
+note bottom of localStorage
+  Automatic persistence:
+  - Camera position/target/zoom
+  - Timeline marker position
+  - User preferences
+  - Theme settings
+end note
+
+@enduml

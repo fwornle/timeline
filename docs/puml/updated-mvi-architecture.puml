@@ -1,0 +1,97 @@
+@startuml updated-mvi-architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+title MVI Architecture with Redux Toolkit Implementation
+
+package "Intent Layer (Async Thunks)" as IntentLayer {
+  component "UI Intents" as UIIntents
+  note right of UIIntents : selectCard()\nhoverCard()\nupdateTimelinePosition()\ntoggleViewAll()\nfocusOnCurrentPosition()\nupdateCameraWithSync()
+  
+  component "Timeline Intents" as TimelineIntents
+  note right of TimelineIntents : fetchTimelineData()\npurgeTimelineCache()\nreloadTimelineData()
+  
+  component "Preferences Intents" as PrefIntents
+  note right of PrefIntents : updateCameraPreferences()\nupdateAnimationPreferences()\nupdateRepositoryPreferences()\nupdateMarkerPositionPreferences()
+}
+
+package "Model Layer (Redux Store)" as ModelLayer {
+  component "Timeline Slice" as TimelineSlice
+  note right of TimelineSlice : State:\nevents: TimelineEvent[]\nloading: boolean\nerror: string | null\nmarkerPosition: number\ncurrentPosition: number\nsourceType: string\ncache: CacheData\n\nActions:\nsetEvents()\nsetLoading()\nsetMarkerPosition()\nsetError()
+  
+  component "UI Slice" as UISlice
+  note right of UISlice : State:\ncameraState: CameraState\nselectedCardId: string | null\nhoveredCardId: string | null\nanimationSpeed: number\ndroneMode: boolean\nviewAll: boolean\nfocusCurrentMode: boolean\n\nActions:\nupdateCameraState()\nsetSelectedCardId()\nsetDroneMode()\nsetViewAll()
+  
+  component "Repository Slice" as RepoSlice
+  note right of RepoSlice : State:\nurl: string\nisConnected: boolean\nmetadata: RepositoryMetadata\nconnectionError: string | null\n\nActions:\nsetRepositoryUrl()\nsetIsConnected()\nsetMetadata()
+  
+  component "Preferences Slice" as PrefSlice
+  note right of PrefSlice : State:\ncameraState: StoredCameraState\nmarkerPosition: number\ntheme: string\nanimationSpeed: number\nisLoaded: boolean\n\nActions:\nupdatePreferences()\nsetPreferences()
+}
+
+package "View Layer (React Components)" as ViewLayer {
+  component "Layout Components" as LayoutComponents
+  note right of LayoutComponents : MainLayoutRedux\nTopBar\nBottomBar
+  
+  component "3D Scene Components" as ThreeDComponents
+  note right of ThreeDComponents : TimelineVisualization\nTimelineScene\nTimelineCamera\nTimelineEvents\nTimelineCard\nTimelineAxis
+  
+  component "UI Components" as UIComponents
+  note right of UIComponents : PreferencesModal\nLoggingControl\nSpeedControl\nAuthDialog
+}
+
+package "Storage Layer" as StorageLayer {
+  component "LocalStorage" as LocalStorage
+  note right of LocalStorage : Camera State\nMarker Position\nUser Preferences\nTheme Settings
+}
+
+' Intent to Model Flow
+UIIntents --> UISlice : dispatch(actions)
+UIIntents --> TimelineSlice : dispatch(setMarkerPosition)
+TimelineIntents --> TimelineSlice : dispatch(actions)
+PrefIntents --> PrefSlice : dispatch(updatePreferences)
+PrefIntents --> LocalStorage : savePreferences()
+
+' Model to View Flow  
+UISlice --> ViewLayer : useAppSelector(state.ui)
+TimelineSlice --> ViewLayer : useAppSelector(state.timeline)
+RepoSlice --> ViewLayer : useAppSelector(state.repository)
+PrefSlice --> ViewLayer : useAppSelector(state.preferences)
+
+' View to Intent Flow
+ViewLayer --> UIIntents : useAppDispatch()
+ViewLayer --> TimelineIntents : useAppDispatch()
+ViewLayer --> PrefIntents : useAppDispatch()
+
+' Storage Integration
+PrefSlice <--> LocalStorage : auto-save/load
+TimelineSlice <-- LocalStorage : restore markerPosition
+UISlice <-- LocalStorage : restore cameraState
+
+note right of IntentLayer
+  Redux Toolkit createAsyncThunk
+  - Handles side effects
+  - Coordinates multiple state updates
+  - Manages async operations
+  - Provides error handling
+end note
+
+note right of ModelLayer
+  Redux Toolkit slices
+  - Immutable state updates
+  - Built-in Immer integration
+  - Type-safe actions
+  - Automatic action creators
+end note
+
+note right of ViewLayer
+  Pure React components
+  - State via useAppSelector
+  - Actions via useAppDispatch
+  - Typed hooks for safety
+  - No direct state mutation
+end note
+
+@enduml

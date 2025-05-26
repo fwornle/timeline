@@ -1,0 +1,170 @@
+@startuml updated-redux-store
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam classStyle rectangle
+
+title Redux Store Structure - Complete State Schema
+
+class RootState {
+  +timeline: TimelineState
+  +ui: UIState
+  +preferences: PreferencesState
+  +repository: RepositoryState
+}
+
+class TimelineState {
+  +events: TimelineEvent[]
+  +loading: boolean
+  +error: string | null
+  +gitCount: number
+  +specCount: number
+  +currentPosition: number
+  +markerPosition: number ⭐
+  +sourceType: 'git' | 'spec' | 'both'
+  +isUsingMockData: boolean
+  +lastFetchTime: number | null
+  +cache: { [key: string]: CacheData }
+  --
+  Actions:
+  +setEvents(events)
+  +setLoading(loading)
+  +setError(error)
+  +setMarkerPosition(position) ⭐
+  +setCurrentPosition(position)
+  +setSourceType(type)
+  +resetTimeline()
+}
+
+class UIState {
+  +animationSpeed: number
+  +autoDrift: boolean
+  +droneMode: boolean
+  +isAutoScrolling: boolean
+  +viewAll: boolean
+  +focusCurrentMode: boolean
+  +debugMode: boolean
+  +cameraState: CameraState ⭐
+  +selectedCardId: string | null
+  +hoveredCardId: string | null
+  +showPreferences: boolean
+  +showLoggingControl: boolean
+  +sidebarOpen: boolean
+  +isInitializing: boolean
+  --
+  Actions:
+  +updateCameraState(state) ⭐
+  +setSelectedCardId(id)
+  +setHoveredCardId(id)
+  +setDroneMode(enabled)
+  +setViewAll(enabled)
+  +setAnimationSpeed(speed)
+}
+
+class RepositoryState {
+  +url: string
+  +username: string
+  +isConnected: boolean
+  +lastSyncTime: number | null
+  +connectionError: string | null
+  +isValidating: boolean
+  +metadata: RepositoryMetadata | null
+  --
+  Actions:
+  +setRepositoryUrl(url)
+  +setUsername(username)
+  +setIsConnected(connected)
+  +setMetadata(metadata)
+  +setConnectionError(error)
+}
+
+class PreferencesState {
+  +repoUrl?: string
+  +username?: string
+  +animationSpeed?: number
+  +autoDrift?: boolean
+  +theme?: 'light' | 'dark' | 'system'
+  +cameraState?: StoredCameraState ⭐
+  +markerPosition?: number ⭐
+  +isLoaded: boolean
+  --
+  Actions:
+  +updatePreferences(prefs) ⭐
+  +setPreferences(prefs)
+  +refreshPreferences()
+  +clearPreferences()
+}
+
+class CameraState {
+  +position: { x: number, y: number, z: number } ⭐
+  +target: { x: number, y: number, z: number } ⭐
+  +zoom: number ⭐
+}
+
+class StoredCameraState {
+  +position: { x: number, y: number, z: number }
+  +target: { x: number, y: number, z: number }
+  +zoom: number
+}
+
+class TimelineEvent {
+  +id: string
+  +type: 'git' | 'spec'
+  +timestamp: Date
+  +title: string
+  +authorName?: string
+  +authorEmail?: string
+  +branch?: string
+  +commitHash?: string
+  +specType?: string
+  +status?: string
+  +version?: string
+  +files?: FileChange[]
+  +stats: EventStats
+}
+
+class EventStats {
+  +filesChanged: number
+  +linesAdded: number
+  +linesRemoved: number
+  +totalLines: number
+}
+
+class RepositoryMetadata {
+  +name: string
+  +owner: string
+  +description: string
+  +defaultBranch: string
+  +lastUpdated: string
+  +isPrivate: boolean
+}
+
+' Relationships
+RootState --> TimelineState
+RootState --> UIState
+RootState --> RepositoryState
+RootState --> PreferencesState
+
+UIState --> CameraState
+PreferencesState --> StoredCameraState
+TimelineState --> TimelineEvent
+TimelineEvent --> EventStats
+RepositoryState --> RepositoryMetadata
+
+' Persistence relationships
+note right of PreferencesState
+  ⭐ markerPosition: Automatically persisted to localStorage
+  ⭐ cameraState: Synced with UI slice cameraState
+  All preferences restored on app initialization
+end note
+
+note bottom of TimelineState
+  ⭐ markerPosition: Updated through updateTimelinePosition() intent
+  Automatically saves to preferences via intents
+end note
+
+note bottom of UIState
+  ⭐ cameraState: Synced with Three.js camera objects
+  Updated through updateCameraWithSync() intent
+end note
+
+@enduml
