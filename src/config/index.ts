@@ -6,11 +6,13 @@
 import { colors as colorsConfig, cssVariables, colorUtils, threeColors, threeOpacities } from './colors';
 import { dimensions as dimensionsConfig, breakpoints, zIndex } from './dimensions';
 import { animation as animationConfig, animationStates, performance } from './animation';
+import { metricsConfig, getMetricConfig, metricLabels } from './metricsConfig';
 
 // Main exports
 export { colorsConfig as colors, cssVariables, colorUtils, threeColors, threeOpacities };
 export { dimensionsConfig as dimensions, breakpoints, zIndex };
 export { animationConfig as animation, animationStates, performance };
+export { metricsConfig, getMetricConfig, metricLabels };
 
 // Re-export specific commonly used configurations for convenience
 export const {

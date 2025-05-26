@@ -1,8 +1,9 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { useAppDispatch, useAppSelector } from '../store';
 import { useTimelineData } from '../data/hooks/useTimelineData';
 import { TimelineScene } from './three/TimelineScene';
+import { HorizontalMetricsPlot } from './metrics/HorizontalMetricsPlot';
 import type { TimelineEvent } from '../data/types/TimelineEvent';
 import { mockGitHistory } from '../data/mocks/mockGitHistory';
 import { mockSpecHistory } from '../data/mocks/mockSpecHistory';
@@ -152,6 +153,26 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   // Track card positions for position updates
   const cardPositionsRef = useRef<Map<string, Vector3>>(new Map());
+
+  // Calculate date range and timeline length for metrics plot
+  const { startDate, endDate, timelineLength } = useMemo(() => {
+    if (events.length === 0) {
+      return { startDate: undefined, endDate: undefined, timelineLength: 100 };
+    }
+
+    // Sort events by timestamp
+    const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    // Get the earliest and latest dates
+    const startDate = sortedEvents[0].timestamp;
+    const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
+
+    // Calculate timeline length (consistent with TimelineScene)
+    const minSpacing = 5;
+    const timelineLength = Math.max(events.length * minSpacing, 100);
+
+    return { startDate, endDate, timelineLength };
+  }, [events]);
 
   // Simple card animation props function
   const getCardAnimationProps = useCallback((id: string) => {
@@ -338,6 +359,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
   return (
     <div className="position-relative w-100 h-100" style={{ height: '100vh' }}>
+      {/* 3D Timeline Scene - Full Height */}
       <div className="w-100 h-100">
         <TimelineScene
           events={events}
@@ -389,6 +411,22 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           debugMode={debugMode}
         />
       </div>
+
+      {/* Horizontal Metrics Plot - Overlay */}
+      {events.length > 0 && (
+        <HorizontalMetricsPlot
+          events={events}
+          currentPosition={markerPosition || 0}
+          timelineLength={timelineLength}
+          startDate={startDate}
+          endDate={endDate}
+          onPositionChange={(position) => {
+            dispatch(updateTimelinePosition({ position }));
+          }}
+          height={120}
+          className="position-absolute top-0 start-0 w-100"
+        />
+      )}
 
       {/* Single status overlay for both loading and error states */}
       {showStatusOverlay && (

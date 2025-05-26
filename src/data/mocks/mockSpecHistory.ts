@@ -17,6 +17,13 @@ export const mockSpecHistory = (): SpecTimelineEvent[] => {
     const status = statuses[Math.min(i % statuses.length, 4)];
     const version = `0.${Math.floor(i / 3) + 1}.${i % 3}`;
 
+    const promptCount = Math.floor(Math.random() * 20) + 5;
+    const filesCreated = Math.floor(Math.random() * 8) + 1;
+    const filesModified = Math.floor(Math.random() * 12) + 2;
+    const linesAdded = Math.floor(Math.random() * 500) + 50;
+    const linesDeleted = Math.floor(Math.random() * 200) + 10;
+    const toolInvocations = Math.floor(Math.random() * 15) + 3;
+
     mockSpecs.push({
       id: `spec-mock-spec-${i}-${version}`,
       type: 'spec',
@@ -36,7 +43,16 @@ export const mockSpecHistory = (): SpecTimelineEvent[] => {
           oldValue: null,
           newValue: `${specType.toLowerCase()}, ${status}, v${version}`
         }
-      ]
+      ],
+      stats: {
+        promptCount,
+        filesCreated,
+        filesModified,
+        linesAdded,
+        linesDeleted,
+        linesDelta: linesAdded - linesDeleted,
+        toolInvocations
+      }
     });
   }
 
