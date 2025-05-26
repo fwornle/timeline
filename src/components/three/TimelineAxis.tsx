@@ -287,7 +287,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
           {/* Hover line indicator */}
           <Line
             points={[
-              [0, 0, hoverPosition] as [number, number, number],
+              [0, 2 - tickSize, hoverPosition] as [number, number, number],
               [0, 3, hoverPosition] as [number, number, number],
             ]}
             color={threeColors.warning}

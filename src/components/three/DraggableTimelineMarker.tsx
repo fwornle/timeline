@@ -195,7 +195,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
       {/* Vertical line - shortened to not pierce through timeline catch zone surface */}
       <Line
         points={[
-          [0, -0.5, 0] as [number, number, number], // Stop at Y=1.5 (catch zone surface)
+          [0, -0.3, 0] as [number, number, number], // Stop above Y=1.5 (catch zone surface at Y=1.5, marker at Y=2, so -0.3 relative = Y=1.7)
           [0, 1, 0] as [number, number, number],    // Extend upward as before
         ]}
         color={color}
