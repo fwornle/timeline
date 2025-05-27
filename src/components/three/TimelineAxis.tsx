@@ -336,20 +336,31 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         />
       </mesh>
 
-      {/* Narrow visible plane for visual feedback */}
+      {/* Narrow visible plane for visual feedback - ALWAYS VISIBLE with faint green glow */}
       <mesh
         position={[0, 2, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         renderOrder={1000} // Below the wide plane
       >
         <planeGeometry args={[4, length]} /> {/* Narrow plane for visual feedback */}
-        <meshBasicMaterial
-          color="blue"
-          transparent={true}
-          opacity={showDebugPlanes ? 0.3 : 0}
-          visible={showDebugPlanes}
-        />
+        <primitive object={fadingMaterial} />
       </mesh>
+
+      {/* Debug overlay for narrow plane - ONLY VISIBLE in DEBUG mode */}
+      {showDebugPlanes && (
+        <mesh
+          position={[0, 2.01, 0]} // Slightly above the fading plane
+          rotation={[-Math.PI / 2, 0, 0]}
+          renderOrder={1001} // Above the fading plane
+        >
+          <planeGeometry args={[4, length]} />
+          <meshBasicMaterial
+            color="blue"
+            transparent={true}
+            opacity={0.3}
+          />
+        </mesh>
+      )}
 
       {/* Hover indicator - line and ball */}
       {isHovering && hoverPosition !== null && (
