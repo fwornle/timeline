@@ -1,3 +1,13 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "record-to-markdown": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/tmp/record-to-markdown",
+        "run",
+        "server.py"
+      ]
+    }
+  }
 }
