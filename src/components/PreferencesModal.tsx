@@ -3,6 +3,7 @@ import { Modal, Form, Alert } from 'react-bootstrap';
 import type { Preferences } from '../services/storage';
 import { useAppSelector, useAppDispatch } from '../store';
 import { updatePreferences } from '../store/slices/preferencesSlice';
+import { timezonesByRegion, DEFAULT_TIMEZONE } from '../config/timezones';
 
 interface PreferencesModalProps {
   show: boolean;
@@ -162,6 +163,28 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
               <option value="dark">Dark</option>
               <option value="system">System</option>
             </Form.Select>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Timezone</Form.Label>
+            <Form.Select
+              name="timezone"
+              value={prefs.timezone || DEFAULT_TIMEZONE}
+              onChange={handleChange}
+            >
+              {Object.entries(timezonesByRegion).map(([region, timezones]) => (
+                <optgroup key={region} label={region}>
+                  {timezones.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </Form.Select>
+            <Form.Text className="text-muted">
+              Used for displaying public holidays and bridge days in the timeline
+            </Form.Text>
           </Form.Group>
 
           <Form.Group className="mb-3">

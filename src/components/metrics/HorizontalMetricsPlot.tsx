@@ -9,6 +9,9 @@ import {
   positionToTimestamp,
 } from '../../utils/metrics/codeMetrics';
 import { metricsConfig, getMetricConfig, metricLabels } from '../../config';
+import { getCachedCalendarData, type CalendarData } from '../../services/calendarService';
+import { getCountryForTimezone, DEFAULT_TIMEZONE } from '../../config/timezones';
+import { useAppSelector } from '../../store';
 
 interface HorizontalMetricsPlotProps {
   events: TimelineEvent[];
@@ -35,6 +38,48 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   const [visibleMetrics, setVisibleMetrics] = useState<string[]>(['linesOfCode', 'totalFiles', 'commitCount']);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<number>(-1);
+  const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
+
+  // Get timezone from preferences
+  const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
+
+  // Fetch calendar data when timezone or date range changes
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+
+    const fetchCalendarData = async () => {
+      try {
+        const country = getCountryForTimezone(timezone);
+        if (!country) return;
+
+        const startYear = startDate.getFullYear();
+        const endYear = endDate.getFullYear();
+
+        // Fetch calendar data for all years in the range
+        const calendarPromises = [];
+        for (let year = startYear; year <= endYear; year++) {
+          calendarPromises.push(getCachedCalendarData(year, country, timezone));
+        }
+
+        const calendarResults = await Promise.all(calendarPromises);
+
+        // Combine all calendar data
+        const combinedCalendarData: CalendarData = {
+          holidays: calendarResults.flatMap(data => data.holidays),
+          bridgeDays: calendarResults.flatMap(data => data.bridgeDays),
+          year: startYear,
+          country: country
+        };
+
+        setCalendarData(combinedCalendarData);
+      } catch (error) {
+        console.warn('Failed to fetch calendar data:', error);
+        setCalendarData(null);
+      }
+    };
+
+    fetchCalendarData();
+  }, [timezone, startDate, endDate]);
 
   // Calculate metrics from events
   const metricsPoints = useMemo(() => {
@@ -309,6 +354,107 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                     }
 
                     return weekendBars;
+                  })()}
+
+                  {/* Holiday markers - faint red bars for public holidays */}
+                  {calendarData && (() => {
+                    const holidayBars: React.ReactElement[] = [];
+
+                    calendarData.holidays.forEach((holiday, index) => {
+                      const holidayDate = new Date(holiday.date + 'T00:00:00');
+
+                      // Find the closest chart data point for this holiday
+                      let closestIndex = -1;
+                      let minDiff = Infinity;
+
+                      chartData.forEach((d, i) => {
+                        const diff = Math.abs(d.timestamp.getTime() - holidayDate.getTime());
+                        if (diff < minDiff) {
+                          minDiff = diff;
+                          closestIndex = i;
+                        }
+                      });
+
+                      if (closestIndex !== -1 && minDiff < 24 * 60 * 60 * 1000) { // Within 1 day
+                        const dayWidth = innerWidth / (chartData.length - 1);
+                        const startX = (closestIndex / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
+                        const width = dayWidth;
+
+                        holidayBars.push(
+                          <g key={`holiday-bar-${index}`}>
+                            <rect
+                              x={Math.max(0, startX)}
+                              y={0}
+                              width={Math.min(width, innerWidth - Math.max(0, startX))}
+                              height={innerHeight}
+                              fill="rgba(239, 68, 68, 0.12)" // Faint red background
+                              stroke="rgba(239, 68, 68, 0.3)" // Slightly more visible red border
+                              strokeWidth={0.5}
+                            />
+                            <title>{holiday.name}</title>
+                          </g>
+                        );
+                      }
+                    });
+
+                    return holidayBars;
+                  })()}
+
+                  {/* Bridge day markers - faint red diagonally striped bars */}
+                  {calendarData && (() => {
+                    const bridgeBars: React.ReactElement[] = [];
+
+                    calendarData.bridgeDays.forEach((bridgeDay, index) => {
+                      const bridgeDate = new Date(bridgeDay.date + 'T00:00:00');
+
+                      // Find the closest chart data point for this bridge day
+                      let closestIndex = -1;
+                      let minDiff = Infinity;
+
+                      chartData.forEach((d, i) => {
+                        const diff = Math.abs(d.timestamp.getTime() - bridgeDate.getTime());
+                        if (diff < minDiff) {
+                          minDiff = diff;
+                          closestIndex = i;
+                        }
+                      });
+
+                      if (closestIndex !== -1 && minDiff < 24 * 60 * 60 * 1000) { // Within 1 day
+                        const dayWidth = innerWidth / (chartData.length - 1);
+                        const startX = (closestIndex / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
+                        const width = dayWidth;
+                        const patternId = `bridge-pattern-${index}`;
+
+                        bridgeBars.push(
+                          <g key={`bridge-bar-${index}`}>
+                            <defs>
+                              <pattern
+                                id={patternId}
+                                patternUnits="userSpaceOnUse"
+                                width="8"
+                                height="8"
+                                patternTransform="rotate(45)"
+                              >
+                                <rect width="8" height="8" fill="rgba(239, 68, 68, 0.08)" />
+                                <rect width="4" height="8" fill="rgba(239, 68, 68, 0.15)" />
+                              </pattern>
+                            </defs>
+                            <rect
+                              x={Math.max(0, startX)}
+                              y={0}
+                              width={Math.min(width, innerWidth - Math.max(0, startX))}
+                              height={innerHeight}
+                              fill={`url(#${patternId})`}
+                              stroke="rgba(239, 68, 68, 0.25)"
+                              strokeWidth={0.5}
+                            />
+                            <title>{bridgeDay.name}</title>
+                          </g>
+                        );
+                      }
+                    });
+
+                    return bridgeBars;
                   })()}
 
                   {/* Metric lines */}

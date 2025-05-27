@@ -20,6 +20,9 @@ export type Preferences = {
   // UI preferences
   theme?: 'light' | 'dark' | 'system';
 
+  // Localization settings
+  timezone?: string;
+
   // Camera state
   cameraState?: StoredCameraState;
 

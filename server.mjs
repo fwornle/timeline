@@ -1,4 +1,5 @@
 import http from 'http';
+import https from 'https';
 import url from 'url';
 import fs from 'fs';
 import path from 'path';
@@ -120,6 +121,149 @@ async function purgeAll(repository) {
 // Helper for local time logging
 function localTime() {
   return new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+}
+
+// Helper function to fetch holiday data from external API using Node.js https
+async function fetchHolidayData(year, country, timezone) {
+  console.log(`[${localTime()}] Fetching holiday data for ${country} ${year}`);
+
+  return new Promise((resolve) => {
+    try {
+      // Use the free public holidays API (no API key required)
+      const holidayUrl = `https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`;
+
+      https.get(holidayUrl, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', () => {
+          try {
+            if (res.statusCode === 200) {
+              const holidays = JSON.parse(data);
+              console.log(`[${localTime()}] Retrieved ${holidays.length} holidays for ${country} ${year}`);
+
+              // Process holidays and detect bridge days
+              const processedHolidays = holidays.map(holiday => ({
+                date: holiday.date,
+                name: holiday.name,
+                type: 'public',
+                country: country
+              }));
+
+              // Detect bridge days (days between holidays and weekends)
+              const bridgeDays = detectBridgeDays(processedHolidays, year);
+
+              resolve({
+                holidays: processedHolidays,
+                bridgeDays: bridgeDays,
+                year: year,
+                country: country
+              });
+            } else {
+              console.warn(`[${localTime()}] Holiday API returned ${res.statusCode} for ${country} ${year}`);
+              resolve({
+                holidays: [],
+                bridgeDays: [],
+                year: year,
+                country: country
+              });
+            }
+          } catch (parseError) {
+            console.warn(`[${localTime()}] Failed to parse holiday data for ${country} ${year}:`, parseError.message);
+            resolve({
+              holidays: [],
+              bridgeDays: [],
+              year: year,
+              country: country
+            });
+          }
+        });
+      }).on('error', (error) => {
+        console.warn(`[${localTime()}] Failed to fetch holidays for ${country} ${year}:`, error.message);
+        resolve({
+          holidays: [],
+          bridgeDays: [],
+          year: year,
+          country: country
+        });
+      });
+    } catch (error) {
+      console.warn(`[${localTime()}] Error setting up holiday request for ${country} ${year}:`, error.message);
+      resolve({
+        holidays: [],
+        bridgeDays: [],
+        year: year,
+        country: country
+      });
+    }
+  });
+}
+
+// Helper function to detect bridge days
+function detectBridgeDays(holidays, year) {
+  const bridgeDays = [];
+
+  // Convert holidays to Date objects for easier manipulation
+  const holidayDates = holidays.map(h => new Date(h.date + 'T00:00:00'));
+
+  for (const holidayDate of holidayDates) {
+    // Check for bridge days around each holiday
+    const bridgeCandidates = [];
+
+    // Check day before holiday
+    const dayBefore = new Date(holidayDate);
+    dayBefore.setDate(dayBefore.getDate() - 1);
+
+    // Check day after holiday
+    const dayAfter = new Date(holidayDate);
+    dayAfter.setDate(dayAfter.getDate() + 1);
+
+    // Check if day before/after creates a bridge to weekend
+    [dayBefore, dayAfter].forEach(date => {
+      const dayOfWeek = date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
+      const isHoliday = holidayDates.some(hd => hd.getTime() === date.getTime());
+
+      // Bridge day criteria: weekday between holiday and weekend, or between two holidays
+      if (!isWeekend && !isHoliday) {
+        // Check if this creates a bridge (Friday before weekend + holiday, or Monday after weekend + holiday)
+        if ((dayOfWeek === 1 && isAdjacentToWeekendOrHoliday(date, holidayDates, -1)) || // Monday
+            (dayOfWeek === 5 && isAdjacentToWeekendOrHoliday(date, holidayDates, 1))) {   // Friday
+          bridgeCandidates.push(date);
+        }
+      }
+    });
+
+    // Add unique bridge days
+    bridgeCandidates.forEach(bridgeDate => {
+      const dateStr = bridgeDate.toISOString().split('T')[0];
+      if (!bridgeDays.some(bd => bd.date === dateStr)) {
+        bridgeDays.push({
+          date: dateStr,
+          name: 'Bridge Day',
+          type: 'bridge',
+          country: holidays[0]?.country || 'Unknown'
+        });
+      }
+    });
+  }
+
+  return bridgeDays;
+}
+
+// Helper function to check if a date is adjacent to weekend or holiday
+function isAdjacentToWeekendOrHoliday(date, holidayDates, direction) {
+  const adjacentDate = new Date(date);
+  adjacentDate.setDate(adjacentDate.getDate() + direction);
+
+  const dayOfWeek = adjacentDate.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isHoliday = holidayDates.some(hd => hd.getTime() === adjacentDate.getTime());
+
+  return isWeekend || isHoliday;
 }
 
 // Helper function to generate mock git data
@@ -501,6 +645,59 @@ const server = http.createServer(async (req, res) => {
             status
           },
           timestamp: new Date().toISOString()
+        }));
+      }
+      return;
+    }
+
+    // Calendar endpoint for public holidays and bridge days
+    if (path === `${API_PREFIX}/calendar` && req.method === 'GET') {
+      console.log('Calendar request received', { query });
+
+      try {
+        const { year, country, timezone } = query;
+
+        if (!year || !country || !timezone) {
+          res.writeHead(400);
+          res.end(JSON.stringify({
+            success: false,
+            error: {
+              message: 'Missing required parameters: year, country, timezone',
+              type: 'ValidationError',
+              status: 400
+            },
+            timestamp: localTime()
+          }));
+          return;
+        }
+
+        // Fetch holiday data from external API
+        const calendarData = await fetchHolidayData(parseInt(year), country, timezone);
+
+        const response = {
+          success: true,
+          data: calendarData,
+          timestamp: localTime()
+        };
+
+        res.writeHead(200);
+        res.end(JSON.stringify(response));
+      } catch (error) {
+        console.error('Calendar request failed', {
+          query,
+          error: error.message
+        });
+
+        const status = error.message.includes('Invalid') ? 400 : 500;
+        res.writeHead(status);
+        res.end(JSON.stringify({
+          success: false,
+          error: {
+            message: error.message,
+            type: error.name,
+            status
+          },
+          timestamp: localTime()
         }));
       }
       return;
