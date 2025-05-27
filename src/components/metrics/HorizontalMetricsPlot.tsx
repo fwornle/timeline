@@ -73,6 +73,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
       linesAdded: point.linesAdded,
       linesDeleted: point.linesDeleted,
       filesModified: point.filesModified,
+      isWeekend: point.timestamp.getDay() === 0 || point.timestamp.getDay() === 6, // Sunday = 0, Saturday = 6
     }));
   }, [metricsPoints]);
 
@@ -261,6 +262,54 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                       />
                     );
                   })}
+
+                  {/* Weekend markers - faint blue bars spanning Friday evening to Monday morning */}
+                  {(() => {
+                    const weekendBars: React.ReactElement[] = [];
+                    let weekendStart = -1;
+
+                    for (let i = 0; i < chartData.length; i++) {
+                      const d = chartData[i];
+                      const isCurrentWeekend = d.isWeekend;
+                      const isNextWeekend = i < chartData.length - 1 ? chartData[i + 1].isWeekend : false;
+
+                      // Start of weekend period
+                      if (isCurrentWeekend && weekendStart === -1) {
+                        weekendStart = i;
+                      }
+
+                      // End of weekend period (or end of data)
+                      if (weekendStart !== -1 && (!isNextWeekend || i === chartData.length - 1)) {
+                        // Calculate positions with half-day offsets
+                        const dayWidth = innerWidth / (chartData.length - 1);
+
+                        // Start bar half a day before the first weekend day (Friday evening)
+                        const startX = (weekendStart / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
+
+                        // End bar half a day after the last weekend day (Monday morning)
+                        const endX = (i / (chartData.length - 1)) * innerWidth + (dayWidth * 0.5);
+
+                        const width = Math.max(endX - startX, dayWidth); // Ensure minimum weekend width
+
+                        weekendBars.push(
+                          <rect
+                            key={`weekend-bar-${weekendStart}-${i}`}
+                            x={Math.max(0, startX)} // Don't go negative
+                            y={0}
+                            width={Math.min(width, innerWidth - Math.max(0, startX))} // Don't exceed chart width
+                            height={innerHeight}
+                            fill="rgba(59, 130, 246, 0.08)" // Faint blue background
+                            stroke="rgba(59, 130, 246, 0.2)" // Slightly more visible border
+                            strokeWidth={0.5}
+                          />
+                        );
+
+                        weekendStart = -1;
+                      }
+                    }
+
+                    return weekendBars;
+                  })()}
 
                   {/* Metric lines */}
                   {visibleMetrics.includes('linesOfCode') && (
