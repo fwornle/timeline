@@ -361,14 +361,22 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                     const holidayBars: React.ReactElement[] = [];
 
                     calendarData.holidays.forEach((holiday, index) => {
-                      const holidayDate = new Date(holiday.date + 'T00:00:00');
+                      // Parse date as UTC to avoid timezone issues
+                      const [year, month, day] = holiday.date.split('-').map(Number);
+                      const holidayDate = new Date(Date.UTC(year, month - 1, day));
 
                       // Find the closest chart data point for this holiday
                       let closestIndex = -1;
                       let minDiff = Infinity;
 
                       chartData.forEach((d, i) => {
-                        const diff = Math.abs(d.timestamp.getTime() - holidayDate.getTime());
+                        // Compare dates at midnight in UTC for both
+                        const chartDateUTC = new Date(Date.UTC(
+                          d.timestamp.getFullYear(),
+                          d.timestamp.getMonth(),
+                          d.timestamp.getDate()
+                        ));
+                        const diff = Math.abs(chartDateUTC.getTime() - holidayDate.getTime());
                         if (diff < minDiff) {
                           minDiff = diff;
                           closestIndex = i;
@@ -405,14 +413,22 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                     const bridgeBars: React.ReactElement[] = [];
 
                     calendarData.bridgeDays.forEach((bridgeDay, index) => {
-                      const bridgeDate = new Date(bridgeDay.date + 'T00:00:00');
+                      // Parse date as UTC to avoid timezone issues
+                      const [year, month, day] = bridgeDay.date.split('-').map(Number);
+                      const bridgeDate = new Date(Date.UTC(year, month - 1, day));
 
                       // Find the closest chart data point for this bridge day
                       let closestIndex = -1;
                       let minDiff = Infinity;
 
                       chartData.forEach((d, i) => {
-                        const diff = Math.abs(d.timestamp.getTime() - bridgeDate.getTime());
+                        // Compare dates at midnight in UTC for both
+                        const chartDateUTC = new Date(Date.UTC(
+                          d.timestamp.getFullYear(),
+                          d.timestamp.getMonth(),
+                          d.timestamp.getDate()
+                        ));
+                        const diff = Math.abs(chartDateUTC.getTime() - bridgeDate.getTime());
                         if (diff < minDiff) {
                           minDiff = diff;
                           closestIndex = i;
