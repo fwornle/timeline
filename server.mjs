@@ -207,64 +207,70 @@ function detectBridgeDays(holidays, year) {
   const bridgeDays = [];
 
   // Convert holidays to Date objects for easier manipulation
-  const holidayDates = holidays.map(h => new Date(h.date + 'T00:00:00'));
+  // Use UTC to avoid timezone issues
+  const holidayDates = holidays.map(h => {
+    const [year, month, day] = h.date.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
+  });
+
+  // Create a set of all holiday timestamps for quick lookup
+  const holidayTimestamps = new Set(holidayDates.map(d => d.getTime()));
 
   for (const holidayDate of holidayDates) {
-    // Check for bridge days around each holiday
-    const bridgeCandidates = [];
-
-    // Check day before holiday
-    const dayBefore = new Date(holidayDate);
-    dayBefore.setDate(dayBefore.getDate() - 1);
-
-    // Check day after holiday
-    const dayAfter = new Date(holidayDate);
-    dayAfter.setDate(dayAfter.getDate() + 1);
-
-    // Check if day before/after creates a bridge to weekend
-    [dayBefore, dayAfter].forEach(date => {
-      const dayOfWeek = date.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
-      const isHoliday = holidayDates.some(hd => hd.getTime() === date.getTime());
-
-      // Bridge day criteria: weekday between holiday and weekend, or between two holidays
-      if (!isWeekend && !isHoliday) {
-        // Check if this creates a bridge (Friday before weekend + holiday, or Monday after weekend + holiday)
-        if ((dayOfWeek === 1 && isAdjacentToWeekendOrHoliday(date, holidayDates, -1)) || // Monday
-            (dayOfWeek === 5 && isAdjacentToWeekendOrHoliday(date, holidayDates, 1))) {   // Friday
-          bridgeCandidates.push(date);
+    const holidayDayOfWeek = holidayDate.getUTCDay();
+    
+    // Bridge days occur when:
+    // - Holiday is on Tuesday (2) -> Monday is a bridge day
+    // - Holiday is on Thursday (4) -> Friday is a bridge day
+    
+    if (holidayDayOfWeek === 2) { // Tuesday
+      // Monday before is a bridge day
+      const monday = new Date(holidayDate);
+      monday.setUTCDate(monday.getUTCDate() - 1);
+      
+      // Only add if Monday is not already a holiday
+      if (!holidayTimestamps.has(monday.getTime())) {
+        const year = monday.getUTCFullYear();
+        const month = String(monday.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(monday.getUTCDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        if (!bridgeDays.some(bd => bd.date === dateStr)) {
+          bridgeDays.push({
+            date: dateStr,
+            name: 'Bridge Day',
+            type: 'bridge',
+            country: holidays[0]?.country || 'Unknown'
+          });
         }
       }
-    });
-
-    // Add unique bridge days
-    bridgeCandidates.forEach(bridgeDate => {
-      const dateStr = bridgeDate.toISOString().split('T')[0];
-      if (!bridgeDays.some(bd => bd.date === dateStr)) {
-        bridgeDays.push({
-          date: dateStr,
-          name: 'Bridge Day',
-          type: 'bridge',
-          country: holidays[0]?.country || 'Unknown'
-        });
+    } else if (holidayDayOfWeek === 4) { // Thursday
+      // Friday after is a bridge day
+      const friday = new Date(holidayDate);
+      friday.setUTCDate(friday.getUTCDate() + 1);
+      
+      // Only add if Friday is not already a holiday
+      if (!holidayTimestamps.has(friday.getTime())) {
+        const year = friday.getUTCFullYear();
+        const month = String(friday.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(friday.getUTCDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        if (!bridgeDays.some(bd => bd.date === dateStr)) {
+          bridgeDays.push({
+            date: dateStr,
+            name: 'Bridge Day',
+            type: 'bridge',
+            country: holidays[0]?.country || 'Unknown'
+          });
+        }
       }
-    });
+    }
   }
 
   return bridgeDays;
 }
 
-// Helper function to check if a date is adjacent to weekend or holiday
-function isAdjacentToWeekendOrHoliday(date, holidayDates, direction) {
-  const adjacentDate = new Date(date);
-  adjacentDate.setDate(adjacentDate.getDate() + direction);
-
-  const dayOfWeek = adjacentDate.getDay();
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const isHoliday = holidayDates.some(hd => hd.getTime() === adjacentDate.getTime());
-
-  return isWeekend || isHoliday;
-}
 
 // Helper function to generate mock git data
 function generateMockGitData() {
