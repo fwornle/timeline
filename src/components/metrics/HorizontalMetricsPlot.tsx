@@ -343,8 +343,8 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                           const tooltipHeight = metricsConfig.tooltip.height;
                           const tooltipMargin = 10;
 
-                          // Smart positioning: show below if too close to top, above otherwise
-                          const showBelow = pointY < (tooltipHeight + tooltipMargin);
+                          // Smart positioning: show above if below 50%, show below if above 50%
+                          const showBelow = maxNormalized > 50;
                           const tooltipY = showBelow
                             ? pointY + tooltipMargin
                             : pointY - tooltipHeight - tooltipMargin;
