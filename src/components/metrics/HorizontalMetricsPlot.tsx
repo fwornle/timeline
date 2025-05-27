@@ -337,51 +337,73 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                         })}
 
                         {/* Tooltip on hover */}
-                        {isHovered && (
-                          <g>
-                            <rect
-                              x={x - metricsConfig.tooltip.width / 2}
-                              y={innerHeight - (Math.max(d.locNormalized, d.filesNormalized, d.commitsNormalized) / 100) * innerHeight - 60}
-                              width={metricsConfig.tooltip.width}
-                              height={metricsConfig.tooltip.height}
-                              fill={metricsConfig.tooltip.background}
-                              stroke={metricsConfig.tooltip.border}
-                              strokeWidth={1}
-                              rx={metricsConfig.tooltip.borderRadius}
-                            />
-                            <text
-                              x={x}
-                              y={innerHeight - (Math.max(d.locNormalized, d.filesNormalized, d.commitsNormalized) / 100) * innerHeight - 40}
-                              textAnchor="middle"
-                              fill={metricsConfig.typography.tooltip.title.fill}
-                              fontSize={metricsConfig.typography.tooltip.title.fontSize}
-                              fontWeight={metricsConfig.typography.tooltip.title.fontWeight}
-                              fontFamily={metricsConfig.typography.axis.fontFamily}
-                            >
-                              {d.timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                            </text>
-                            <text
-                              x={x}
-                              y={innerHeight - (Math.max(d.locNormalized, d.filesNormalized, d.commitsNormalized) / 100) * innerHeight - 25}
-                              textAnchor="middle"
-                              fill={metricsConfig.typography.tooltip.content.fill}
-                              fontSize={metricsConfig.typography.tooltip.content.fontSize}
-                              fontFamily={metricsConfig.typography.axis.fontFamily}
-                            >
-                              {d.loc.toLocaleString()} LOC, {d.files} files
-                            </text>
-                            <text
-                              x={x}
-                              y={innerHeight - (Math.max(d.locNormalized, d.filesNormalized, d.commitsNormalized) / 100) * innerHeight - 15}
-                              textAnchor="middle"
-                              fill={metricsConfig.typography.tooltip.content.fill}
-                              fontSize={metricsConfig.typography.tooltip.content.fontSize}
-                              fontFamily={metricsConfig.typography.axis.fontFamily}
-                            >
-                              +{d.linesAdded} -{d.linesDeleted} lines
-                            </text>
-                          </g>
-                        )}
+                        {isHovered && (() => {
+                          const maxNormalized = Math.max(d.locNormalized, d.filesNormalized, d.commitsNormalized);
+                          const pointY = innerHeight - (maxNormalized / 100) * innerHeight;
+                          const tooltipHeight = metricsConfig.tooltip.height;
+                          const tooltipMargin = 10;
+
+                          // Smart positioning: show below if too close to top, above otherwise
+                          const showBelow = pointY < (tooltipHeight + tooltipMargin);
+                          const tooltipY = showBelow
+                            ? pointY + tooltipMargin
+                            : pointY - tooltipHeight - tooltipMargin;
+
+                          // Ensure tooltip doesn't go off the left or right edges
+                          const tooltipX = Math.max(
+                            metricsConfig.tooltip.width / 2,
+                            Math.min(
+                              x,
+                              innerWidth - metricsConfig.tooltip.width / 2
+                            )
+                          );
+
+                          return (
+                            <g>
+                              <rect
+                                x={tooltipX - metricsConfig.tooltip.width / 2}
+                                y={tooltipY}
+                                width={metricsConfig.tooltip.width}
+                                height={metricsConfig.tooltip.height}
+                                fill={metricsConfig.tooltip.background}
+                                stroke={metricsConfig.tooltip.border}
+                                strokeWidth={1}
+                                rx={metricsConfig.tooltip.borderRadius}
+                              />
+                              <text
+                                x={tooltipX}
+                                y={tooltipY + 20}
+                                textAnchor="middle"
+                                fill={metricsConfig.typography.tooltip.title.fill}
+                                fontSize={metricsConfig.typography.tooltip.title.fontSize}
+                                fontWeight={metricsConfig.typography.tooltip.title.fontWeight}
+                                fontFamily={metricsConfig.typography.axis.fontFamily}
+                              >
+                                {d.timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </text>
+                              <text
+                                x={tooltipX}
+                                y={tooltipY + 35}
+                                textAnchor="middle"
+                                fill={metricsConfig.typography.tooltip.content.fill}
+                                fontSize={metricsConfig.typography.tooltip.content.fontSize}
+                                fontFamily={metricsConfig.typography.axis.fontFamily}
+                              >
+                                {d.loc.toLocaleString()} LOC, {d.files} files
+                              </text>
+                              <text
+                                x={tooltipX}
+                                y={tooltipY + 45}
+                                textAnchor="middle"
+                                fill={metricsConfig.typography.tooltip.content.fill}
+                                fontSize={metricsConfig.typography.tooltip.content.fontSize}
+                                fontFamily={metricsConfig.typography.axis.fontFamily}
+                              >
+                                +{d.linesAdded} -{d.linesDeleted} lines
+                              </text>
+                            </g>
+                          );
+                        })()}
                       </g>
                     );
                   })}
