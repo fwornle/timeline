@@ -5,6 +5,7 @@ import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { threeColors } from '../../config';
 import { SafeText } from './SafeText';
+import { Logger } from '../../utils/logging/Logger';
 
 interface TimelineAxisProps {
   length?: number;
@@ -35,6 +36,13 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
+
+  // Check if debug visualization should be shown (DEBUG or TRACE level active)
+  // Note: This will be checked on each render, which is fine for this use case
+  const showDebugPlanes = (() => {
+    const activeLevels = Logger.getActiveLevels();
+    return activeLevels.has(Logger.Levels.DEBUG) || activeLevels.has(Logger.Levels.TRACE);
+  })();
 
   // Track mouse movement to prevent accidental timeline triggers
   const mouseTrackingRef = useRef({
@@ -242,24 +250,37 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
   return (
     <group>
-      {/* Invisible plane for click detection along the entire timeline */}
+      {/* Wide invisible plane for hover-off detection - MUST be on top to receive events */}
       <mesh
-        position={[0, 1.5, 0]}
-        rotation={[Math.PI / 2, 0, 0]}
-        renderOrder={1000} // Higher render order to ensure it's on top for click detection
+        position={[0, 2, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={1001} // HIGHEST render order to receive all pointer events
         onClick={handleAxisClick}
         onPointerEnter={(e) => {
+          Logger.debug(Logger.Categories.THREE, 'Pointer entered wide plane');
+
           // Disable timeline hover during drone mode
           if (droneMode) {
+            Logger.debug(Logger.Categories.THREE, 'Drone mode active, ignoring hover');
             return;
           }
 
           // Update mouse tracking
           updateMouseTracking(e.nativeEvent.clientX, e.nativeEvent.clientY);
 
-          // Only trigger timeline hover if mouse has moved significantly (intentional movement)
-          // This prevents accidental triggers from card animations moving the mouse over the timeline
-          if (mouseTrackingRef.current.hasMovedSignificantly) {
+          // Check if we're in the narrow corridor (center 4 units of the 24-unit wide plane)
+          const localX = e.point.x; // X position relative to plane center
+          const isInNarrowCorridor = Math.abs(localX) <= 2; // 4 units wide = ±2 from center
+
+          Logger.debug(Logger.Categories.THREE, 'Timeline hover detection', {
+            localX,
+            isInNarrowCorridor,
+            hasMovedSignificantly: mouseTrackingRef.current.hasMovedSignificantly
+          });
+
+          // Only trigger timeline hover if mouse has moved significantly AND we're in narrow corridor
+          if (mouseTrackingRef.current.hasMovedSignificantly && isInNarrowCorridor) {
+            Logger.debug(Logger.Categories.THREE, 'Setting isHovering to true');
             setIsHovering(true);
             // Notify parent about timeline hover state change
             if (onTimelineHoverChange) {
@@ -267,7 +288,37 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             }
           }
         }}
+        onPointerMove={(e) => {
+          // Always handle pointer move for pin tracking
+          if (isHovering) {
+            handlePointerMove(e);
+          } else {
+            // Check if we should start hovering (entered narrow corridor)
+            if (!droneMode) {
+              updateMouseTracking(e.nativeEvent.clientX, e.nativeEvent.clientY);
+              const localX = e.point.x;
+              const isInNarrowCorridor = Math.abs(localX) <= 2;
+
+              Logger.debug(Logger.Categories.THREE, 'Timeline pointer move detection', {
+                localX,
+                isInNarrowCorridor,
+                hasMovedSignificantly: mouseTrackingRef.current.hasMovedSignificantly
+              });
+
+              if (mouseTrackingRef.current.hasMovedSignificantly && isInNarrowCorridor) {
+                Logger.debug(Logger.Categories.THREE, 'Starting hover from onPointerMove');
+                setIsHovering(true);
+                if (onTimelineHoverChange) {
+                  onTimelineHoverChange(true);
+                }
+                handlePointerMove(e);
+              }
+            }
+          }
+        }}
         onPointerLeave={() => {
+          // ALWAYS remove the pin when leaving the wide corridor
+          Logger.debug(Logger.Categories.THREE, 'Leaving wide corridor - removing pin');
           setIsHovering(false);
           setHoverPosition(null);
           // Notify parent about timeline hover state change
@@ -275,10 +326,29 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             onTimelineHoverChange(false);
           }
         }}
-        onPointerMove={handlePointerMove}
       >
-        <planeGeometry args={[3, length]} /> {/* Narrower plane to avoid interfering with card hover */}
-        <primitive object={fadingMaterial} />
+        <planeGeometry args={[24, length]} /> {/* Wide plane for hover-off detection */}
+        <meshBasicMaterial
+          color="red"
+          transparent={true}
+          opacity={showDebugPlanes ? 0.2 : 0}
+          visible={showDebugPlanes}
+        />
+      </mesh>
+
+      {/* Narrow visible plane for visual feedback */}
+      <mesh
+        position={[0, 2, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={1000} // Below the wide plane
+      >
+        <planeGeometry args={[4, length]} /> {/* Narrow plane for visual feedback */}
+        <meshBasicMaterial
+          color="blue"
+          transparent={true}
+          opacity={showDebugPlanes ? 0.3 : 0}
+          visible={showDebugPlanes}
+        />
       </mesh>
 
       {/* Hover indicator - line and ball */}
