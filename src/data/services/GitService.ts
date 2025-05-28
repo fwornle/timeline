@@ -282,6 +282,33 @@ export class GitService {
   }
 
   /**
+   * Purges cached data for the repository
+   */
+  async purgeCache(hard: boolean = false): Promise<void> {
+    try {
+      Logger.info(Logger.Categories.DATA, 'Purging cache', { repository: this.repository, hard });
+      
+      const params = new URLSearchParams();
+      params.append('repository', this.repository);
+      
+      const endpoint = hard ? `${this.baseUrl}/purge/hard?${params.toString()}` : `${this.baseUrl}/purge?${params.toString()}`;
+      
+      await this.makeRequest<{ success: boolean; message: string }>(endpoint, {
+        method: 'POST'
+      });
+      
+      Logger.info(Logger.Categories.DATA, 'Successfully purged cache', { repository: this.repository, hard });
+    } catch (error) {
+      Logger.error(Logger.Categories.DATA, 'Failed to purge cache', {
+        error,
+        repository: this.repository,
+        hard
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Fetches details for a specific commit
    */
   async getCommitDetails(commitHash: string): Promise<GitTimelineEvent | null> {

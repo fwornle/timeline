@@ -11,7 +11,12 @@
       "Bash(plantuml:*)",
       "Bash(npm uninstall:*)",
       "Bash(git clone:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(lsof:*)",
+      "Bash(find:*)",
+      "Bash(kill:*)",
+      "Bash(ls:*)",
+      "Bash(claude mcp:*)"
     ],
     "deny": []
   }

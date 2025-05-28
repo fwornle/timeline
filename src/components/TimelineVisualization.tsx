@@ -89,12 +89,17 @@ const ErrorView: React.FC<{
   </div>
 ));
 
+// Ref interface for parent components
+export interface TimelineVisualizationRef {
+  purgeAndRefresh: (hard?: boolean) => Promise<void>;
+}
+
 // Main component
-export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
+export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, TimelineVisualizationProps>(({
   onLoadingChange,
   onError,
   onDataLoaded,
-}) => {
+}, ref) => {
   const dispatch = useAppDispatch();
   const logger = useLogger({ component: 'TimelineVisualization', topic: 'ui' });
 
@@ -215,6 +220,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   const onLoadingChangeRef = useRef(onLoadingChange);
   const onErrorRef = useRef(onError);
   const onDataLoadedRef = useRef(onDataLoaded);
+  const lastEventCountRef = useRef(0);
+  const lastEventHashRef = useRef('');
 
   // Update refs when props change
   useEffect(() => {
@@ -275,7 +282,12 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     }
 
     // Call onDataLoaded callback when we have events
-    if (onDataLoadedRef.current && events.length > 0) {
+    // Create a hash of event IDs to detect actual changes
+    const eventHash = events.map(e => e.id).join(',');
+    
+    if (onDataLoadedRef.current && events.length > 0 && eventHash !== lastEventHashRef.current) {
+      lastEventHashRef.current = eventHash;
+      lastEventCountRef.current = events.length;
       const gitEvents = events.filter(e => e.type === 'git');
       const specEvents = events.filter(e => e.type === 'spec');
       onDataLoadedRef.current(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
@@ -310,6 +322,35 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       specCount: mockSpecEvents.length
     });
   }, [dispatch, logger]);
+
+  // Expose methods to parent via ref
+  React.useImperativeHandle(ref, () => ({
+    purgeAndRefresh: async (hard = false) => {
+      logger.info('Purge and refresh requested', { hard });
+      if (hard) {
+        await timelineData.hardPurgeAndRefresh();
+      } else {
+        await timelineData.purgeAndRefresh();
+      }
+    }
+  }), [timelineData, logger]);
+  
+  // Listen for global reload events
+  useEffect(() => {
+    const handleReloadEvent = (event: CustomEvent) => {
+      logger.info('Received reload event', event.detail);
+      if (event.detail.hard) {
+        timelineData.hardPurgeAndRefresh();
+      } else {
+        timelineData.purgeAndRefresh();
+      }
+    };
+    
+    window.addEventListener('timeline-reload' as any, handleReloadEvent);
+    return () => {
+      window.removeEventListener('timeline-reload' as any, handleReloadEvent);
+    };
+  }, [timelineData, logger]);
 
   // Render the appropriate view
   if (showWelcome) {
@@ -509,4 +550,4 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       )}
     </div>
   );
-};
+});

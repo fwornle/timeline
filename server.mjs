@@ -4,10 +4,23 @@ import url from 'url';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import { createGitRepositoryService, createSpecRepositoryService } from './src/data/services/serviceWrapper.cjs';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 const exec = promisify(execCallback);
+
+// Create require function for ESM
+const require = createRequire(import.meta.url);
+
+// Import enhanced spec parser
+let enhancedSpecParser;
+try {
+  enhancedSpecParser = require('./src/data/parsers/EnhancedSpecHistoryParser.cjs');
+  console.log('[INIT] Enhanced spec parser loaded successfully');
+} catch (error) {
+  console.warn('[INIT] Enhanced spec parser not available, using basic parser:', error.message);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -449,6 +462,116 @@ async function withOperationLock(repository, operation) {
   }
 }
 
+// Enhanced spec processing function
+async function processSpecsWithPromptLevel(repository) {
+  console.log(`[${localTime()}] [SPEC] Processing specs with prompt-level granularity for ${repository}`);
+  
+  // Get both git commits and spec files
+  const gitService = await createGitRepositoryService(repository);
+  const specService = await createSpecRepositoryService(repository);
+  
+  // Fetch git history
+  const gitCommits = await gitService.getHistory();
+  console.log(`[${localTime()}] [SPEC] Found ${gitCommits.length} git commits`);
+  
+  // Fetch and parse spec files
+  const specFiles = await specService.getHistory();
+  console.log(`[${localTime()}] [SPEC] Found ${specFiles.length} spec files`);
+  
+  // If we don't have the enhanced parser or no spec files, return original spec data
+  if (!enhancedSpecParser || specFiles.length === 0) {
+    console.log(`[${localTime()}] [SPEC] Using basic spec processing`);
+    return specFiles;
+  }
+  
+  try {
+    // Parse each spec file to extract individual prompts
+    const repoDir = repository.replace(/[^a-zA-Z0-9]/g, '_');
+    const workDir = `.timeline-cache/${repoDir}`;
+    const specDir = path.join(workDir, '.specstory/history');
+    
+    const parsedSpecFiles = [];
+    
+    // Read all .md files from the spec directory and match them with spec events
+    const specDirFiles = fs.existsSync(specDir) ? fs.readdirSync(specDir) : [];
+    const mdFiles = specDirFiles.filter(f => f.endsWith('.md'));
+    
+    console.log(`[${localTime()}] [SPEC] Found ${mdFiles.length} .md files in spec directory`);
+    
+    for (const filename of mdFiles) {
+      try {
+        const filePath = path.join(specDir, filename);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const parsed = enhancedSpecParser.parseSpecFileToPrompts(filename, content);
+        parsedSpecFiles.push(parsed);
+        console.log(`[${localTime()}] [SPEC] Parsed ${filename}: ${parsed.prompts.length} prompts`);
+      } catch (error) {
+        console.error(`[${localTime()}] [SPEC] Error parsing ${filename}:`, error.message);
+      }
+    }
+    
+    // Convert git commits to the format expected by the correlation function
+    const gitCommitsForCorrelation = gitCommits.map(commit => ({
+      hash: commit.commitHash,
+      timestamp: commit.timestamp,
+      message: commit.title,
+      filesChanged: commit.stats.totalFilesChanged || 0
+    }));
+    
+    // Correlate spec files with git commits
+    const bundles = enhancedSpecParser.correlateSpecFilesWithCommits(
+      parsedSpecFiles,
+      gitCommitsForCorrelation
+    );
+    
+    // Calculate consistent prompt duration
+    const consistentDuration = enhancedSpecParser.calculateConsistentPromptDuration(bundles);
+    console.log(`[${localTime()}] [SPEC] Calculated prompt duration: ${Math.round(consistentDuration / 1000 / 60)} minutes`);
+    
+    // Assign timestamps to prompts
+    const bundlesWithTimestamps = enhancedSpecParser.assignPromptTimestamps(bundles, consistentDuration);
+    
+    // Convert prompt-level items to timeline events
+    const promptLevelEvents = [];
+    for (const bundle of bundlesWithTimestamps) {
+      const { specFile } = bundle;
+      
+      for (const prompt of specFile.prompts) {
+        const promptId = `${specFile.filename}-prompt-${prompt.index}`;
+        
+        promptLevelEvents.push({
+          id: promptId,
+          type: 'spec',
+          timestamp: prompt.estimatedTimestamp || specFile.fileDate,
+          title: `Prompt ${prompt.index + 1}: ${prompt.promptText.substring(0, 100)}...`,
+          description: prompt.promptText,
+          specId: promptId,
+          version: '1.0.0',
+          status: 'implemented',
+          tags: ['prompt', 'ai-assisted'],
+          stats: {
+            promptCount: 1,
+            filesCreated: prompt.filesCreated,
+            filesModified: prompt.filesModified,
+            linesAdded: prompt.linesAdded,
+            linesDeleted: prompt.linesDeleted,
+            linesDelta: prompt.linesDelta,
+            toolInvocations: prompt.toolInvocations
+          }
+        });
+      }
+    }
+    
+    console.log(`[${localTime()}] [SPEC] Created ${promptLevelEvents.length} prompt-level events`);
+    return promptLevelEvents;
+    
+  } catch (error) {
+    console.error(`[${localTime()}] [SPEC] Error in prompt-level processing:`, error);
+    // Fall back to original spec data
+    return specFiles;
+  }
+}
+
 // Create HTTP server with error handling
 const server = http.createServer(async (req, res) => {
   try {
@@ -732,12 +855,12 @@ const server = http.createServer(async (req, res) => {
         let specData;
         let isMocked = false;
         try {
-          const specService = await createSpecRepositoryService(repository);
-          specData = await specService.getHistory();
+          // Use enhanced spec processing if available
+          specData = await processSpecsWithPromptLevel(repository);
           if (!specData || specData.length === 0) {
             throw new Error('No spec data found');
           }
-          console.log(`[${localTime()}] [API] Retrieved real spec data for repo ${repository}: ${specData.length} items`);
+          console.log(`[${localTime()}] [API] Retrieved spec data for repo ${repository}: ${specData.length} items`);
         } catch (error) {
           console.log(`[${localTime()}] [API] Failed to get real spec data, generating mock data:`, error);
           specData = generateMockSpecData();

@@ -381,4 +381,31 @@ export class SpecStoryService {
       throw error;
     }
   }
+
+  /**
+   * Purges cached data for the repository
+   */
+  async purgeCache(hard: boolean = false): Promise<void> {
+    try {
+      Logger.info(Logger.Categories.DATA, 'Purging spec cache', { repository: this.repository, hard });
+      
+      const params = new URLSearchParams();
+      params.append('repository', this.repository);
+      
+      const endpoint = hard ? `${this.baseUrl}/purge/hard?${params.toString()}` : `${this.baseUrl}/purge?${params.toString()}`;
+      
+      await this.makeRequest<{ success: boolean; message: string }>(endpoint, {
+        method: 'POST'
+      });
+      
+      Logger.info(Logger.Categories.DATA, 'Successfully purged spec cache', { repository: this.repository, hard });
+    } catch (error) {
+      Logger.error(Logger.Categories.DATA, 'Failed to purge spec cache', {
+        error,
+        repository: this.repository,
+        hard
+      });
+      throw error;
+    }
+  }
 }
