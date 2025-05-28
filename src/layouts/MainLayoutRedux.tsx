@@ -158,10 +158,15 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
   // Create props for TopBar
   const topBarProps = {
     onRepoUrlChange: handleRepoUrlChange,
-    onReloadData: () => setForceReloadFlag(prev => !prev),
+    onReloadData: () => {
+      // Dispatch a custom event for soft reload
+      const event = new CustomEvent('timeline-reload', { detail: { hard: false } });
+      window.dispatchEvent(event);
+    },
     onHardReload: () => {
-      // Clear cache and force reload
-      setForceReloadFlag(prev => !prev);
+      // Dispatch a custom event for hard reload
+      const event = new CustomEvent('timeline-reload', { detail: { hard: true } });
+      window.dispatchEvent(event);
     },
     isLoading,
   };
