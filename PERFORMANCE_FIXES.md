@@ -63,10 +63,13 @@
 ### 6. Implemented Viewport-Based Dynamic Loading
 - **Problem**: With 800+ spec items, Three.js struggled to render all events simultaneously
 - **Solution**:
-  - Created `useViewportEvents` hook for frustum-based event filtering
+  - Created `useViewportFiltering` hook for frustum-based event filtering
   - Only renders events within and near the visible viewport
-  - Configurable padding factor (1.5x) to preload nearby events
-  - Min/max constraints (50-200 events) for optimal performance
+  - Optimized parameters:
+    - Padding factor: 1.2x (reduced from 2.0x)
+    - Min events: 30 (reduced from 50)
+    - Max events: 150 (reduced from 200)
+    - Update throttle: 200ms (increased from 100ms)
 - **Impact**: 75-90% reduction in rendered objects, maintaining smooth 60fps
 
 ## Performance Metrics Improved
