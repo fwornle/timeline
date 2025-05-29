@@ -443,6 +443,7 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
               target: { x: state.target.x, y: state.target.y, z: state.target.z },
               zoom: state.zoom
             }));
+            
           }}
           initialCameraState={{
             position: new Vector3(cameraState.position.x, cameraState.position.y, cameraState.position.z),

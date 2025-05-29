@@ -5,8 +5,8 @@ import { TimelineAxis } from './TimelineAxis';
 import { TimelineEvents } from './TimelineEvents';
 import { TimelineDriftController } from './TimelineDriftController';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
-import { Vector3 } from 'three';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Vector3, PerspectiveCamera, OrthographicCamera } from 'three';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { clearAllCardHovers } from '../../utils/three/cardUtils';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
@@ -156,6 +156,113 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
     return null;
   };
 
+  // Viewport filtering component that has access to Three.js context
+  const ViewportFilteredEvents: React.FC<{
+    events: TimelineEvent[];
+    selectedCardId: string | null;
+    onSelect: (id: string | null) => void;
+    onHover: (id: string | null) => void;
+    onPositionUpdate: (id: string, position: Vector3) => void;
+    getAnimationProps: any;
+    currentPosition: number;
+    isMarkerDragging: boolean;
+    isTimelineHovering: boolean;
+    droneMode: boolean;
+  }> = (props) => {
+    const { camera } = useThree();
+    const lastUpdateRef = useRef<number>(0);
+    const updateThrottleMs = 100;
+    
+    // Get event Z position (matching TimelineEvents.tsx logic)
+    const getEventZPosition = (event: TimelineEvent, sortedEvents: TimelineEvent[]): number => {
+      if (sortedEvents.length === 0) return 0;
+
+      const minTime = sortedEvents[0].timestamp.getTime();
+      const maxTime = sortedEvents[sortedEvents.length - 1].timestamp.getTime();
+      const timeSpan = maxTime - minTime;
+
+      if (timeSpan === 0) {
+        const index = sortedEvents.findIndex(e => e.id === event.id);
+        const spacing = 5;
+        return (index - (sortedEvents.length - 1) / 2) * spacing;
+      }
+
+      const minSpacing = 5;
+      const timelineLength = Math.max(sortedEvents.length * minSpacing, 100);
+      const normalizedTime = (event.timestamp.getTime() - minTime) / timeSpan - 0.5;
+      return normalizedTime * timelineLength;
+    };
+
+    // Filter events based on viewport
+    const visibleEvents = useMemo(() => {
+      const now = performance.now();
+      
+      // Throttle calculations
+      if (now - lastUpdateRef.current < updateThrottleMs) {
+        return props.events;
+      }
+      lastUpdateRef.current = now;
+
+      // Sort events by timestamp once
+      const sortedEvents = [...props.events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      // Calculate visible bounds
+      let visibleMinZ = -Infinity;
+      let visibleMaxZ = Infinity;
+
+      if (camera instanceof PerspectiveCamera) {
+        const distance = camera.position.distanceTo(cameraTarget);
+        const fovRadians = (camera.fov * Math.PI) / 180;
+        const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
+        const aspect = camera.aspect;
+        const visibleWidth = visibleHeight * aspect;
+        const viewDistance = Math.max(visibleWidth, visibleHeight) * 0.5;
+        
+        visibleMinZ = cameraTarget.z - viewDistance * 1.5;
+        visibleMaxZ = cameraTarget.z + viewDistance * 1.5;
+      }
+
+      // Filter events within viewport bounds
+      let filtered = sortedEvents.filter(event => {
+        const zPos = getEventZPosition(event, sortedEvents);
+        return zPos >= visibleMinZ && zPos <= visibleMaxZ;
+      });
+
+      // Apply min/max constraints
+      const minEvents = 50;
+      const maxEvents = 200;
+      
+      if (filtered.length < minEvents && sortedEvents.length >= minEvents) {
+        const centerIndex = Math.floor(sortedEvents.length / 2);
+        const halfMin = Math.floor(minEvents / 2);
+        const startIndex = Math.max(0, centerIndex - halfMin);
+        const endIndex = Math.min(sortedEvents.length, startIndex + minEvents);
+        filtered = sortedEvents.slice(startIndex, endIndex);
+      } else if (filtered.length > maxEvents) {
+        const distances = filtered.map(event => ({
+          event,
+          distance: Math.abs(getEventZPosition(event, sortedEvents) - props.currentPosition)
+        }));
+        distances.sort((a, b) => a.distance - b.distance);
+        filtered = distances.slice(0, maxEvents).map(d => d.event);
+        filtered.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      }
+
+      if (debugMode && props.events.length > 0) {
+        const reduction = ((props.events.length - filtered.length) / props.events.length * 100).toFixed(1);
+        logger.debug('Viewport filtering', {
+          total: props.events.length,
+          visible: filtered.length,
+          reduction: `${reduction}%`
+        });
+      }
+
+      return filtered;
+    }, [props.events, props.currentPosition, camera, cameraTarget]);
+
+    return <TimelineEvents {...props} events={visibleEvents} />;
+  };
+
   return (
     <div className="w-full h-full" style={{ height: '100%' }}>
       {/* Timeline drift animation controller */}
@@ -223,7 +330,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onTimelineHoverChange={handleTimelineHoverChange}
           droneMode={droneMode}
         />
-        <TimelineEvents
+        <ViewportFilteredEvents
           events={events}
           selectedCardId={selectedCardId}
           onSelect={onCardSelect}
