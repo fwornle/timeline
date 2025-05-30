@@ -7,6 +7,9 @@ import { threeColors } from '../../config';
 import { SafeText } from './SafeText';
 import { Logger } from '../../utils/logging/Logger';
 import { positionToDate as calculatePositionToDate } from '../../utils/timeline/timelineCalculations';
+import { getCachedCalendarData, type CalendarData } from '../../services/calendarService';
+import { getCountryForTimezone, DEFAULT_TIMEZONE } from '../../config/timezones';
+import { useAppSelector } from '../../store';
 
 interface TimelineAxisProps {
   length?: number;
@@ -21,6 +24,7 @@ interface TimelineAxisProps {
   onTimelineHoverChange?: (isHovering: boolean) => void;
   droneMode?: boolean;
   eventCount?: number;
+  showHolidays?: boolean;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -36,9 +40,58 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   onTimelineHoverChange,
   droneMode = false,
   eventCount = 0,
+  showHolidays = true,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
+  const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
+  
+  // Get timezone from preferences
+  const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
+
+  // Fetch calendar data when dates or timezone change
+  React.useEffect(() => {
+    if (!showHolidays || !startDate || !endDate) {
+      setCalendarData(null);
+      return;
+    }
+
+    const fetchCalendarData = async () => {
+      try {
+        const country = getCountryForTimezone(timezone);
+        if (!country) {
+          setCalendarData(null);
+          return;
+        }
+
+        const startYear = startDate.getFullYear();
+        const endYear = endDate.getFullYear();
+
+        // Fetch calendar data for all years in the range
+        const calendarPromises = [];
+        for (let year = startYear; year <= endYear; year++) {
+          calendarPromises.push(getCachedCalendarData(year, country, timezone));
+        }
+
+        const calendarResults = await Promise.all(calendarPromises);
+
+        // Combine all calendar data
+        const combinedCalendarData: CalendarData = {
+          holidays: calendarResults.flatMap(data => data.holidays),
+          bridgeDays: calendarResults.flatMap(data => data.bridgeDays),
+          year: startYear,
+          country: country
+        };
+
+        setCalendarData(combinedCalendarData);
+      } catch (error) {
+        console.warn('Failed to fetch calendar data for timeline axis:', error);
+        setCalendarData(null);
+      }
+    };
+
+    fetchCalendarData();
+  }, [showHolidays, startDate, endDate, timezone]);
 
   // Check if debug visualization should be shown (DEBUG or TRACE level active)
   // Note: This will be checked on each render, which is fine for this use case
@@ -114,6 +167,55 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
       estimatedEventCount
     );
   };
+
+  // Generate holiday markers if calendar data is available
+  if (calendarData && startDate && endDate) {
+    const allSpecialDays = [...calendarData.holidays, ...calendarData.bridgeDays];
+    
+    allSpecialDays.forEach((specialDay) => {
+      const specialDate = new Date(specialDay.date);
+      
+      // Only show if within our date range
+      if (specialDate >= startDate && specialDate <= endDate) {
+        // Convert date to timeline position
+        const timeRange = endDate.getTime() - startDate.getTime();
+        const normalizedTime = (specialDate.getTime() - startDate.getTime()) / timeRange;
+        const position = (normalizedTime - 0.5) * length;
+        
+        // Different colors for holidays vs bridge days
+        const markerColor = specialDay.type === 'public' ? '#ff6b6b' : '#ffa726';
+        const markerHeight = specialDay.type === 'public' ? 1.5 : 1.0;
+        
+        // Add vertical line marker
+        ticks.push(
+          <Line
+            key={`holiday-${specialDay.date}`}
+            points={[
+              [0, 2 - markerHeight, position] as [number, number, number],
+              [0, 2 + markerHeight, position] as [number, number, number],
+            ]}
+            color={markerColor}
+            lineWidth={3}
+          />
+        );
+        
+        // Add label for holidays (not bridge days to avoid clutter)
+        if (specialDay.type === 'public' && showLabels) {
+          ticks.push(
+            <SafeText
+              key={`holiday-label-${specialDay.date}`}
+              position={[0, 2 + markerHeight + 0.3, position]}
+              color={markerColor}
+              fontSize={0.3}
+              anchorX="center"
+              anchorY="bottom"
+              text={specialDay.name}
+            />
+          );
+        }
+      }
+    });
+  }
 
   // Generate tick marks along the axis
   for (let i = -length / 2; i <= length / 2; i += tickInterval) {
