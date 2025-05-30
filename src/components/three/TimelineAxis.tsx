@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { threeColors } from '../../config';
 import { SafeText } from './SafeText';
 import { Logger } from '../../utils/logging/Logger';
+import { positionToDate as calculatePositionToDate } from '../../utils/timeline/timelineCalculations';
 
 interface TimelineAxisProps {
   length?: number;
@@ -19,6 +20,7 @@ interface TimelineAxisProps {
   onMarkerDragStateChange?: (isDragging: boolean) => void;
   onTimelineHoverChange?: (isHovering: boolean) => void;
   droneMode?: boolean;
+  eventCount?: number;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -33,6 +35,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   onMarkerDragStateChange,
   onTimelineHoverChange,
   droneMode = false,
+  eventCount = 0,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -97,21 +100,19 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     });
   };
 
-  // Map position to date if start and end dates are provided
+  // Map position to date using centralized calculation
   const positionToDate = (position: number): Date | null => {
     if (!startDate || !endDate) return null;
 
-    // Calculate the percentage of the position along the axis
-    // Map from [-length/2, length/2] to [0, 1]
-    const normalizedPosition = (position + length / 2) / length;
-
-    // Calculate the timestamp at this position
-    const startTime = startDate.getTime();
-    const endTime = endDate.getTime();
-    const timeRange = endTime - startTime;
-    const timestamp = startTime + (normalizedPosition * timeRange);
-
-    return new Date(timestamp);
+    // Use provided event count or estimate from timeline length
+    const estimatedEventCount = eventCount > 0 ? eventCount : Math.max(1, Math.floor(length / 5));
+    
+    return calculatePositionToDate(
+      position,
+      startDate.getTime(),
+      endDate.getTime(),
+      estimatedEventCount
+    );
   };
 
   // Generate tick marks along the axis

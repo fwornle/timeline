@@ -3,6 +3,7 @@
  */
 import type { TimelineEvent, GitTimelineEvent } from '../../data/types/TimelineEvent';
 import { Logger } from '../logging/Logger';
+import { positionToDate } from '../timeline/timelineCalculations';
 
 export interface CodeMetricsPoint {
   timestamp: Date;
@@ -236,11 +237,17 @@ export function positionToTimestamp(
   position: number,
   timelineLength: number,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  actualEventCount?: number
 ): Date {
-  // Map position from [-timelineLength/2, timelineLength/2] to [startDate, endDate]
-  const normalizedPosition = (position + timelineLength / 2) / timelineLength;
-  const timeRange = endDate.getTime() - startDate.getTime();
-  const timestamp = startDate.getTime() + (normalizedPosition * timeRange);
-  return new Date(timestamp);
+  // Use centralized calculation for consistency
+  // Use actual event count if provided, otherwise estimate from timeline length
+  const eventCount = actualEventCount && actualEventCount > 0 ? actualEventCount : Math.max(1, Math.floor(timelineLength / 5));
+  
+  return positionToDate(
+    position,
+    startDate.getTime(),
+    endDate.getTime(),
+    eventCount
+  );
 }

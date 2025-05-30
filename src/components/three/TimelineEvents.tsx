@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { TimelineCard } from './TimelineCard';
 import { Vector3 } from 'three';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
+import { calculateEventZPositionWithIndex, calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
 
 interface TimelineEventsProps {
   events: TimelineEvent[];
@@ -99,24 +100,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         return [xPos, 2, zPos];
       }
 
-      // Calculate timeline length based on the number of events and time range
-      // Use a minimum spacing between events
-      const minSpacing = 5; // Minimum units between events
-      const maxTimelineLength = 500; // Cap timeline length to prevent huge spreads
-      const timelineLength = Math.min(
-        Math.max(events.length * minSpacing, 100), // Minimum timeline length
-        maxTimelineLength // Maximum timeline length
-      );
-
-      // Map the event time to a position on the Z axis
-      // Normalize event time to a value between -0.5 and 0.5
-      const normalizedTime = (event.timestamp.getTime() - minTime) / timeSpan - 0.5;
-
-      // Map to Z position - centered around z=0
-      const zPos = normalizedTime * timelineLength;
-
-      // Find the index of this event in the sorted events array for alternating sides
+      // Use centralized position calculation
       const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
+      const zPos = calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, events.length);
 
       // Alternate x positions for better visibility based on sorted index
       const xOffset = 3; // Reduced offset to save horizontal space

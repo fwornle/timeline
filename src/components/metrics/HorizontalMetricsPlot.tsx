@@ -90,7 +90,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   const currentMarkerIndex = useMemo(() => {
     if (!startDate || !endDate || metricsPoints.length === 0) return -1;
 
-    const currentTimestamp = positionToTimestamp(currentPosition, timelineLength, startDate, endDate);
+    const currentTimestamp = positionToTimestamp(currentPosition, timelineLength, startDate, endDate, events.length);
     const closestPoint = findClosestMetricsPoint(metricsPoints, currentTimestamp);
 
     if (!closestPoint) return -1;
