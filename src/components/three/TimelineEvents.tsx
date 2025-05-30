@@ -5,7 +5,8 @@ import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { calculateEventZPositionWithIndex, calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
 
 interface TimelineEventsProps {
-  events: TimelineEvent[];
+  events: TimelineEvent[]; // All events for position calculation
+  visibleEvents?: TimelineEvent[]; // Filtered events for rendering (optional for backward compatibility)
   selectedCardId: string | null;
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
@@ -24,10 +25,12 @@ interface TimelineEventsProps {
   isMarkerDragging?: boolean;
   isTimelineHovering?: boolean;
   droneMode?: boolean;
+  debugMode?: boolean;
 }
 
 export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   events,
+  visibleEvents,
   selectedCardId,
   onSelect,
   onHover,
@@ -36,8 +39,16 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   currentPosition = 0,
   isMarkerDragging = false,
   isTimelineHovering = false,
-  droneMode = false
+  droneMode = false,
+  debugMode = false
 }) => {
+  // Use visibleEvents for rendering if provided, otherwise render all events
+  const eventsToRender = visibleEvents || events;
+  
+  // Debug logging to track filtering behavior
+  if (debugMode && visibleEvents) {
+    console.log(`[TimelineEvents] Total events: ${events.length}, Rendering: ${eventsToRender.length}, Position: ${currentPosition.toFixed(1)}`);
+  }
   // Track the currently hovered card to enforce exclusivity
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
@@ -200,7 +211,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Memoize the cards to prevent unnecessary re-renders
   const renderedCards = useMemo(() => {
-    return events.map((event) => {
+    return eventsToRender.map((event) => {
       const position = getEventPosition(event);
 
       return (
@@ -222,7 +233,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         />
       );
     });
-  }, [events, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId]);
+  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId]);
 
   return (
     <group>
