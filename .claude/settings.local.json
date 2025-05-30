@@ -50,7 +50,14 @@
       "Bash(tree:*)",
       "Bash(~/Claude/knowledge-management/vkb)",
       "Bash(~/Claude/quick-commit.sh \"Add git helper scripts for easier repository management\")",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(sed:*)",
+      "Bash(bash:*)",
+      "Bash(/Users/q284340/Claude/knowledge-management/summarize-coding-session.sh:*)",
+      "Bash(git commit:*)",
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   },
