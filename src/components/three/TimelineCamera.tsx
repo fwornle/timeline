@@ -930,9 +930,9 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
       ref={orbitControlsRef}
       makeDefault
       target={[cameraState.target.x, cameraState.target.y, cameraState.target.z]}
-      enablePan={(!debugMode || droneMode) && !disableControls}
+      enablePan={!disableControls}
       enableZoom={!disableControls}
-      enableRotate={(!debugMode || droneMode) && !disableControls}
+      enableRotate={!disableControls}
       minDistance={5}
       maxDistance={300}
       minPolarAngle={0}

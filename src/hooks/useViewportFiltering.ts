@@ -67,11 +67,33 @@ export const useViewportFiltering = (
     const minZ = Math.min(...eventPositions.map(ep => ep.z));
     const maxZ = Math.max(...eventPositions.map(ep => ep.z));
     
-    // Use simple fixed viewport window centered on current position
-    // This provides predictable and consistent filtering behavior
-    const viewCenter = currentPosition;
-    const visibleMinZ = currentPosition - windowSize;
-    const visibleMaxZ = currentPosition + windowSize;
+    // Calculate viewport based on camera distance and FOV for responsive filtering
+    let visibleMinZ: number;
+    let visibleMaxZ: number;
+    
+    if (camera instanceof PerspectiveCamera) {
+      // Calculate visible range based on camera distance and FOV
+      const distance = camera.position.distanceTo(cameraTarget);
+      const fovRadians = (camera.fov * Math.PI) / 180;
+      const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
+      const viewRadius = visibleHeight * 0.5 * paddingFactor;
+      
+      // Center viewport on current position (not camera target)
+      visibleMinZ = currentPosition - viewRadius;
+      visibleMaxZ = currentPosition + viewRadius;
+    } else if (camera instanceof OrthographicCamera) {
+      // For orthographic camera, use zoom level
+      const viewWidth = Math.abs(camera.right - camera.left) / camera.zoom;
+      const viewHeight = Math.abs(camera.top - camera.bottom) / camera.zoom;
+      const viewRadius = Math.max(viewWidth, viewHeight) * 0.5 * paddingFactor;
+      
+      visibleMinZ = currentPosition - viewRadius;
+      visibleMaxZ = currentPosition + viewRadius;
+    } else {
+      // Fallback to fixed window size
+      visibleMinZ = currentPosition - windowSize;
+      visibleMaxZ = currentPosition + windowSize;
+    }
     
     // Filter events within viewport - simple and predictable
     let filtered = eventPositions

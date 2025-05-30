@@ -39,7 +39,7 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (pr
     props.cameraTarget,
     props.currentPosition,
     {
-      paddingFactor: 1.0,    // No padding - only show what's actually in viewport
+      paddingFactor: 1.2,    // Small padding to avoid pop-in/out at viewport edges
       minEvents: 0,          // Don't force minimum events - show only what's visible
       maxEvents: 500,        // Higher limit to not artificially cap results
       updateThrottleMs: 100, // More responsive updates
