@@ -113,7 +113,11 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   const timelineLength = useMemo(() => {
     if (events.length === 0) return 100; // Default length if no events
     const minSpacing = 5;
-    return Math.max(events.length * minSpacing, 100);
+    const maxTimelineLength = 500; // Must match TimelineEvents.tsx
+    return Math.min(
+      Math.max(events.length * minSpacing, 100),
+      maxTimelineLength
+    );
   }, [events]);
 
   // Debug logging for Grid component

@@ -172,9 +172,13 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
     const startDate = sortedEvents[0].timestamp;
     const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
 
-    // Calculate timeline length (consistent with TimelineScene)
+    // Calculate timeline length (consistent with TimelineEvents.tsx)
     const minSpacing = 5;
-    const timelineLength = Math.max(events.length * minSpacing, 100);
+    const maxTimelineLength = 500; // Must match TimelineEvents.tsx
+    const timelineLength = Math.min(
+      Math.max(events.length * minSpacing, 100),
+      maxTimelineLength
+    );
 
     return { startDate, endDate, timelineLength };
   }, [events]);

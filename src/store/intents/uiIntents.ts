@@ -187,9 +187,14 @@ export const resetTimelineToStart = createAsyncThunk<
     // Find the earliest position (first event or 0)
     let startPosition = 0;
     if (events.length > 0) {
-      // Calculate the start position based on events
+      // Calculate the start position based on the capped timeline length
       const minSpacing = 5;
-      startPosition = -(events.length * minSpacing) / 2;
+      const maxTimelineLength = 500; // Must match TimelineEvents.tsx
+      const timelineLength = Math.min(
+        Math.max(events.length * minSpacing, 100),
+        maxTimelineLength
+      );
+      startPosition = -timelineLength / 2;
     }
 
     // Disable conflicting modes
