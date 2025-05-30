@@ -21,6 +21,7 @@ interface BottomBarProps {
   startDate?: Date;
   endDate?: Date;
   timelineLength?: number;
+  visibleEventsCount?: number;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
   onDroneModeChange?: (enabled: boolean) => void;
@@ -46,6 +47,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   startDate,
   endDate,
   timelineLength = 100,
+  visibleEventsCount = 0,
   onAnimationSpeedChange,
   onAutoDriftChange,
   onDroneModeChange,
@@ -58,6 +60,23 @@ const BottomBar: React.FC<BottomBarProps> = ({
   const repoUrl = useAppSelector(state => state.preferences.repoUrl);
   const actualEventCount = useAppSelector(state => state.timeline.events.length);
   const showControls = !!repoUrl;
+  
+  // Get visible events count from session storage (updated by ViewportFilteredEvents)
+  const [currentVisibleCount, setCurrentVisibleCount] = React.useState(0);
+  React.useEffect(() => {
+    const updateVisibleCount = () => {
+      const count = sessionStorage.getItem('visibleEventsCount');
+      if (count) {
+        setCurrentVisibleCount(parseInt(count, 10));
+      }
+    };
+    
+    // Update immediately and then every 100ms for real-time updates
+    updateVisibleCount();
+    const interval = setInterval(updateVisibleCount, 100);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Force re-render on debug mode changes
   const [lastDebugModeChange, setLastDebugModeChange] = React.useState(Date.now());
@@ -281,8 +300,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
                       fontWeight: '500'
                     }}
                   >
-                    <i className="bi bi-info-circle me-1"></i>
-                    Debug: {gitCount}/{specCount}
+                    <i className="bi bi-eye me-1"></i>
+                    Visible: {currentVisibleCount}/{gitCount + specCount}
                   </span>
                 )}
                 <span

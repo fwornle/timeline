@@ -32,20 +32,30 @@ interface ViewportFilteredEventsProps {
 export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (props) => {
   const { camera } = useThree();
   
-  // Use viewport filtering with fixed calculation
+  // Use viewport filtering with better configuration
   const visibleEvents = useViewportFiltering(
     props.events,
     camera,
     props.cameraTarget,
     props.currentPosition,
     {
-      paddingFactor: 1.2,  // Reduced from 2.0 to load less data outside viewport
-      minEvents: 30,       // Reduced from 50 for better performance
-      maxEvents: 150,      // Reduced from 200 for better performance
-      updateThrottleMs: 200,  // Increased from 100ms to reduce update frequency
-      debugMode: props.debugMode
+      paddingFactor: 1.0,    // No padding - only show what's actually in viewport
+      minEvents: 0,          // Don't force minimum events - show only what's visible
+      maxEvents: 500,        // Higher limit to not artificially cap results
+      updateThrottleMs: 100, // More responsive updates
+      debugMode: props.debugMode,
+      windowSize: 110        // Fixed viewport window size (220 total, ±110)
     }
   );
+  
+  // Store visible count for BottomBar display and add debugging info
+  React.useEffect(() => {
+    sessionStorage.setItem('visibleEventsCount', visibleEvents.length.toString());
+  }, [visibleEvents.length]);
+  
+  if (props.debugMode) {
+    console.log(`[ViewportFilteredEvents] Total events: ${props.events.length}, Visible: ${visibleEvents.length}, Position: ${props.currentPosition.toFixed(1)}`);
+  }
   
 
   return (
