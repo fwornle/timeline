@@ -60,7 +60,8 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (pr
 
   return (
     <TimelineEvents 
-      events={visibleEvents}
+      events={props.events}
+      visibleEvents={visibleEvents}
       selectedCardId={props.selectedCardId}
       onSelect={props.onSelect}
       onHover={props.onHover}
@@ -70,6 +71,7 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (pr
       isMarkerDragging={props.isMarkerDragging}
       isTimelineHovering={props.isTimelineHovering}
       droneMode={props.droneMode}
+      debugMode={props.debugMode}
     />
   );
 };
