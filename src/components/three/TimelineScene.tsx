@@ -223,6 +223,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onTimelineHoverChange={handleTimelineHoverChange}
           droneMode={droneMode}
           eventCount={events.length}
+          showHolidays={true}
         />
         <ViewportFilteredEvents
           events={events}
