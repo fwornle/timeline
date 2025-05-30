@@ -71,29 +71,18 @@ export const useViewportFiltering = (
     let visibleMinZ: number;
     let visibleMaxZ: number;
     
-    if (camera instanceof PerspectiveCamera) {
-      // Calculate visible range based on camera distance and FOV
-      const distance = camera.position.distanceTo(cameraTarget);
-      const fovRadians = (camera.fov * Math.PI) / 180;
-      const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
-      const viewRadius = visibleHeight * 0.5 * paddingFactor;
-      
-      // Center viewport on current position (not camera target)
-      visibleMinZ = currentPosition - viewRadius;
-      visibleMaxZ = currentPosition + viewRadius;
-    } else if (camera instanceof OrthographicCamera) {
-      // For orthographic camera, use zoom level
-      const viewWidth = Math.abs(camera.right - camera.left) / camera.zoom;
-      const viewHeight = Math.abs(camera.top - camera.bottom) / camera.zoom;
-      const viewRadius = Math.max(viewWidth, viewHeight) * 0.5 * paddingFactor;
-      
-      visibleMinZ = currentPosition - viewRadius;
-      visibleMaxZ = currentPosition + viewRadius;
-    } else {
-      // Fallback to fixed window size
-      visibleMinZ = currentPosition - windowSize;
-      visibleMaxZ = currentPosition + windowSize;
-    }
+    // Use a distance-based approach that's more intuitive and accurate
+    const distance = camera.position.distanceTo(cameraTarget);
+    
+    // Base viewport size on camera distance with reasonable scaling
+    // Closer camera = smaller viewport (more zoomed in)
+    // Further camera = larger viewport (more zoomed out)
+    const baseViewportSize = Math.max(20, Math.min(distance * 0.8, windowSize * 2));
+    const viewRadius = baseViewportSize * paddingFactor;
+    
+    // Center viewport on current position
+    visibleMinZ = currentPosition - viewRadius;
+    visibleMaxZ = currentPosition + viewRadius;
     
     // Filter events within viewport - simple and predictable
     let filtered = eventPositions
@@ -132,6 +121,7 @@ export const useViewportFiltering = (
         ep.z >= visibleMinZ && ep.z <= visibleMaxZ
       );
       
+      const cameraDistance = camera.position.distanceTo(cameraTarget);
       const debugInfo = {
         totalEvents: events.length,
         visibleEvents: filtered.length,
@@ -141,8 +131,11 @@ export const useViewportFiltering = (
         viewportSize: (visibleMaxZ - visibleMinZ).toFixed(1),
         currentPosition: currentPosition.toFixed(1),
         eventZRange: `[${minZ.toFixed(1)}, ${maxZ.toFixed(1)}]`,
-        viewCenter: viewCenter.toFixed(1),
+        viewCenter: currentPosition.toFixed(1),
         windowSize,
+        cameraDistance: cameraDistance.toFixed(1),
+        cameraPosition: `(${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`,
+        cameraTarget: `(${cameraTarget.x.toFixed(1)}, ${cameraTarget.y.toFixed(1)}, ${cameraTarget.z.toFixed(1)})`,
         sampleEventZ: {
           first: firstEventZ,
           last: lastEventZ
