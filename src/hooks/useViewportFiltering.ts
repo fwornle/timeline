@@ -45,7 +45,11 @@ export const useViewportFiltering = (
     }
 
     const minSpacing = 5;
-    const timelineLength = Math.max(sortedEvents.length * minSpacing, 100);
+    const maxTimelineLength = 500; // Must match TimelineEvents.tsx
+    const timelineLength = Math.min(
+      Math.max(sortedEvents.length * minSpacing, 100),
+      maxTimelineLength
+    );
     const normalizedTime = (event.timestamp.getTime() - minTime) / timeSpan - 0.5;
     return normalizedTime * timelineLength;
   };
@@ -77,29 +81,46 @@ export const useViewportFiltering = (
     // Calculate visible bounds based on camera
     let visibleMinZ: number;
     let visibleMaxZ: number;
+    let viewCenter: number | undefined;
+    let isCameraTargetReasonable = false;
     
     if (camera instanceof PerspectiveCamera) {
-      // For perspective camera, calculate based on FOV and distance
-      const distance = camera.position.distanceTo(cameraTarget);
-      const fovRadians = (camera.fov * Math.PI) / 180;
-      const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
-      const aspect = camera.aspect || 1;
-      const visibleWidth = visibleHeight * aspect;
+      // Check if camera target is way outside the event bounds
+      const cameraTargetOutsideEvents = eventPositions.length > 0 && 
+        (cameraTarget.z < minZ - 100 || cameraTarget.z > maxZ + 100);
       
-      // Use the larger dimension for viewport calculation
-      const viewDistance = Math.max(visibleWidth, visibleHeight, 50); // Minimum 50 units
+      if (cameraTargetOutsideEvents) {
+        // Camera target is far from events (e.g., -2997 when events are at ±250)
+        // Focus viewport on the actual events instead
+        if (cameraTarget.z < minZ) {
+          // Camera looking at beginning - show first events
+          viewCenter = minZ;
+          visibleMinZ = minZ - 50;
+          visibleMaxZ = minZ + 150;
+        } else if (cameraTarget.z > maxZ) {
+          // Camera looking at end - show last events
+          viewCenter = maxZ;
+          visibleMinZ = maxZ - 150;
+          visibleMaxZ = maxZ + 50;
+        } else {
+          // Shouldn't happen, but show middle as fallback
+          viewCenter = (minZ + maxZ) / 2;
+          visibleMinZ = minZ - 50;
+          visibleMaxZ = maxZ + 50;
+        }
+      } else {
+        // Normal case - camera target is near events
+        const distance = camera.position.distanceTo(cameraTarget);
+        const fovRadians = (camera.fov * Math.PI) / 180;
+        const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
+        const viewRadius = visibleHeight * 0.5;
+        
+        viewCenter = cameraTarget.z;
+        visibleMinZ = cameraTarget.z - viewRadius * paddingFactor;
+        visibleMaxZ = cameraTarget.z + viewRadius * paddingFactor;
+      }
       
-      // The viewport should be centered between camera and target, not just at target
-      // Calculate the actual visible range along the Z axis
-      const cameraZ = camera.position.z;
-      const targetZ = cameraTarget.z;
-      const centerZ = (cameraZ + targetZ) / 2;
-      
-      // Add extra range to ensure we see events
-      const extraRange = viewDistance * 0.5;
-      
-      visibleMinZ = Math.min(cameraZ, targetZ) - extraRange * paddingFactor;
-      visibleMaxZ = Math.max(cameraZ, targetZ) + extraRange * paddingFactor;
+      isCameraTargetReasonable = !cameraTargetOutsideEvents;
     } else if (camera instanceof OrthographicCamera) {
       // For orthographic camera
       const viewWidth = Math.abs(camera.right - camera.left);
@@ -170,17 +191,41 @@ export const useViewportFiltering = (
     lastUpdateRef.current = now;
     lastResultRef.current = filtered;
     
-    // Log performance metrics
+    // Log performance metrics with detailed event positions
     if (events.length > 0) {
       const reduction = ((events.length - filtered.length) / events.length * 100);
-      console.log('Viewport filtering:', {
+      
+      // Get Z positions of first few events to debug
+      const firstEventZ = eventPositions.length > 0 ? eventPositions[0].z : 'N/A';
+      const lastEventZ = eventPositions.length > 0 ? eventPositions[eventPositions.length - 1].z : 'N/A';
+      const middleEventZ = eventPositions.length > 0 ? eventPositions[Math.floor(eventPositions.length / 2)].z : 'N/A';
+      
+      // Find events near current position
+      const nearbyEvents = eventPositions.filter(ep => 
+        ep.z >= currentPosition - 100 && ep.z <= currentPosition + 100
+      );
+      
+      // Add debugging to catch the transition
+      const debugInfo = {
         totalEvents: events.length,
         visibleEvents: filtered.length,
         reduction: `${reduction.toFixed(1)}%`,
         viewportBounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`,
+        currentPosition: currentPosition.toFixed(1),
         cameraPos: `(${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`,
-        cameraTarget: `(${cameraTarget.x.toFixed(1)}, ${cameraTarget.y.toFixed(1)}, ${cameraTarget.z.toFixed(1)})`
-      });
+        cameraTarget: `(${cameraTarget.x.toFixed(1)}, ${cameraTarget.y.toFixed(1)}, ${cameraTarget.z.toFixed(1)})`,
+        eventZRange: `[${minZ.toFixed(1)}, ${maxZ.toFixed(1)}]`,
+        eventsNearPosition: nearbyEvents.length,
+        viewCenter: viewCenter?.toFixed(1) || 'N/A',
+        isCameraTargetReasonable,
+        sampleEventZ: {
+          first: firstEventZ,
+          middle: middleEventZ,
+          last: lastEventZ
+        }
+      };
+      
+      console.log('Viewport filtering:', debugInfo);
     }
     
     return filtered;

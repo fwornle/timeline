@@ -102,9 +102,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       // Calculate timeline length based on the number of events and time range
       // Use a minimum spacing between events
       const minSpacing = 5; // Minimum units between events
-      const timelineLength = Math.max(
-        events.length * minSpacing,
-        100 // Minimum timeline length
+      const maxTimelineLength = 500; // Cap timeline length to prevent huge spreads
+      const timelineLength = Math.min(
+        Math.max(events.length * minSpacing, 100), // Minimum timeline length
+        maxTimelineLength // Maximum timeline length
       );
 
       // Map the event time to a position on the Z axis

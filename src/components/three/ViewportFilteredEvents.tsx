@@ -32,7 +32,7 @@ interface ViewportFilteredEventsProps {
 export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (props) => {
   const { camera } = useThree();
   
-  // Use viewport filtering with optimized parameters
+  // Use viewport filtering with fixed calculation
   const visibleEvents = useViewportFiltering(
     props.events,
     camera,
@@ -47,14 +47,6 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (pr
     }
   );
   
-  // Debug log to verify events are being passed
-  React.useEffect(() => {
-    console.log('ViewportFilteredEvents passing to TimelineEvents:', {
-      count: visibleEvents.length,
-      firstEvent: visibleEvents[0],
-      lastEvent: visibleEvents[visibleEvents.length - 1]
-    });
-  }, [visibleEvents.length]);
 
   return (
     <TimelineEvents 
