@@ -3,6 +3,7 @@ import { Container, Row, Col, Form } from 'react-bootstrap';
 import { useAppSelector } from '../store';
 import type { CameraState } from '../store/slices/uiSlice';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+import { positionToDate } from '../utils/timeline/timelineCalculations';
 
 interface BottomBarProps {
   gitCount?: number;
@@ -55,6 +56,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
 }) => {
   const logger = useLogger({ component: 'BottomBar', topic: 'ui' });
   const repoUrl = useAppSelector(state => state.preferences.repoUrl);
+  const actualEventCount = useAppSelector(state => state.timeline.events.length);
   const showControls = !!repoUrl;
 
   // Force re-render on debug mode changes
@@ -101,37 +103,24 @@ const BottomBar: React.FC<BottomBarProps> = ({
   }, [debugMode, lastDebugModeChange]);
 
   // Helper function to convert position to a date
-  const positionToDate = (): string => {
+  const getPositionDate = (): string => {
     if (!startDate || !endDate) {
       return `Position: ${currentPosition.toFixed(2)}`;
     }
 
     try {
-      // Get the full time range of the timeline
-      const startTimestamp = startDate.getTime();
-      const endTimestamp = endDate.getTime();
-      const timeRange = endTimestamp - startTimestamp;
-
-      // Use the actual timelineLength passed as a prop
-      const actualTimelineLength = timelineLength;
-
-      // Estimate the position range of the timeline in the scene
-      // Timeline runs from -length/2 to +length/2
-      const estimatedTimelineStartZ = -actualTimelineLength / 2;
-      const estimatedTimelineEndZ = actualTimelineLength / 2;
-
-      // Calculate the position's normalized location on the timeline (0 to 1)
-      // Clamp value between 0 and 1 to handle edge cases
-      const normalizedPosition = Math.max(0, Math.min(1,
-        (currentPosition - estimatedTimelineStartZ) / (estimatedTimelineEndZ - estimatedTimelineStartZ)
-      ));
-
-      // Map the normalized position to a timestamp
-      const currentTimestamp = startTimestamp + (normalizedPosition * timeRange);
-      const currentDate = new Date(currentTimestamp);
+      // Use centralized position-to-date calculation
+      const eventCount = actualEventCount > 0 ? actualEventCount : Math.max(1, Math.floor(timelineLength / 5));
+      
+      const date = positionToDate(
+        currentPosition,
+        startDate.getTime(),
+        endDate.getTime(),
+        eventCount
+      );
 
       // Format the date
-      return currentDate.toLocaleDateString(undefined, {
+      return date.toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
@@ -307,7 +296,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                   }}
                 >
                   <i className="bi bi-clock-history me-1"></i>
-                  {positionToDate()}
+                  {getPositionDate()}
                 </span>
               </div>
             ) : (

@@ -19,6 +19,7 @@ import {
   setError
 } from '../store/slices/timelineSlice';
 import { selectCard, hoverCard, updateTimelinePosition } from '../store/intents/uiIntents';
+import { calculateTimelineLength } from '../utils/timeline/timelineCalculations';
 
 interface TimelineVisualizationProps {
   // Optional legacy props for compatibility
@@ -172,13 +173,8 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
     const startDate = sortedEvents[0].timestamp;
     const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
 
-    // Calculate timeline length (consistent with TimelineEvents.tsx)
-    const minSpacing = 5;
-    const maxTimelineLength = 500; // Must match TimelineEvents.tsx
-    const timelineLength = Math.min(
-      Math.max(events.length * minSpacing, 100),
-      maxTimelineLength
-    );
+    // Use centralized timeline length calculation
+    const timelineLength = calculateTimelineLength(events.length);
 
     return { startDate, endDate, timelineLength };
   }, [events]);

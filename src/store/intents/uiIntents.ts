@@ -12,6 +12,7 @@ import {
 } from '../slices/uiSlice';
 import { setMarkerPosition } from '../slices/timelineSlice';
 import { updateCameraPreferences, updateMarkerPositionPreferences } from './preferencesIntents';
+import { getFirstEventPosition } from '../../utils/timeline/timelineCalculations';
 
 // Intent to select a card and update camera
 export const selectCard = createAsyncThunk<
@@ -184,18 +185,8 @@ export const resetTimelineToStart = createAsyncThunk<
     const state = getState();
     const events = state.timeline.events;
     
-    // Find the earliest position (first event or 0)
-    let startPosition = 0;
-    if (events.length > 0) {
-      // Calculate the start position based on the capped timeline length
-      const minSpacing = 5;
-      const maxTimelineLength = 500; // Must match TimelineEvents.tsx
-      const timelineLength = Math.min(
-        Math.max(events.length * minSpacing, 100),
-        maxTimelineLength
-      );
-      startPosition = -timelineLength / 2;
-    }
+    // Find the earliest position using centralized calculation
+    const startPosition = getFirstEventPosition(events.length);
 
     // Disable conflicting modes
     dispatch(setViewAll(false));

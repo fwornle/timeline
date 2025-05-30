@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 import { Vector3, PerspectiveCamera, OrthographicCamera, Camera } from 'three';
 import { TimelineEvent } from '../data/types/TimelineEvent';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+import { calculateEventZPositionWithIndex } from '../utils/timeline/timelineCalculations';
 
 interface ViewportFilteringConfig {
   paddingFactor?: number;
@@ -30,28 +31,15 @@ export const useViewportFiltering = (
   const lastUpdateRef = useRef<number>(0);
   const lastResultRef = useRef<TimelineEvent[]>([]);
 
-  // Get event Z position (matching TimelineEvents.tsx logic)
+  // Get event Z position using centralized calculation
   const getEventZPosition = (event: TimelineEvent, sortedEvents: TimelineEvent[]): number => {
     if (sortedEvents.length === 0) return 0;
 
     const minTime = sortedEvents[0].timestamp.getTime();
     const maxTime = sortedEvents[sortedEvents.length - 1].timestamp.getTime();
-    const timeSpan = maxTime - minTime;
-
-    if (timeSpan === 0) {
-      const index = sortedEvents.findIndex(e => e.id === event.id);
-      const spacing = 5;
-      return (index - (sortedEvents.length - 1) / 2) * spacing;
-    }
-
-    const minSpacing = 5;
-    const maxTimelineLength = 500; // Must match TimelineEvents.tsx
-    const timelineLength = Math.min(
-      Math.max(sortedEvents.length * minSpacing, 100),
-      maxTimelineLength
-    );
-    const normalizedTime = (event.timestamp.getTime() - minTime) / timeSpan - 0.5;
-    return normalizedTime * timelineLength;
+    const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
+    
+    return calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, sortedEvents.length);
   };
 
   return useMemo(() => {
@@ -76,7 +64,6 @@ export const useViewportFiltering = (
     
     const minZ = Math.min(...eventPositions.map(ep => ep.z));
     const maxZ = Math.max(...eventPositions.map(ep => ep.z));
-    const timelineSpan = maxZ - minZ;
     
     // Calculate visible bounds based on camera
     let visibleMinZ: number;

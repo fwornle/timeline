@@ -11,6 +11,7 @@ import { clearAllCardHovers } from '../../utils/three/cardUtils';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { threeColors } from '../../config';
+import { calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
 
 
 export interface TimelineSceneProps {
@@ -109,15 +110,9 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
 
   const { startDate, endDate } = getDateRange();
 
-  // Calculate timelineLength based on events (consistent with TimelineEvents.tsx)
+  // Use centralized timeline length calculation
   const timelineLength = useMemo(() => {
-    if (events.length === 0) return 100; // Default length if no events
-    const minSpacing = 5;
-    const maxTimelineLength = 500; // Must match TimelineEvents.tsx
-    return Math.min(
-      Math.max(events.length * minSpacing, 100),
-      maxTimelineLength
-    );
+    return calculateTimelineLength(events.length);
   }, [events]);
 
   // Debug logging for Grid component
@@ -227,6 +222,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           }}
           onTimelineHoverChange={handleTimelineHoverChange}
           droneMode={droneMode}
+          eventCount={events.length}
         />
         <ViewportFilteredEvents
           events={events}
