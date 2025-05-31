@@ -32,6 +32,7 @@ interface TimelineCardProps {
   isMarkerDragging?: boolean;
   droneMode?: boolean;
   isHovered?: boolean; // Explicit hover state from parent
+  fadeOpacity?: number; // Opacity for occlusion handling
 }
 
 
@@ -100,7 +101,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   wiggle = false,
   isMarkerDragging = false,
   droneMode = false,
-  isHovered = false
+  isHovered = false,
+  fadeOpacity = 1.0
 }) => {
 
   // Get camera for proper rotation calculation and movement tracking
@@ -196,6 +198,20 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     wiggleAngle: 0,
   });
 
+  // Fade animation state for occlusion handling
+  const [currentOpacity, setCurrentOpacity] = useState(1.0);
+  const fadeAnimationRef = useRef<{
+    startTime: number;
+    startOpacity: number;
+    targetOpacity: number;
+    isAnimating: boolean;
+  }>({
+    startTime: 0,
+    startOpacity: 1.0,
+    targetOpacity: 1.0,
+    isAnimating: false
+  });
+
   // Register/unregister this card with the global click handler
   useEffect(() => {
     // Register this card
@@ -242,6 +258,19 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
   }, [wiggle, setWiggleState]);
 
+  // Trigger fade animation when fadeOpacity changes
+  useEffect(() => {
+    const config = dimensions.animation.card.occlusion;
+    if (Math.abs(currentOpacity - fadeOpacity) > 0.01) {
+      fadeAnimationRef.current = {
+        startTime: performance.now(),
+        startOpacity: currentOpacity,
+        targetOpacity: fadeOpacity,
+        isAnimating: true
+      };
+    }
+  }, [fadeOpacity, currentOpacity]);
+
   // Wiggle animation frame (throttled for performance)
   const lastWiggleUpdateRef = useRef(0);
   useFrame(() => {
@@ -271,6 +300,30 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     } else {
       // End wiggle
       setWiggleState({ isWiggling: false, startTime: 0, wiggleAngle: 0 });
+    }
+
+    // Handle fade animation
+    if (fadeAnimationRef.current.isAnimating) {
+      const fadeConfig = dimensions.animation.card.occlusion;
+      const elapsed = now - fadeAnimationRef.current.startTime;
+      const progress = Math.min(elapsed / fadeConfig.fadeAnimationDuration, 1);
+      
+      // Smooth easing
+      const easedProgress = progress < 0.5 
+        ? 2 * progress * progress 
+        : 1 - 2 * (1 - progress) * (1 - progress);
+      
+      const newOpacity = MathUtils.lerp(
+        fadeAnimationRef.current.startOpacity,
+        fadeAnimationRef.current.targetOpacity,
+        easedProgress
+      );
+      
+      setCurrentOpacity(newOpacity);
+      
+      if (progress >= 1) {
+        fadeAnimationRef.current.isAnimating = false;
+      }
     }
   });
 
@@ -365,15 +418,20 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     const scaledCardWidth = cardWidth * zoomFactor;
     const scaledCardHeight = cardHeight * zoomFactor;
 
-    // Clamp card position to stay within viewport bounds
+    // Add extra padding for high zoom scenarios
+    const extraPadding = config.extraViewportPadding;
+    const effectiveHalfWidth = viewportHalfWidth - extraPadding;
+    const effectiveHalfHeight = viewportHalfHeight - extraPadding;
+
+    // Clamp card position to stay within viewport bounds with extra padding
     const clampedX = Math.max(
-      -viewportHalfWidth + scaledCardWidth / 2,
-      Math.min(viewportHalfWidth - scaledCardWidth / 2, cardViewportX)
+      -effectiveHalfWidth + scaledCardWidth / 2,
+      Math.min(effectiveHalfWidth - scaledCardWidth / 2, cardViewportX)
     );
     
     const clampedY = Math.max(
-      -viewportHalfHeight + scaledCardHeight / 2,
-      Math.min(viewportHalfHeight - scaledCardHeight / 2, cardViewportY)
+      -effectiveHalfHeight + scaledCardHeight / 2,
+      Math.min(effectiveHalfHeight - scaledCardHeight / 2, cardViewportY)
     );
 
     // Convert back to world coordinates
@@ -754,7 +812,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           roughness={1}
           metalness={0}
           transparent
-          opacity={cardOpacities.shadow}
+          opacity={cardOpacities.shadow * currentOpacity}
         />
       </mesh>
 
@@ -766,7 +824,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           roughness={0.4}
           metalness={0.3}
           transparent
-          opacity={cardOpacities.background}
+          opacity={cardOpacities.background * currentOpacity}
         />
       </mesh>
 
@@ -778,7 +836,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           <meshBasicMaterial
             color={cardColors.header}
             transparent
-            opacity={0.9}
+            opacity={0.9 * currentOpacity}
           />
         </mesh>
 
@@ -818,7 +876,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           <meshBasicMaterial
             color="#1a1a1a"
             transparent
-            opacity={0.7}
+            opacity={0.7 * currentOpacity}
           />
         </mesh>
 
@@ -902,6 +960,8 @@ export const TimelineCard = memo(TimelineCardComponent, (prevProps, nextProps) =
     prevProps.isHovered === nextProps.isHovered &&
     prevProps.wiggle === nextProps.wiggle &&
     prevProps.isMarkerDragging === nextProps.isMarkerDragging &&
+    // Only re-render for significant fade opacity changes (>0.05)
+    Math.abs((prevProps.fadeOpacity || 1.0) - (nextProps.fadeOpacity || 1.0)) < 0.05 &&
     // Only re-render for significant position changes (>0.1 units)
     Math.abs((prevProps.position?.[0] || 0) - (nextProps.position?.[0] || 0)) < 0.1 &&
     Math.abs((prevProps.position?.[1] || 0) - (nextProps.position?.[1] || 0)) < 0.1 &&

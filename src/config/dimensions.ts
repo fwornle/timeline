@@ -186,11 +186,24 @@ export const dimensions = {
         // Minimum forward distance to ensure coverage of adjacent cards
         minForwardDistance: 5.0,
         // Safety margin from viewport edges (as percentage of viewport size)
-        viewportMargin: 0.1,
+        viewportMargin: 0.15,
         // Maximum distance from original position to maintain context
-        maxOffsetDistance: 8.0,
+        maxOffsetDistance: 12.0,
         // How far to lift the card up for better visibility
-        liftDistance: 2.0
+        liftDistance: 2.0,
+        // Additional translation to ensure cards stay in viewport at high zoom
+        extraViewportPadding: 1.0
+      },
+      // Occlusion handling for far-side cards
+      occlusion: {
+        // Enable fading of front cards when far-side cards open
+        enableFrontCardFading: true,
+        // Distance threshold to determine if cards are "in front"
+        frontCardDistanceThreshold: 3.0,
+        // Opacity to fade front cards to
+        frontCardFadeOpacity: 0.3,
+        // Animation duration for fading
+        fadeAnimationDuration: 300
       },
       duration: 250, // milliseconds
       hoverLockDuration: 500 // milliseconds
