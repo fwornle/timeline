@@ -224,6 +224,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           droneMode={droneMode}
           eventCount={events.length}
           showHolidays={true}
+          debugMode={debugMode}
         />
         <ViewportFilteredEvents
           events={events}

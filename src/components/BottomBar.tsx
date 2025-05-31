@@ -18,16 +18,17 @@ interface BottomBarProps {
   autoDrift?: boolean;
   droneMode?: boolean;
   debugMode?: boolean;
+  cameraCyclingMode?: boolean;
   startDate?: Date;
   endDate?: Date;
   timelineLength?: number;
-  visibleEventsCount?: number;
   onAnimationSpeedChange?: (speed: number) => void;
   onAutoDriftChange?: (enabled: boolean) => void;
   onDroneModeChange?: (enabled: boolean) => void;
   onViewAllClick?: () => void;
   onFocusCurrentClick?: () => void;
   onDebugModeChange?: (enabled: boolean) => void;
+  onCameraCyclingModeChange?: (enabled: boolean) => void;
   onResetTimeline?: () => void;
 }
 
@@ -44,16 +45,17 @@ const BottomBar: React.FC<BottomBarProps> = ({
   autoDrift = false,
   droneMode = false,
   debugMode = false,
+  cameraCyclingMode = false,
   startDate,
   endDate,
   timelineLength = 100,
-  visibleEventsCount = 0,
   onAnimationSpeedChange,
   onAutoDriftChange,
   onDroneModeChange,
   onViewAllClick,
   onFocusCurrentClick,
   onDebugModeChange,
+  onCameraCyclingModeChange,
   onResetTimeline
 }) => {
   const logger = useLogger({ component: 'BottomBar', topic: 'ui' });
@@ -524,7 +526,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     }
                   }}
                   onClick={handleDebugModeChange}
-                  title="Toggle camera debug mode"
+                  title="Toggle debug mode (shows occlusion detection and marker zones)"
                 >
                   <i className="bi bi-bug"></i>
                   {debugMode && (
@@ -542,6 +544,35 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     />
                   )}
                 </button>
+
+                {/* Camera cycling button - Only shown in debug mode */}
+                {debugMode && (
+                  <button
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: cameraCyclingMode ? 'var(--color-primary-600)' : 'transparent',
+                      border: '1px solid var(--color-primary-600)',
+                      color: cameraCyclingMode ? 'white' : 'var(--color-primary-600)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.5rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!cameraCyclingMode) {
+                        e.currentTarget.style.backgroundColor = 'var(--color-primary-50)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!cameraCyclingMode) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                    onClick={() => onCameraCyclingModeChange && onCameraCyclingModeChange(!cameraCyclingMode)}
+                    title={cameraCyclingMode ? 'Disable camera cycling mode' : 'Enable camera cycling mode'}
+                  >
+                    <i className="bi bi-camera-reels"></i>
+                  </button>
+                )}
 
                 {/* Camera indicator - far right */}
                 <div style={{ position: 'relative', marginLeft: '8px' }}>

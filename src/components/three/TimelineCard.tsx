@@ -33,6 +33,7 @@ interface TimelineCardProps {
   droneMode?: boolean;
   isHovered?: boolean; // Explicit hover state from parent
   fadeOpacity?: number; // Opacity for occlusion handling
+  debugMarker?: boolean; // Debug marker for occlusion detection
 }
 
 
@@ -102,7 +103,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   isMarkerDragging = false,
   droneMode = false,
   isHovered = false,
-  fadeOpacity = 1.0
+  fadeOpacity = 1.0,
+  debugMarker = false
 }) => {
 
   // Get camera for proper rotation calculation and movement tracking
@@ -262,6 +264,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   useEffect(() => {
     const config = dimensions.animation.card.occlusion;
     if (Math.abs(currentOpacity - fadeOpacity) > 0.01) {
+      console.log(`[DEBUG] Card ${event.id} fade animation: ${currentOpacity} -> ${fadeOpacity}`);
       fadeAnimationRef.current = {
         startTime: performance.now(),
         startOpacity: currentOpacity,
@@ -269,7 +272,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         isAnimating: true
       };
     }
-  }, [fadeOpacity, currentOpacity]);
+  }, [fadeOpacity, currentOpacity, event.id]);
 
   // Wiggle animation frame (throttled for performance)
   const lastWiggleUpdateRef = useRef(0);
@@ -945,6 +948,18 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         </mesh>
       )}
 
+      {/* Debug marker for occlusion detection */}
+      {debugMarker && (
+        <mesh position={[0, 0, dimensions.card.selection.zOffset + 0.02]}>
+          <boxGeometry args={[
+            cardWidth + 0.4,
+            cardHeight + 0.4,
+            0.01
+          ]} />
+          <meshBasicMaterial color="#00ff00" transparent opacity={0.5} />
+        </mesh>
+      )}
+
 
     </group>
   );
@@ -960,6 +975,7 @@ export const TimelineCard = memo(TimelineCardComponent, (prevProps, nextProps) =
     prevProps.isHovered === nextProps.isHovered &&
     prevProps.wiggle === nextProps.wiggle &&
     prevProps.isMarkerDragging === nextProps.isMarkerDragging &&
+    prevProps.debugMarker === nextProps.debugMarker &&
     // Only re-render for significant fade opacity changes (>0.05)
     Math.abs((prevProps.fadeOpacity || 1.0) - (nextProps.fadeOpacity || 1.0)) < 0.05 &&
     // Only re-render for significant position changes (>0.1 units)

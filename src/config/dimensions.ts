@@ -198,12 +198,20 @@ export const dimensions = {
       occlusion: {
         // Enable fading of front cards when far-side cards open
         enableFrontCardFading: true,
-        // Distance threshold to determine if cards are "in front"
-        frontCardDistanceThreshold: 3.0,
-        // Opacity to fade front cards to
-        frontCardFadeOpacity: 0.3,
+        // Strategy: 'boundingBox' uses screen-space overlap detection
+        fadeStrategy: 'boundingBox',
+        // For bounding box mode: fade cards that overlap with opened card's screen area
+        boundingBoxFadeOpacity: 0.12,
+        // Safety margin around opened card bounding box (as factor of card size)
+        boundingBoxMargin: 0.3,
+        // For aggressive mode: fade all cards except opened one
+        aggressiveFadeOpacity: 0.08,
         // Animation duration for fading
-        fadeAnimationDuration: 300
+        fadeAnimationDuration: 300,
+        // Debug visualization - will be controlled by Redux state
+        enableDebugVisualization: false, // This will be overridden by Redux debugMode
+        debugBoundingBoxColor: '#ff0000',
+        debugMarkerColor: '#00ff00'
       },
       duration: 250, // milliseconds
       hoverLockDuration: 500 // milliseconds

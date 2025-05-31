@@ -5,6 +5,7 @@ import { useThree } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { calculateEventZPositionWithIndex, calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
 import { dimensions } from '../../config';
+import { useAppSelector } from '../../store';
 
 interface TimelineEventsProps {
   events: TimelineEvent[]; // All events for position calculation
@@ -54,8 +55,17 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   // Track the currently hovered card to enforce exclusivity
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   
+  // Debug state for bounding box visualization
+  const [debugInfo, setDebugInfo] = useState<{
+    hoveredBounds?: any;
+    expandedBounds?: any;
+    cardOverlaps?: Map<string, boolean>;
+  }>({});
+  
   // Get camera reference for occlusion detection
   const { camera } = useThree();
+  
+  // Debug mode is now passed as a prop
 
   // Store onPositionUpdate in ref to avoid dependency issues
   const onPositionUpdateRef = useRef(onPositionUpdate);
@@ -214,9 +224,58 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     };
   }, []);
 
+  // Helper function to project 3D world position to 2D screen coordinates
+  const worldToScreen = (worldPos: Vector3) => {
+    const vector = worldPos.clone();
+    vector.project(camera);
+    
+    // Convert from [-1, 1] to screen coordinates
+    // Note: we don't need actual pixel coordinates, just normalized space for comparison
+    return {
+      x: vector.x,
+      y: vector.y,
+      z: vector.z // depth for visibility check
+    };
+  };
+
+  // Helper function to calculate 2D bounding box of a card in screen space
+  const getCardScreenBounds = (worldPos: Vector3, scale: number) => {
+    const cardWidth = dimensions.card.width * scale;
+    const cardHeight = dimensions.card.height * scale;
+    
+    // Calculate the 4 corners of the card in world space
+    const corners = [
+      new Vector3(worldPos.x - cardWidth/2, worldPos.y - cardHeight/2, worldPos.z),
+      new Vector3(worldPos.x + cardWidth/2, worldPos.y - cardHeight/2, worldPos.z),
+      new Vector3(worldPos.x + cardWidth/2, worldPos.y + cardHeight/2, worldPos.z),
+      new Vector3(worldPos.x - cardWidth/2, worldPos.y + cardHeight/2, worldPos.z)
+    ];
+    
+    // Project all corners to screen space
+    const screenCorners = corners.map(worldToScreen);
+    
+    // Find bounding box in screen space
+    const minX = Math.min(...screenCorners.map(c => c.x));
+    const maxX = Math.max(...screenCorners.map(c => c.x));
+    const minY = Math.min(...screenCorners.map(c => c.y));
+    const maxY = Math.max(...screenCorners.map(c => c.y));
+    
+    return { minX, maxX, minY, maxY };
+  };
+
+  // Helper function to check if two 2D bounding boxes overlap
+  const boundingBoxesOverlap = (box1: any, box2: any) => {
+    return !(box1.maxX < box2.minX || box2.maxX < box1.minX || 
+             box1.maxY < box2.minY || box2.maxY < box1.minY);
+  };
+
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
-    if (!hoveredCardId) return new Map<string, number>();
+    if (!hoveredCardId) {
+      // Clear debug info when no card is hovered
+      setDebugInfo({});
+      return new Map<string, number>();
+    }
     
     const config = dimensions.animation.card.occlusion;
     if (!config.enableFrontCardFading) return new Map<string, number>();
@@ -227,49 +286,136 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     const hoveredEvent = eventsToRender.find(e => e.id === hoveredCardId);
     if (!hoveredEvent) return fadeMap;
     
-    const hoveredPosition = getEventPosition(hoveredEvent);
-    const hoveredWorldPos = new Vector3(hoveredPosition[0], hoveredPosition[1], hoveredPosition[2]);
-    const cameraPos = camera.position.clone();
-    
-    // Calculate camera direction to hovered card
-    const cameraToHovered = new Vector3().subVectors(hoveredWorldPos, cameraPos).normalize();
-    
-    // Check each other card to see if it's "in front" of the hovered card
-    eventsToRender.forEach(event => {
-      if (event.id === hoveredCardId) {
-        fadeMap.set(event.id, 1.0); // Hovered card is always fully visible
-        return;
+    if (config.fadeStrategy === 'aggressive') {
+      // AGGRESSIVE MODE: Fade ALL cards except the opened one
+      eventsToRender.forEach(event => {
+        if (event.id === hoveredCardId) {
+          fadeMap.set(event.id, 1.0); // Opened card is fully visible
+        } else {
+          fadeMap.set(event.id, config.aggressiveFadeOpacity); // All others heavily faded
+        }
+      });
+    } else if (config.fadeStrategy === 'boundingBox') {
+      // BOUNDING BOX MODE: Fade cards that overlap with opened card's screen area
+      const hoveredPosition = getEventPosition(hoveredEvent);
+      const hoveredWorldPos = new Vector3(hoveredPosition[0], hoveredPosition[1], hoveredPosition[2]);
+      
+      // Get the current scale of the hovered card (it might be zoomed)
+      // We need to estimate this based on camera distance and the zoom logic
+      const distanceToHovered = hoveredWorldPos.distanceTo(camera.position);
+      const fovRadians = (camera as any).fov ? ((camera as any).fov * Math.PI) / 180 : (45 * Math.PI) / 180;
+      const visibleHeight = 2 * Math.tan(fovRadians / 2) * distanceToHovered;
+      const targetCardHeight = visibleHeight / 3;
+      const hoveredScale = Math.min(Math.max(targetCardHeight / dimensions.card.height, 1.2), 8.0);
+      
+      // Calculate screen-space bounding box of the opened card
+      const hoveredBounds = getCardScreenBounds(hoveredWorldPos, hoveredScale);
+      
+      // Add safety margin
+      const margin = config.boundingBoxMargin;
+      const marginX = (hoveredBounds.maxX - hoveredBounds.minX) * margin;
+      const marginY = (hoveredBounds.maxY - hoveredBounds.minY) * margin;
+      
+      const expandedHoveredBounds = {
+        minX: hoveredBounds.minX - marginX,
+        maxX: hoveredBounds.maxX + marginX,
+        minY: hoveredBounds.minY - marginY,
+        maxY: hoveredBounds.maxY + marginY
+      };
+      
+      // Store debug info
+      const cardOverlaps = new Map<string, boolean>();
+      
+      // Log debug information
+      console.log('[DEBUG] Hovered card bounds:', hoveredBounds);
+      console.log('[DEBUG] Expanded bounds:', expandedHoveredBounds);
+      console.log('[DEBUG] Hovered scale:', hoveredScale);
+      console.log('[DEBUG] Distance to hovered:', distanceToHovered);
+      
+      // Check each card for screen-space overlap
+      eventsToRender.forEach(event => {
+        if (event.id === hoveredCardId) {
+          fadeMap.set(event.id, 1.0); // Opened card is fully visible
+          cardOverlaps.set(event.id, false);
+          return;
+        }
+        
+        const eventPosition = getEventPosition(event);
+        const eventWorldPos = new Vector3(eventPosition[0], eventPosition[1], eventPosition[2]);
+        
+        // Project card center to screen space for basic visibility check
+        const screenPos = worldToScreen(eventWorldPos);
+        
+        // Skip cards that are behind the camera or too far in front
+        if (screenPos.z < -1 || screenPos.z > 1) {
+          fadeMap.set(event.id, 1.0);
+          cardOverlaps.set(event.id, false);
+          return;
+        }
+        
+        // Calculate bounding box for this card (assume default scale for non-hovered cards)
+        const cardBounds = getCardScreenBounds(eventWorldPos, 1.0);
+        
+        // Check if this card's bounding box overlaps with the expanded hovered card bounds
+        const overlaps = boundingBoxesOverlap(cardBounds, expandedHoveredBounds);
+        
+        console.log(`[DEBUG] Card ${event.id}:`, {
+          bounds: cardBounds,
+          overlaps,
+          screenPos,
+          worldPos: eventWorldPos
+        });
+        
+        cardOverlaps.set(event.id, overlaps);
+        
+        if (overlaps) {
+          // Calculate fade intensity based on overlap amount and distance
+          const overlapArea = Math.max(0, 
+            Math.min(cardBounds.maxX, expandedHoveredBounds.maxX) - Math.max(cardBounds.minX, expandedHoveredBounds.minX)
+          ) * Math.max(0,
+            Math.min(cardBounds.maxY, expandedHoveredBounds.maxY) - Math.max(cardBounds.minY, expandedHoveredBounds.minY)
+          );
+          
+          const cardArea = (cardBounds.maxX - cardBounds.minX) * (cardBounds.maxY - cardBounds.minY);
+          const overlapRatio = cardArea > 0 ? overlapArea / cardArea : 0;
+          
+          // Fade more aggressively for higher overlap
+          const fadeIntensity = config.boundingBoxFadeOpacity + 
+            (0.5 - config.boundingBoxFadeOpacity) * (1 - overlapRatio);
+          
+          fadeMap.set(event.id, Math.max(config.boundingBoxFadeOpacity, fadeIntensity));
+        } else {
+          fadeMap.set(event.id, 1.0); // No overlap, keep fully visible
+        }
+      });
+      
+      // Update debug info for visualization - use Redux debug mode state
+      if (debugMode) {
+        setDebugInfo({
+          hoveredBounds,
+          expandedBounds: expandedHoveredBounds,
+          cardOverlaps
+        });
+        
+        // Debug log fade states
+        console.log('[DEBUG] Fade states:');
+        fadeMap.forEach((opacity, cardId) => {
+          if (opacity < 1.0) {
+            console.log(`  Card ${cardId}: opacity ${opacity}`);
+          }
+        });
       }
-      
-      const eventPosition = getEventPosition(event);
-      const eventWorldPos = new Vector3(eventPosition[0], eventPosition[1], eventPosition[2]);
-      
-      // Calculate distance from camera to this card
-      const cameraToEvent = new Vector3().subVectors(eventWorldPos, cameraPos);
-      const distanceToEvent = cameraToEvent.length();
-      const distanceToHovered = cameraToHovered.length() * hoveredWorldPos.distanceTo(cameraPos);
-      
-      // Check if this card is between camera and hovered card
-      const isInFront = distanceToEvent < distanceToHovered;
-      
-      // Also check if cards are close enough to cause occlusion
-      const cardDistance = eventWorldPos.distanceTo(hoveredWorldPos);
-      const isTooClose = cardDistance < config.frontCardDistanceThreshold;
-      
-      if (isInFront && isTooClose) {
-        fadeMap.set(event.id, config.frontCardFadeOpacity);
-      } else {
-        fadeMap.set(event.id, 1.0);
-      }
-    });
+    }
     
     return fadeMap;
-  }, [hoveredCardId, eventsToRender, getEventPosition, camera.position]);
+  }, [hoveredCardId, eventsToRender, getEventPosition, camera, debugMode]);
 
   // Memoize the cards to prevent unnecessary re-renders
   const renderedCards = useMemo(() => {
     return eventsToRender.map((event) => {
       const position = getEventPosition(event);
+      const shouldShowDebugMarker = debugMode && 
+        debugInfo.cardOverlaps?.get(event.id) === true;
 
       return (
         <TimelineCard
@@ -288,10 +434,11 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           droneMode={droneMode}
           isHovered={hoveredCardId === event.id}
           fadeOpacity={cardFadeStates.get(event.id) ?? 1.0}
+          debugMarker={shouldShowDebugMarker}
         />
       );
     });
-  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates]);
+  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates, debugInfo, debugMode]);
 
   return (
     <group>

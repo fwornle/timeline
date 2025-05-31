@@ -22,6 +22,10 @@ interface BottomBarProps {
   onAnimationSpeedChange: (speed: number) => void;
   autoDrift: boolean;
   onAutoDriftChange: (enabled: boolean) => void;
+  debugMode?: boolean;
+  onDebugModeChange?: (enabled: boolean) => void;
+  cameraCyclingMode?: boolean;
+  onCameraCyclingModeChange?: (enabled: boolean) => void;
 }
 
 export function BottomBar({
@@ -36,7 +40,11 @@ export function BottomBar({
   animationSpeed,
   onAnimationSpeedChange,
   autoDrift,
-  onAutoDriftChange
+  onAutoDriftChange,
+  debugMode = false,
+  onDebugModeChange,
+  cameraCyclingMode = false,
+  onCameraCyclingModeChange
 }: BottomBarProps) {
   // Helper to format error messages
   const formatError = (error: Error): string => {
@@ -144,6 +152,40 @@ export function BottomBar({
                 </svg>
                 Auto
               </button>
+
+              {/* Debug Mode Button */}
+              {onDebugModeChange && (
+                <button
+                  onClick={() => onDebugModeChange(!debugMode)}
+                  className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                    debugMode ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-300'
+                  }`}
+                  title="Toggle debug mode (shows occlusion detection and marker hover zones)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                  Debug
+                </button>
+              )}
+
+              {/* Camera Cycling Button - Only shown in debug mode */}
+              {debugMode && onCameraCyclingModeChange && (
+                <button
+                  onClick={() => onCameraCyclingModeChange(!cameraCyclingMode)}
+                  className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                    cameraCyclingMode ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300'
+                  }`}
+                  title="Toggle camera cycling mode"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  Cam
+                </button>
+              )}
             </div>
           </>
         ) : (
