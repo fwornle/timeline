@@ -262,18 +262,22 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
   }, [wiggle, setWiggleState]);
 
+  // Track last applied fadeOpacity to prevent infinite re-renders
+  const lastAppliedFadeOpacityRef = useRef(fadeOpacity);
+  
   // Direct opacity update when fadeOpacity changes (no animation)
   useEffect(() => {
-    if (Math.abs(currentOpacity - fadeOpacity) > 0.01) {
+    if (Math.abs(lastAppliedFadeOpacityRef.current - fadeOpacity) > 0.01) {
       logger.debug('Direct opacity update:', {
         cardId: event.id.slice(-6),
-        currentOpacity,
-        fadeOpacity
+        fromOpacity: lastAppliedFadeOpacityRef.current,
+        toOpacity: fadeOpacity
       });
       
+      lastAppliedFadeOpacityRef.current = fadeOpacity;
       setCurrentOpacity(fadeOpacity);
     }
-  }, [fadeOpacity, currentOpacity, event.id, logger]);
+  }, [fadeOpacity, logger]); // Only depends on fadeOpacity changes
 
 
   // Wiggle animation frame (throttled for performance)

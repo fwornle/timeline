@@ -288,6 +288,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         localHoveredCard,
         openCardsCount: globalOpenCards.openCards.size,
         openCards: Array.from(globalOpenCards.openCards),
+        hoveredCard: globalOpenCards.hoveredCard,
         eventsToRenderCount: eventsToRender.length
       });
     }
@@ -303,6 +304,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     
     if (!openedCardId) {
       // Clear debug info when no card is hovered or open
+      logger.debug('No opened card - clearing all fade states'); // Always log this, not just in debug mode
       setDebugInfo({});
       return new Map<string, number>();
     }
