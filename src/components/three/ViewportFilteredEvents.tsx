@@ -53,9 +53,7 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = (pr
     sessionStorage.setItem('visibleEventsCount', visibleEvents.length.toString());
   }, [visibleEvents.length]);
   
-  if (props.debugMode) {
-    console.log(`[ViewportFilteredEvents] Total events: ${props.events.length}, Visible: ${visibleEvents.length}, Position: ${props.currentPosition.toFixed(1)}`);
-  }
+  // Debug logging handled by useViewportFiltering hook
   
 
   return (

@@ -78,7 +78,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   // Handle hover with exclusivity
   const handleCardHover = useCallback((cardId: string | null) => {
     // Debug logging first
-    console.log(`[TimelineEvents] handleCardHover called with: ${cardId ? cardId.slice(-6) : 'null'}`);
+    // Debug logging
+    if (debugMode) {
+      logger.debug(`handleCardHover called with: ${cardId ? cardId.slice(-6) : 'null'}`);
+    }
     
     // Update local hover state for occlusion detection
     setLocalHoveredCard(cardId);
@@ -278,10 +281,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
-    console.log(`[TimelineEvents] cardFadeStates useMemo running with localHoveredCard: ${localHoveredCard ? localHoveredCard.slice(-6) : 'null'}`);
-    
     // Debug the local state
     if (debugMode) {
+      logger.debug(`cardFadeStates useMemo running with localHoveredCard: ${localHoveredCard ? localHoveredCard.slice(-6) : 'null'}`);
       logger.debug('Occlusion check:', {
         localHoveredCard,
         openCardsCount: globalOpenCards.openCards.size,
