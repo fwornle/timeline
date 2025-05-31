@@ -142,7 +142,7 @@ export const useViewportFiltering = (
         }
       };
       
-      console.log('Viewport filtering:', debugInfo);
+      logger.debug('Viewport filtering:', debugInfo);
     }
     
     return filtered;

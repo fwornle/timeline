@@ -107,7 +107,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   fadeOpacity = 1.0,
   debugMarker = false
 }) => {
-  const logger = useLogger({ component: 'TimelineCard', topic: 'animations' });
+  const logger = useLogger({ component: 'THREE', topic: 'cards' });
 
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
@@ -265,6 +265,13 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Trigger fade animation when fadeOpacity changes
   useEffect(() => {
     if (Math.abs(currentOpacity - fadeOpacity) > 0.01) {
+      logger.debug('Setting up fade animation:', {
+        cardId: event.id.slice(-6),
+        currentOpacity,
+        fadeOpacity,
+        startTime: performance.now()
+      });
+      
       fadeAnimationRef.current = {
         startTime: performance.now(),
         startOpacity: currentOpacity,
@@ -272,7 +279,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         isAnimating: true
       };
     }
-  }, [fadeOpacity, currentOpacity, event.id]);
+  }, [fadeOpacity, currentOpacity, event.id, logger]);
 
 
   // Wiggle animation frame (throttled for performance)
@@ -323,10 +330,24 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         easedProgress
       );
       
+      // Debug logging for animation progress
+      if (elapsed < 50) { // Only log first few frames to avoid spam
+        logger.debug('Fade animation running:', {
+          cardId: event.id.slice(-6),
+          progress: progress.toFixed(3),
+          newOpacity: newOpacity.toFixed(3),
+          elapsed
+        });
+      }
+      
       setCurrentOpacity(newOpacity);
       
       if (progress >= 1) {
         fadeAnimationRef.current.isAnimating = false;
+        logger.debug('Fade animation completed:', {
+          cardId: event.id.slice(-6),
+          finalOpacity: newOpacity.toFixed(3)
+        });
       }
     }
   });
