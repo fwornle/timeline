@@ -324,14 +324,20 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     const finalZoomFactor = Math.min(Math.max(zoomFactor, minZoom), maxZoom);
 
     // Calculate how far to move the card toward the camera
-    // We want to move it forward enough to be clearly visible but not too close
-    const idealViewingDistance = visibleHeight * 1.5; // Keep it at a comfortable viewing distance
-    const currentViewingDistance = distance;
-    const moveDistance = Math.max(0, currentViewingDistance - idealViewingDistance);
-
-    // Clamp move distance to reasonable limits
-    const maxMoveDistance = distance * 0.7; // Don't move more than 70% closer
-    const finalMoveDistance = Math.min(moveDistance, maxMoveDistance);
+    // Use configuration for dynamic forward movement calculation
+    const forwardConfig = dimensions.animation.card.forwardMovement;
+    const cardWidth = dimensions.card.width;
+    
+    // Calculate forward distance based on configuration
+    const baseForward = cardWidth * forwardConfig.baseMultiplier;
+    const cameraBasedForward = distance * forwardConfig.cameraDistanceRatio;
+    const calculatedForward = Math.max(baseForward, cameraBasedForward);
+    
+    // Apply min/max limits from configuration
+    const finalMoveDistance = Math.min(
+      Math.max(calculatedForward, forwardConfig.minimumDistance),
+      forwardConfig.maximumDistance
+    );
 
     return {
       angle,
@@ -378,12 +384,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         const sideMultiplier = position[0] >= 0 ? 1 : -1; // Move away from center
 
         // Calculate final position: slide away from timeline and up + move toward camera
-        const slideDistance = cardWidth * 1.0; // One full card width away from timeline
-        const upDistance = cardHeight * 1.0; // One full card height up
+        const slideDistance = cardWidth * 1.5; // 1.5 full card widths away from timeline
+        const upDistance = cardHeight * 1.5; // 1.5 full card heights up
 
         const finalX = position[0] + (awayFromTimeline.x * slideDistance * sideMultiplier);
         const finalY = position[1] + upDistance + 0.5; // Additional lift for better visibility
-        const finalZ = position[2] - moveDistance; // Move toward camera
+        const finalZ = position[2] - moveDistance; // Move toward camera to cover adjacent cards
 
         // Start simultaneous animation (slide + swirl/zoom together)
         setAnimState({

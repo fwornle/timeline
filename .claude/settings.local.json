@@ -59,6 +59,7 @@
       "Bash(git reset:*)",
       "Bash(git add:*)",
       "Bash(./rewrite-commits.sh:*)",
+      "Bash(claude --version)"
     ],
     "deny": []
   },

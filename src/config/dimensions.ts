@@ -179,6 +179,17 @@ export const dimensions = {
         hover: 0.3,
         selected: 0.5
       },
+      // Forward movement toward camera when opening
+      forwardMovement: {
+        // Base forward distance as multiplier of card width
+        baseMultiplier: 3.0,
+        // Additional forward distance based on camera distance
+        cameraDistanceRatio: 0.25,
+        // Minimum forward distance to ensure coverage
+        minimumDistance: 8.0,
+        // Maximum forward distance to prevent clipping
+        maximumDistance: 20.0
+      },
       duration: 250, // milliseconds
       hoverLockDuration: 500 // milliseconds
     },
