@@ -729,6 +729,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     // Simply notify parent - it will handle exclusivity
     if (onHover) {
+      console.log(`[TimelineCard] Calling onHover for card: ${event.id.slice(-6)}`);
       onHover(event.id);
     }
   };

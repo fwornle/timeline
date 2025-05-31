@@ -6,6 +6,7 @@ import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { calculateEventZPositionWithIndex } from '../../utils/timeline/timelineCalculations';
 import { dimensions } from '../../config';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
+import { globalOpenCards } from '../../utils/three/cardUtils';
 
 interface TimelineEventsProps {
   events: TimelineEvent[]; // All events for position calculation
@@ -54,8 +55,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   if (debugMode && visibleEvents) {
     logger.debug(`Total events: ${events.length}, Rendering: ${eventsToRender.length}, Position: ${currentPosition.toFixed(1)}`);
   }
-  // Track the currently hovered card to enforce exclusivity
-  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+  // Track the locally hovered card for occlusion detection
+  const [localHoveredCard, setLocalHoveredCard] = useState<string | null>(null);
   
   
   // Debug state for bounding box visualization
@@ -76,17 +77,20 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Handle hover with exclusivity
   const handleCardHover = useCallback((cardId: string | null) => {
-    // Use functional update to avoid stale closure issues
-    setHoveredCardId(prev => {
-      // Only update if the hover state actually changed
-      if (prev !== cardId) {
-        // Defer the parent callback to avoid setState-in-render
-        setTimeout(() => onHover(cardId), 0);
-        return cardId;
-      }
-      return prev;
-    });
-  }, [onHover]);
+    // Debug logging first
+    console.log(`[TimelineEvents] handleCardHover called with: ${cardId ? cardId.slice(-6) : 'null'}`);
+    
+    // Update local hover state for occlusion detection
+    setLocalHoveredCard(cardId);
+    
+    // Debug logging
+    if (debugMode) {
+      logger.debug(`Local hover state updated: ${cardId ? cardId.slice(-6) : 'null'}`);
+    }
+    
+    // Forward to parent for actual card interaction
+    onHover(cardId);
+  }, [onHover, debugMode, logger]);
 
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
@@ -274,16 +278,36 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
-    // Only fade cards when a card is hovered AND in opened state
-    // hoveredCardId indicates the card is expanded/opened, not just hovered over
-    if (!hoveredCardId) {
-      // Clear debug info when no card is properly opened
+    console.log(`[TimelineEvents] cardFadeStates useMemo running with localHoveredCard: ${localHoveredCard ? localHoveredCard.slice(-6) : 'null'}`);
+    
+    // Debug the local state
+    if (debugMode) {
+      logger.debug('Occlusion check:', {
+        localHoveredCard,
+        openCardsCount: globalOpenCards.openCards.size,
+        openCards: Array.from(globalOpenCards.openCards),
+        eventsToRenderCount: eventsToRender.length
+      });
+    }
+    
+    // Only fade cards when a card is hovered OR when cards are open
+    // Use localHoveredCard first, but fall back to global open cards if local state was cleared
+    let openedCardId = localHoveredCard;
+    
+    // If no local hover state but we have open cards, use the first open card
+    if (!openedCardId && globalOpenCards.openCards.size > 0) {
+      openedCardId = Array.from(globalOpenCards.openCards)[0];
+    }
+    
+    if (!openedCardId) {
+      // Clear debug info when no card is hovered or open
       setDebugInfo({});
       return new Map<string, number>();
     }
     
-    // Use hoveredCardId as the opened card ID (this means the card is expanded/opened)
-    const openedCardId = hoveredCardId;
+    if (debugMode) {
+      logger.debug(`Starting occlusion calculation for opened card: ${openedCardId}`);
+    }
     
     const config = dimensions.animation.card.occlusion;
     if (!config.enableFrontCardFading) return new Map<string, number>();
@@ -388,7 +412,12 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           const fadeIntensity = config.boundingBoxFadeOpacity + 
             (0.5 - config.boundingBoxFadeOpacity) * (1 - overlapRatio);
           
-          fadeMap.set(event.id, Math.max(config.boundingBoxFadeOpacity, fadeIntensity));
+          const finalOpacity = Math.max(config.boundingBoxFadeOpacity, fadeIntensity);
+          fadeMap.set(event.id, finalOpacity);
+          
+          if (debugMode) {
+            logger.debug(`Card ${event.id.slice(-6)} will fade: geometric=${geometricOverlaps} temporal=${isTemporallyNear} opacity=${finalOpacity.toFixed(3)}`);
+          }
         } else {
           fadeMap.set(event.id, 1.0); // No overlap, keep fully visible
         }
@@ -405,8 +434,14 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       }
     }
     
+    // Debug the final fade map
+    if (debugMode && fadeMap.size > 0) {
+      const fadeEntries = Array.from(fadeMap.entries());
+      logger.debug(`Final fade map (${fadeEntries.length} cards):`, fadeEntries.map(([id, opacity]) => `${id.slice(-6)}: ${opacity.toFixed(3)}`));
+    }
+    
     return fadeMap;
-  }, [hoveredCardId, selectedCardId, eventsToRender, getEventPosition, camera, debugMode]);
+  }, [localHoveredCard, selectedCardId, eventsToRender, getEventPosition, camera, debugMode]);
 
 
   // Memoize the cards to prevent unnecessary re-renders
@@ -417,6 +452,11 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         debugInfo.cardOverlaps?.get(event.id) === true;
       
       const fadeOpacity = cardFadeStates.get(event.id) ?? 1.0;
+      
+      // Debug fade opacity application
+      if (debugMode && fadeOpacity < 1.0) {
+        logger.debug(`Applying fade opacity ${fadeOpacity.toFixed(3)} to card ${event.id.slice(-6)}`);
+      }
 
       return (
         <TimelineCard
@@ -433,13 +473,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           wiggle={!!wiggleMap[event.id]}
           isMarkerDragging={isMarkerDragging}
           droneMode={droneMode}
-          isHovered={hoveredCardId === event.id}
+          isHovered={localHoveredCard === event.id}
           fadeOpacity={fadeOpacity}
           debugMarker={shouldShowDebugMarker}
         />
       );
     });
-  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates, debugInfo, debugMode]);
+  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, localHoveredCard, cardFadeStates, debugInfo, debugMode]);
 
   return (
     <group>
