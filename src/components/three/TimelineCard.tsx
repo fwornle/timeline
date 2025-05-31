@@ -378,8 +378,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         const sideMultiplier = position[0] >= 0 ? 1 : -1; // Move away from center
 
         // Calculate final position: slide away from timeline and up + move toward camera
-        const slideDistance = cardWidth * 0.5; // Half card width away from timeline
-        const upDistance = cardHeight * 0.5; // Half card height up
+        const slideDistance = cardWidth * 1.0; // One full card width away from timeline
+        const upDistance = cardHeight * 1.0; // One full card height up
 
         const finalX = position[0] + (awayFromTimeline.x * slideDistance * sideMultiplier);
         const finalY = position[1] + upDistance + 0.5; // Additional lift for better visibility
