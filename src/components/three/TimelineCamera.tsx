@@ -119,6 +119,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
     focusCurrentMode,
     droneMode,
     debugMode,
+    cameraCyclingMode,
   } = useAppSelector(state => state.ui);
   const { camera } = useThree();
   const logger = useLogger({ component: 'TimelineCamera', topic: 'ui' });
@@ -873,7 +874,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
 
   // Debug camera cycling effect
   useEffect(() => {
-    if (debugMode && !viewAllMode && !focusCurrentMode && !droneMode) {
+    if (debugMode && cameraCyclingMode && !viewAllMode && !focusCurrentMode && !droneMode) {
       let currentIndex = 0;
       
       // Start cycling through debug positions
@@ -923,7 +924,7 @@ export const TimelineCamera: React.FC<TimelineCameraProps> = ({
         debugCycleTimer.current = null;
       }
     };
-  }, [debugMode, viewAllMode, focusCurrentMode, droneMode, updateCameraState, camera.zoom, logger]);
+  }, [debugMode, cameraCyclingMode, viewAllMode, focusCurrentMode, droneMode, updateCameraState, camera.zoom, logger]);
 
   return (
     <OrbitControls
