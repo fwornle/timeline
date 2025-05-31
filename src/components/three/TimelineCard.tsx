@@ -272,8 +272,18 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         targetOpacity: fadeOpacity,
         isAnimating: true
       };
+    } else if (fadeOpacity < 1.0) {
+      // Log when card should be faded but no animation is triggered
+      logger.debug(`Card ${event.id} already at target fadeOpacity: ${fadeOpacity.toFixed(3)}, currentOpacity: ${currentOpacity.toFixed(3)}`);
     }
-  }, [fadeOpacity, currentOpacity, event.id]);
+  }, [fadeOpacity, currentOpacity, event.id, logger]);
+
+  // Debug currentOpacity changes
+  useEffect(() => {
+    if (currentOpacity < 1.0) {
+      logger.debug(`Card ${event.id} currentOpacity changed to: ${currentOpacity.toFixed(3)}`);
+    }
+  }, [currentOpacity, event.id, logger]);
 
   // Wiggle animation frame (throttled for performance)
   const lastWiggleUpdateRef = useRef(0);
