@@ -7,6 +7,7 @@ import { usePreferencesMigration } from '../store/hooks/usePreferencesMigration'
 import {
   setIsInitializing,
   setDebugMode,
+  setCameraCyclingMode,
   setFocusCurrentMode
 } from '../store/slices/uiSlice';
 import {
@@ -49,6 +50,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     viewAll: viewAllMode,
     focusCurrentMode,
     debugMode,
+    cameraCyclingMode,
     cameraState,
   } = useAppSelector(state => state.ui);
 
@@ -142,6 +144,10 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     dispatch(setDebugMode(enabled));
   }, [dispatch]);
 
+  const handleCameraCyclingModeChange = useCallback((enabled: boolean) => {
+    dispatch(setCameraCyclingMode(enabled));
+  }, [dispatch]);
+
   const handlePositionChange = useCallback((position: number) => {
     dispatch(updateTimelinePosition({ position }));
   }, [dispatch]);
@@ -185,6 +191,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     autoDrift,
     droneMode,
     debugMode,
+    cameraCyclingMode,
     startDate: timelineStartDate,
     endDate: timelineEndDate,
     timelineLength,
@@ -194,6 +201,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     onViewAllClick: handleViewAllToggle,
     onFocusCurrentClick: () => handleFocusCurrentModeChange(true),
     onDebugModeChange: handleDebugModeChange,
+    onCameraCyclingModeChange: handleCameraCyclingModeChange,
     onResetTimeline: () => {
       // Reset timeline to start position
       dispatch(resetTimelineToStart());

@@ -18,6 +18,7 @@ interface UIState {
   viewAll: boolean;
   focusCurrentMode: boolean;
   debugMode: boolean;
+  cameraCyclingMode: boolean;
 
   // Camera state
   cameraState: CameraState;
@@ -45,6 +46,7 @@ const initialState: UIState = {
   viewAll: false,
   focusCurrentMode: false,
   debugMode: false,
+  cameraCyclingMode: false,
   cameraState: {
     position: { x: 0, y: 20, z: 50 },
     target: { x: 0, y: 0, z: 0 },
@@ -82,6 +84,9 @@ const uiSlice = createSlice({
     },
     setDebugMode: (state, action: PayloadAction<boolean>) => {
       state.debugMode = action.payload;
+    },
+    setCameraCyclingMode: (state, action: PayloadAction<boolean>) => {
+      state.cameraCyclingMode = action.payload;
     },
     updateCameraState: (state, action: PayloadAction<Partial<CameraState>>) => {
       state.cameraState = { ...state.cameraState, ...action.payload };
@@ -127,6 +132,7 @@ export const {
   setViewAll,
   setFocusCurrentMode,
   setDebugMode,
+  setCameraCyclingMode,
   updateCameraState,
   setCameraState,
   setSelectedCardId,

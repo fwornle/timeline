@@ -25,6 +25,7 @@ interface TimelineAxisProps {
   droneMode?: boolean;
   eventCount?: number;
   showHolidays?: boolean;
+  debugMode?: boolean;
 }
 
 export const TimelineAxis: React.FC<TimelineAxisProps> = ({
@@ -41,6 +42,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   droneMode = false,
   eventCount = 0,
   showHolidays = true,
+  debugMode = false,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -93,12 +95,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     fetchCalendarData();
   }, [showHolidays, startDate, endDate, timezone]);
 
-  // Check if debug visualization should be shown (DEBUG or TRACE level active)
-  // Note: This will be checked on each render, which is fine for this use case
-  const showDebugPlanes = (() => {
-    const activeLevels = Logger.getActiveLevels();
-    return activeLevels.has(Logger.Levels.DEBUG) || activeLevels.has(Logger.Levels.TRACE);
-  })();
+  // Check if debug visualization should be shown (from Redux debug mode)
+  const showDebugPlanes = debugMode;
 
   // Track mouse movement to prevent accidental timeline triggers
   const mouseTrackingRef = useRef({
@@ -209,8 +207,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
               fontSize={0.3}
               anchorX="center"
               anchorY="bottom"
-              text={specialDay.name}
-            />
+            >
+              {specialDay.name}
+            </SafeText>
           );
         }
       }
