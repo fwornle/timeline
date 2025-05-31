@@ -271,8 +271,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
-    if (!hoveredCardId) {
-      // Clear debug info when no card is hovered
+    // Only fade cards when a card is both selected AND hovered (actually opened)
+    if (!hoveredCardId || !selectedCardId || hoveredCardId !== selectedCardId) {
+      // Clear debug info when no card is properly opened
       setDebugInfo({});
       return new Map<string, number>();
     }
@@ -408,7 +409,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     }
     
     return fadeMap;
-  }, [hoveredCardId, eventsToRender, getEventPosition, camera, debugMode]);
+  }, [hoveredCardId, selectedCardId, eventsToRender, getEventPosition, camera, debugMode]);
 
   // Memoize the cards to prevent unnecessary re-renders
   const renderedCards = useMemo(() => {
