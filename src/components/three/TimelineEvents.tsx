@@ -271,26 +271,38 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
-    // Only fade cards when a card is both selected AND hovered (actually opened)
-    if (!hoveredCardId || !selectedCardId || hoveredCardId !== selectedCardId) {
+    // Debug logging to understand the state
+    console.log('[OCCLUSION DEBUG] State check:', {
+      hoveredCardId,
+      selectedCardId,
+      match: hoveredCardId === selectedCardId,
+      bothExist: !!hoveredCardId && !!selectedCardId
+    });
+    
+    // Only fade cards when a card is hovered AND in opened state
+    // hoveredCardId indicates the card is expanded/opened, not just hovered over
+    if (!hoveredCardId) {
       // Clear debug info when no card is properly opened
       setDebugInfo({});
       return new Map<string, number>();
     }
+    
+    // Use hoveredCardId as the opened card ID (this means the card is expanded/opened)
+    const openedCardId = hoveredCardId;
     
     const config = dimensions.animation.card.occlusion;
     if (!config.enableFrontCardFading) return new Map<string, number>();
     
     const fadeMap = new Map<string, number>();
     
-    // Find the hovered card position
-    const hoveredEvent = eventsToRender.find(e => e.id === hoveredCardId);
-    if (!hoveredEvent) return fadeMap;
+    // Find the opened card position
+    const openedEvent = eventsToRender.find(e => e.id === openedCardId);
+    if (!openedEvent) return fadeMap;
     
     if (config.fadeStrategy === 'aggressive') {
       // AGGRESSIVE MODE: Fade ALL cards except the opened one
       eventsToRender.forEach(event => {
-        if (event.id === hoveredCardId) {
+        if (event.id === openedCardId) {
           fadeMap.set(event.id, 1.0); // Opened card is fully visible
         } else {
           fadeMap.set(event.id, config.aggressiveFadeOpacity); // All others heavily faded
@@ -298,44 +310,44 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       });
     } else if (config.fadeStrategy === 'boundingBox') {
       // BOUNDING BOX MODE: Fade cards that overlap with opened card's screen area
-      const hoveredPosition = getEventPosition(hoveredEvent);
-      const hoveredWorldPos = new Vector3(hoveredPosition[0], hoveredPosition[1], hoveredPosition[2]);
+      const openedPosition = getEventPosition(openedEvent);
+      const openedWorldPos = new Vector3(openedPosition[0], openedPosition[1], openedPosition[2]);
       
-      // Get the current scale of the hovered card (it might be zoomed)
+      // Get the current scale of the opened card (it might be zoomed)
       // We need to estimate this based on camera distance and the zoom logic
-      const distanceToHovered = hoveredWorldPos.distanceTo(camera.position);
+      const distanceToOpened = openedWorldPos.distanceTo(camera.position);
       const fovRadians = (camera as any).fov ? ((camera as any).fov * Math.PI) / 180 : (45 * Math.PI) / 180;
-      const visibleHeight = 2 * Math.tan(fovRadians / 2) * distanceToHovered;
+      const visibleHeight = 2 * Math.tan(fovRadians / 2) * distanceToOpened;
       const targetCardHeight = visibleHeight / 3;
-      const hoveredScale = Math.min(Math.max(targetCardHeight / dimensions.card.height, 1.2), 8.0);
+      const openedScale = Math.min(Math.max(targetCardHeight / dimensions.card.height, 1.2), 8.0);
       
       // Calculate screen-space bounding box of the opened card
-      const hoveredBounds = getCardScreenBounds(hoveredWorldPos, hoveredScale);
+      const openedBounds = getCardScreenBounds(openedWorldPos, openedScale);
       
       // Add safety margin
       const margin = config.boundingBoxMargin;
-      const marginX = (hoveredBounds.maxX - hoveredBounds.minX) * margin;
-      const marginY = (hoveredBounds.maxY - hoveredBounds.minY) * margin;
+      const marginX = (openedBounds.maxX - openedBounds.minX) * margin;
+      const marginY = (openedBounds.maxY - openedBounds.minY) * margin;
       
-      const expandedHoveredBounds = {
-        minX: hoveredBounds.minX - marginX,
-        maxX: hoveredBounds.maxX + marginX,
-        minY: hoveredBounds.minY - marginY,
-        maxY: hoveredBounds.maxY + marginY
+      const expandedOpenedBounds = {
+        minX: openedBounds.minX - marginX,
+        maxX: openedBounds.maxX + marginX,
+        minY: openedBounds.minY - marginY,
+        maxY: openedBounds.maxY + marginY
       };
       
       // Store debug info
       const cardOverlaps = new Map<string, boolean>();
       
       // Log debug information
-      console.log('[DEBUG] Hovered card bounds:', hoveredBounds);
-      console.log('[DEBUG] Expanded bounds:', expandedHoveredBounds);
-      console.log('[DEBUG] Hovered scale:', hoveredScale);
-      console.log('[DEBUG] Distance to hovered:', distanceToHovered);
+      console.log('[DEBUG] Opened card bounds:', openedBounds);
+      console.log('[DEBUG] Expanded bounds:', expandedOpenedBounds);
+      console.log('[DEBUG] Opened scale:', openedScale);
+      console.log('[DEBUG] Distance to opened:', distanceToOpened);
       
       // Check each card for screen-space overlap
       eventsToRender.forEach(event => {
-        if (event.id === hoveredCardId) {
+        if (event.id === openedCardId) {
           fadeMap.set(event.id, 1.0); // Opened card is fully visible
           cardOverlaps.set(event.id, false);
           return;
@@ -357,8 +369,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         // Calculate bounding box for this card (assume default scale for non-hovered cards)
         const cardBounds = getCardScreenBounds(eventWorldPos, 1.0);
         
-        // Check if this card's bounding box overlaps with the expanded hovered card bounds
-        const overlaps = boundingBoxesOverlap(cardBounds, expandedHoveredBounds);
+        // Check if this card's bounding box overlaps with the expanded opened card bounds
+        const overlaps = boundingBoxesOverlap(cardBounds, expandedOpenedBounds);
         
         console.log(`[DEBUG] Card ${event.id}:`, {
           bounds: cardBounds,
@@ -372,9 +384,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         if (overlaps) {
           // Calculate fade intensity based on overlap amount and distance
           const overlapArea = Math.max(0, 
-            Math.min(cardBounds.maxX, expandedHoveredBounds.maxX) - Math.max(cardBounds.minX, expandedHoveredBounds.minX)
+            Math.min(cardBounds.maxX, expandedOpenedBounds.maxX) - Math.max(cardBounds.minX, expandedOpenedBounds.minX)
           ) * Math.max(0,
-            Math.min(cardBounds.maxY, expandedHoveredBounds.maxY) - Math.max(cardBounds.minY, expandedHoveredBounds.minY)
+            Math.min(cardBounds.maxY, expandedOpenedBounds.maxY) - Math.max(cardBounds.minY, expandedOpenedBounds.minY)
           );
           
           const cardArea = (cardBounds.maxX - cardBounds.minX) * (cardBounds.maxY - cardBounds.minY);
@@ -393,8 +405,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       // Update debug info for visualization - use Redux debug mode state
       if (debugMode) {
         setDebugInfo({
-          hoveredBounds,
-          expandedBounds: expandedHoveredBounds,
+          hoveredBounds: openedBounds,
+          expandedBounds: expandedOpenedBounds,
           cardOverlaps
         });
         
