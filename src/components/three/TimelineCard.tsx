@@ -5,6 +5,7 @@ import { SafeText } from './SafeText';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, threeColors, threeOpacities } from '../../config';
+import { useLogger } from '../../utils/logging/hooks/useLogger';
 import {
   globalClickHandlers,
   registerOpenCard,
@@ -106,6 +107,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   fadeOpacity = 1.0,
   debugMarker = false
 }) => {
+  const logger = useLogger({ component: 'TimelineCard', topic: 'animations' });
 
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
@@ -262,9 +264,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
   // Trigger fade animation when fadeOpacity changes
   useEffect(() => {
-    const config = dimensions.animation.card.occlusion;
     if (Math.abs(currentOpacity - fadeOpacity) > 0.01) {
-      console.log(`[DEBUG] Card ${event.id} fade animation: ${currentOpacity} -> ${fadeOpacity}`);
+      logger.debug(`Card ${event.id} fade animation: ${currentOpacity.toFixed(3)} -> ${fadeOpacity.toFixed(3)}`);
       fadeAnimationRef.current = {
         startTime: performance.now(),
         startOpacity: currentOpacity,

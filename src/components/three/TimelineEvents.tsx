@@ -3,9 +3,9 @@ import { TimelineCard } from './TimelineCard';
 import { Vector3 } from 'three';
 import { useThree } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
-import { calculateEventZPositionWithIndex, calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
+import { calculateEventZPositionWithIndex } from '../../utils/timeline/timelineCalculations';
 import { dimensions } from '../../config';
-import { useAppSelector } from '../../store';
+import { useLogger } from '../../utils/logging/hooks/useLogger';
 
 interface TimelineEventsProps {
   events: TimelineEvent[]; // All events for position calculation
@@ -45,12 +45,14 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   droneMode = false,
   debugMode = false
 }) => {
+  const logger = useLogger({ component: 'TimelineEvents', topic: 'rendering' });
+  
   // Use visibleEvents for rendering if provided, otherwise render all events
   const eventsToRender = visibleEvents || events;
   
   // Debug logging to track filtering behavior
   if (debugMode && visibleEvents) {
-    console.log(`[TimelineEvents] Total events: ${events.length}, Rendering: ${eventsToRender.length}, Position: ${currentPosition.toFixed(1)}`);
+    logger.debug(`Total events: ${events.length}, Rendering: ${eventsToRender.length}, Position: ${currentPosition.toFixed(1)}`);
   }
   // Track the currently hovered card to enforce exclusivity
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
@@ -272,7 +274,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
     // Debug logging to understand the state
-    console.log('[OCCLUSION DEBUG] State check:', {
+    logger.debug('Occlusion state check:', {
       hoveredCardId,
       selectedCardId,
       match: hoveredCardId === selectedCardId,
@@ -300,7 +302,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     if (!openedEvent) return fadeMap;
     
     if (config.fadeStrategy === 'aggressive') {
-      // AGGRESSIVE MODE: Fade ALL cards except the opened one
+      // AGGRESSIVE MODE: Fade ALL cards except the opened one, but preserve viewport-based fading
       eventsToRender.forEach(event => {
         if (event.id === openedCardId) {
           fadeMap.set(event.id, 1.0); // Opened card is fully visible
@@ -340,10 +342,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       const cardOverlaps = new Map<string, boolean>();
       
       // Log debug information
-      console.log('[DEBUG] Opened card bounds:', openedBounds);
-      console.log('[DEBUG] Expanded bounds:', expandedOpenedBounds);
-      console.log('[DEBUG] Opened scale:', openedScale);
-      console.log('[DEBUG] Distance to opened:', distanceToOpened);
+      logger.debug('Opened card bounds:', { openedBounds });
+      logger.debug('Expanded bounds:', { expandedOpenedBounds });
+      logger.debug('Opened scale:', { openedScale });
+      logger.debug('Distance to opened:', { distanceToOpened });
       
       // Check each card for screen-space overlap
       eventsToRender.forEach(event => {
@@ -372,7 +374,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         // Check if this card's bounding box overlaps with the expanded opened card bounds
         const overlaps = boundingBoxesOverlap(cardBounds, expandedOpenedBounds);
         
-        console.log(`[DEBUG] Card ${event.id}:`, {
+        logger.debug(`Card ${event.id}:`, {
           bounds: cardBounds,
           overlaps,
           screenPos,
@@ -411,12 +413,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         });
         
         // Debug log fade states
-        console.log('[DEBUG] Fade states:');
-        fadeMap.forEach((opacity, cardId) => {
-          if (opacity < 1.0) {
-            console.log(`  Card ${cardId}: opacity ${opacity}`);
-          }
-        });
+        const fadedCards = Array.from(fadeMap.entries()).filter(([, opacity]) => opacity < 1.0);
+        if (fadedCards.length > 0) {
+          logger.debug('Fade states:', { fadedCards: fadedCards.map(([cardId, opacity]) => `${cardId}: ${opacity}`) });
+        }
       }
     }
     
