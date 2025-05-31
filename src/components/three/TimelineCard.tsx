@@ -262,22 +262,16 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
   }, [wiggle, setWiggleState]);
 
-  // Trigger fade animation when fadeOpacity changes
+  // Direct opacity update when fadeOpacity changes (no animation)
   useEffect(() => {
     if (Math.abs(currentOpacity - fadeOpacity) > 0.01) {
-      logger.debug('Setting up fade animation:', {
+      logger.debug('Direct opacity update:', {
         cardId: event.id.slice(-6),
         currentOpacity,
-        fadeOpacity,
-        startTime: performance.now()
+        fadeOpacity
       });
       
-      fadeAnimationRef.current = {
-        startTime: performance.now(),
-        startOpacity: currentOpacity,
-        targetOpacity: fadeOpacity,
-        isAnimating: true
-      };
+      setCurrentOpacity(fadeOpacity);
     }
   }, [fadeOpacity, currentOpacity, event.id, logger]);
 
@@ -313,43 +307,29 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       setWiggleState({ isWiggling: false, startTime: 0, wiggleAngle: 0 });
     }
 
-    // Handle fade animation
-    if (fadeAnimationRef.current.isAnimating) {
-      const fadeConfig = dimensions.animation.card.occlusion;
-      const elapsed = now - fadeAnimationRef.current.startTime;
-      const progress = Math.min(elapsed / fadeConfig.fadeAnimationDuration, 1);
-      
-      // Smooth easing
-      const easedProgress = progress < 0.5 
-        ? 2 * progress * progress 
-        : 1 - 2 * (1 - progress) * (1 - progress);
-      
-      const newOpacity = MathUtils.lerp(
-        fadeAnimationRef.current.startOpacity,
-        fadeAnimationRef.current.targetOpacity,
-        easedProgress
-      );
-      
-      // Debug logging for animation progress
-      if (elapsed < 50) { // Only log first few frames to avoid spam
-        logger.debug('Fade animation running:', {
-          cardId: event.id.slice(-6),
-          progress: progress.toFixed(3),
-          newOpacity: newOpacity.toFixed(3),
-          elapsed
-        });
-      }
-      
-      setCurrentOpacity(newOpacity);
-      
-      if (progress >= 1) {
-        fadeAnimationRef.current.isAnimating = false;
-        logger.debug('Fade animation completed:', {
-          cardId: event.id.slice(-6),
-          finalOpacity: newOpacity.toFixed(3)
-        });
-      }
-    }
+    // Fade animation disabled - using direct opacity updates instead
+    // if (fadeAnimationRef.current.isAnimating) {
+    //   const fadeConfig = (dimensions.animation.card as any).occlusion;
+    //   const elapsed = now - fadeAnimationRef.current.startTime;
+    //   const progress = Math.min(elapsed / fadeConfig.fadeAnimationDuration, 1);
+    //   
+    //   // Smooth easing
+    //   const easedProgress = progress < 0.5 
+    //     ? 2 * progress * progress 
+    //     : 1 - 2 * (1 - progress) * (1 - progress);
+    //   
+    //   const newOpacity = MathUtils.lerp(
+    //     fadeAnimationRef.current.startOpacity,
+    //     fadeAnimationRef.current.targetOpacity,
+    //     easedProgress
+    //   );
+    //   
+    //   setCurrentOpacity(newOpacity);
+    //   
+    //   if (progress >= 1) {
+    //     fadeAnimationRef.current.isAnimating = false;
+    //   }
+    // }
   });
 
   // Calculate optimal card positioning considering camera, viewport, and nearby objects
