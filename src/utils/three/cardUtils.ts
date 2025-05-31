@@ -110,7 +110,7 @@ export function removeForceCloseCallback(callback: (id: string) => void) {
 export function registerOpenCard(cardId: string) {
   globalOpenCards.openCards.add(cardId);
   globalOpenCards.hoveredCard = cardId;
-  console.log('Card registered as open:', cardId, 'Total open:', globalOpenCards.openCards.size);
+  // Card registered as open
 }
 
 /**
@@ -121,7 +121,7 @@ export function unregisterOpenCard(cardId: string) {
   if (globalOpenCards.hoveredCard === cardId) {
     globalOpenCards.hoveredCard = null;
   }
-  console.log('Card unregistered as open:', cardId, 'Total open:', globalOpenCards.openCards.size);
+  // Card unregistered as open
 }
 
 /**
