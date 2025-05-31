@@ -197,7 +197,7 @@ export const dimensions = {
       // Occlusion handling for far-side cards
       occlusion: {
         // Enable fading of front cards when far-side cards open
-        enableFrontCardFading: true,
+        enableFrontCardFading: false,
         // Strategy: 'boundingBox' uses screen-space overlap detection
         fadeStrategy: 'boundingBox',
         // For bounding box mode: fade cards that overlap with opened card's screen area
