@@ -27,6 +27,7 @@ import {
   toggleDroneMode,
   updateCameraWithSync,
   focusOnCurrentPosition,
+  toggleDebugModeWithLogging,
   resetTimelineToStart
 } from '../store/intents/uiIntents';
 import type { CameraState } from '../components/three/TimelineCamera';
@@ -141,7 +142,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
   }, [dispatch]);
 
   const handleDebugModeChange = useCallback((enabled: boolean) => {
-    dispatch(setDebugMode(enabled));
+    dispatch(toggleDebugModeWithLogging(enabled));
   }, [dispatch]);
 
   const handleCameraCyclingModeChange = useCallback((enabled: boolean) => {

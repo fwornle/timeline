@@ -8,11 +8,13 @@ import {
   setViewAll,
   setIsAutoScrolling,
   setDroneMode,
-  setFocusCurrentMode
+  setFocusCurrentMode,
+  setDebugMode
 } from '../slices/uiSlice';
 import { setMarkerPosition } from '../slices/timelineSlice';
 import { updateCameraPreferences, updateMarkerPositionPreferences } from './preferencesIntents';
 import { getFirstEventPosition } from '../../utils/timeline/timelineCalculations';
+import { Logger } from '../../utils/logging/Logger';
 
 // Intent to select a card and update camera
 export const selectCard = createAsyncThunk<
@@ -196,5 +198,64 @@ export const resetTimelineToStart = createAsyncThunk<
 
     // Update timeline position and camera
     dispatch(updateTimelinePosition({ position: startPosition, updateCamera: true }));
+  }
+);
+
+// Local storage key for saved normal mode logging levels
+const NORMAL_MODE_LOGGING_KEY = 'timeline_normal_mode_logging_levels';
+
+// Intent to toggle debug mode with automatic logging level management
+export const toggleDebugModeWithLogging = createAsyncThunk<
+  void,
+  boolean,
+  { state: RootState }
+>(
+  'ui/toggleDebugModeWithLogging',
+  async (enableDebugMode, { dispatch, getState }) => {
+    const currentState = getState();
+    const currentActiveLevels = Logger.getActiveLevels();
+    
+    if (enableDebugMode) {
+      // Entering debug mode
+      
+      // Check if DEBUG level is already active
+      const hasDebugOrAbove = currentActiveLevels.has(Logger.Levels.DEBUG) || 
+                              currentActiveLevels.has(Logger.Levels.TRACE);
+      
+      if (!hasDebugOrAbove) {
+        // Save current logging levels for restoration later
+        const levelsArray = Array.from(currentActiveLevels);
+        localStorage.setItem(NORMAL_MODE_LOGGING_KEY, JSON.stringify(levelsArray));
+        
+        // Enable all levels up to and including DEBUG
+        const debugModeLevels = new Set([
+          Logger.Levels.ERROR,
+          Logger.Levels.WARN, 
+          Logger.Levels.INFO,
+          Logger.Levels.DEBUG
+        ]);
+        
+        Logger.setActiveLevels(debugModeLevels);
+        console.log('[DEBUG MODE] Enabled debug logging, saved normal levels:', levelsArray);
+      }
+    } else {
+      // Exiting debug mode
+      
+      // Restore saved logging levels if they exist
+      const savedLevelsJson = localStorage.getItem(NORMAL_MODE_LOGGING_KEY);
+      if (savedLevelsJson) {
+        try {
+          const savedLevels = JSON.parse(savedLevelsJson);
+          Logger.setActiveLevels(new Set(savedLevels));
+          localStorage.removeItem(NORMAL_MODE_LOGGING_KEY);
+          console.log('[DEBUG MODE] Restored normal logging levels:', savedLevels);
+        } catch (e) {
+          console.warn('[DEBUG MODE] Failed to restore saved logging levels:', e);
+        }
+      }
+    }
+    
+    // Update debug mode state
+    dispatch(setDebugMode(enableDebugMode));
   }
 );
