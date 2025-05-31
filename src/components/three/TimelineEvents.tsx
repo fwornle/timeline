@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { TimelineCard } from './TimelineCard';
 import { Vector3 } from 'three';
+import { useThree } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { calculateEventZPositionWithIndex, calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
+import { dimensions } from '../../config';
 
 interface TimelineEventsProps {
   events: TimelineEvent[]; // All events for position calculation
@@ -51,6 +53,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   }
   // Track the currently hovered card to enforce exclusivity
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+  
+  // Get camera reference for occlusion detection
+  const { camera } = useThree();
 
   // Store onPositionUpdate in ref to avoid dependency issues
   const onPositionUpdateRef = useRef(onPositionUpdate);
@@ -209,6 +214,58 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     };
   }, []);
 
+  // Calculate which cards should be faded due to occlusion
+  const cardFadeStates = useMemo(() => {
+    if (!hoveredCardId) return new Map<string, number>();
+    
+    const config = dimensions.animation.card.occlusion;
+    if (!config.enableFrontCardFading) return new Map<string, number>();
+    
+    const fadeMap = new Map<string, number>();
+    
+    // Find the hovered card position
+    const hoveredEvent = eventsToRender.find(e => e.id === hoveredCardId);
+    if (!hoveredEvent) return fadeMap;
+    
+    const hoveredPosition = getEventPosition(hoveredEvent);
+    const hoveredWorldPos = new Vector3(hoveredPosition[0], hoveredPosition[1], hoveredPosition[2]);
+    const cameraPos = camera.position.clone();
+    
+    // Calculate camera direction to hovered card
+    const cameraToHovered = new Vector3().subVectors(hoveredWorldPos, cameraPos).normalize();
+    
+    // Check each other card to see if it's "in front" of the hovered card
+    eventsToRender.forEach(event => {
+      if (event.id === hoveredCardId) {
+        fadeMap.set(event.id, 1.0); // Hovered card is always fully visible
+        return;
+      }
+      
+      const eventPosition = getEventPosition(event);
+      const eventWorldPos = new Vector3(eventPosition[0], eventPosition[1], eventPosition[2]);
+      
+      // Calculate distance from camera to this card
+      const cameraToEvent = new Vector3().subVectors(eventWorldPos, cameraPos);
+      const distanceToEvent = cameraToEvent.length();
+      const distanceToHovered = cameraToHovered.length() * hoveredWorldPos.distanceTo(cameraPos);
+      
+      // Check if this card is between camera and hovered card
+      const isInFront = distanceToEvent < distanceToHovered;
+      
+      // Also check if cards are close enough to cause occlusion
+      const cardDistance = eventWorldPos.distanceTo(hoveredWorldPos);
+      const isTooClose = cardDistance < config.frontCardDistanceThreshold;
+      
+      if (isInFront && isTooClose) {
+        fadeMap.set(event.id, config.frontCardFadeOpacity);
+      } else {
+        fadeMap.set(event.id, 1.0);
+      }
+    });
+    
+    return fadeMap;
+  }, [hoveredCardId, eventsToRender, getEventPosition, camera.position]);
+
   // Memoize the cards to prevent unnecessary re-renders
   const renderedCards = useMemo(() => {
     return eventsToRender.map((event) => {
@@ -230,10 +287,11 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           isMarkerDragging={isMarkerDragging}
           droneMode={droneMode}
           isHovered={hoveredCardId === event.id}
+          fadeOpacity={cardFadeStates.get(event.id) ?? 1.0}
         />
       );
     });
-  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId]);
+  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates]);
 
   return (
     <group>
