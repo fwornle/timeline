@@ -179,16 +179,18 @@ export const dimensions = {
         hover: 0.3,
         selected: 0.5
       },
-      // Forward movement toward camera when opening
-      forwardMovement: {
-        // Base forward distance as multiplier of card width
-        baseMultiplier: 3.0,
-        // Additional forward distance based on camera distance
-        cameraDistanceRatio: 0.25,
-        // Minimum forward distance to ensure coverage
-        minimumDistance: 8.0,
-        // Maximum forward distance to prevent clipping
-        maximumDistance: 20.0
+      // Smart positioning when opening cards
+      smartPositioning: {
+        // How far to move toward camera as percentage of distance
+        forwardRatio: 0.4,
+        // Minimum forward distance to ensure coverage of adjacent cards
+        minForwardDistance: 5.0,
+        // Safety margin from viewport edges (as percentage of viewport size)
+        viewportMargin: 0.1,
+        // Maximum distance from original position to maintain context
+        maxOffsetDistance: 8.0,
+        // How far to lift the card up for better visibility
+        liftDistance: 2.0
       },
       duration: 250, // milliseconds
       hoverLockDuration: 500 // milliseconds

@@ -274,76 +274,131 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
   });
 
-  // Calculate camera-related values for animation
-  const calculateCameraValues = useCallback(() => {
-    if (!groupRef.current) return { angle: 0, distance: 10, zoomFactor: 1.5, moveDistance: 1.0 };
+  // Calculate optimal card positioning considering camera, viewport, and nearby objects
+  const calculateOptimalPosition = useCallback(() => {
+    if (!groupRef.current) return { 
+      angle: 0, 
+      distance: 10, 
+      zoomFactor: 1.5, 
+      optimalPosition: new Vector3(position[0], position[1], position[2])
+    };
 
     // Get card position in world space
     const cardPosition = new Vector3(position[0], position[1], position[2]);
-
-    // Get camera position
     const cameraPosition = camera.position.clone();
 
-    // Calculate direction from card to camera (in 3D space for more accurate facing)
-    const direction = new Vector3(
-      cameraPosition.x - cardPosition.x,
-      cameraPosition.y - cardPosition.y,
-      cameraPosition.z - cardPosition.z
-    ).normalize();
+    // Calculate direction from card to camera
+    const toCameraDirection = new Vector3()
+      .subVectors(cameraPosition, cardPosition)
+      .normalize();
 
-    // Project the direction onto the XZ plane for Y rotation
-    const xzDirection = new Vector3(direction.x, 0, direction.z).normalize();
-
-    // Calculate angle - we want the card to face the camera
+    // Calculate angle for card to face camera
+    const xzDirection = new Vector3(toCameraDirection.x, 0, toCameraDirection.z).normalize();
     const angle = Math.atan2(xzDirection.x, xzDirection.z);
 
     // Calculate distance from camera to card
     const distance = cardPosition.distanceTo(cameraPosition);
 
-    // Calculate the camera's field of view in radians
-    // Default to 45 degrees if not a perspective camera
+    // Get smart positioning config
+    const config = dimensions.animation.card.smartPositioning;
+    const cardWidth = dimensions.card.width;
+    const cardHeight = dimensions.card.height;
+
+    // Calculate camera FOV and viewport dimensions at card distance
     const fovRadians = (camera instanceof PerspectiveCamera)
       ? (camera.fov * Math.PI) / 180
       : (45 * Math.PI) / 180;
 
-    // Calculate the visible height at the card's distance
-    // This is the height of the visible area at the card's distance from camera
     const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
+    const visibleWidth = visibleHeight * (camera.aspect || 1);
 
-    // We want the card to take up approximately 1/3 of the visible height
+    // Calculate optimal scale (card should take ~1/3 of visible height)
     const targetCardHeight = visibleHeight / 3;
+    const zoomFactor = Math.min(Math.max(targetCardHeight / cardHeight, 1.2), 8.0);
 
-    // Calculate zoom factor needed to achieve this size
-    // The card's base height is cardHeight (2.0 units)
-    const cardBaseHeight = 2.0;
-    const zoomFactor = targetCardHeight / cardBaseHeight;
-
-    // Apply min/max limits to keep the zoom reasonable
-    const minZoom = 1.2;
-    const maxZoom = 12.0;
-    const finalZoomFactor = Math.min(Math.max(zoomFactor, minZoom), maxZoom);
-
-    // Calculate how far to move the card toward the camera
-    // Use configuration for dynamic forward movement calculation
-    const forwardConfig = dimensions.animation.card.forwardMovement;
-    const cardWidth = dimensions.card.width;
-    
-    // Calculate forward distance based on configuration
-    const baseForward = cardWidth * forwardConfig.baseMultiplier;
-    const cameraBasedForward = distance * forwardConfig.cameraDistanceRatio;
-    const calculatedForward = Math.max(baseForward, cameraBasedForward);
-    
-    // Apply min/max limits from configuration
-    const finalMoveDistance = Math.min(
-      Math.max(calculatedForward, forwardConfig.minimumDistance),
-      forwardConfig.maximumDistance
+    // Calculate forward movement toward camera
+    const forwardDistance = Math.max(
+      config.minForwardDistance,
+      distance * config.forwardRatio
     );
+
+    // Calculate the viewport bounds in world space at the new distance
+    const newDistance = distance - forwardDistance;
+    const newVisibleHeight = 2 * Math.tan(fovRadians / 2) * newDistance;
+    const newVisibleWidth = newVisibleHeight * (camera.aspect || 1);
+
+    // Calculate viewport margins
+    const marginH = newVisibleWidth * config.viewportMargin;
+    const marginV = newVisibleHeight * config.viewportMargin;
+
+    // Project camera direction to find viewport bounds relative to camera
+    const cameraForward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const cameraRight = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const cameraUp = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+    // Calculate the center point of the viewport at the new distance
+    const viewportCenter = new Vector3()
+      .copy(cameraPosition)
+      .add(cameraForward.clone().multiplyScalar(newDistance));
+
+    // Calculate viewport bounds in world space
+    const viewportHalfWidth = (newVisibleWidth / 2) - marginH;
+    const viewportHalfHeight = (newVisibleHeight / 2) - marginV;
+
+    // Start with position moved toward camera
+    const baseNewPosition = new Vector3()
+      .copy(cardPosition)
+      .add(toCameraDirection.clone().multiplyScalar(forwardDistance));
+
+    // Add upward lift
+    baseNewPosition.y += config.liftDistance;
+
+    // Check if card would be within viewport bounds at this position
+    // Project the card position relative to viewport center
+    const cardRelativeToViewport = new Vector3().subVectors(baseNewPosition, viewportCenter);
+    
+    // Calculate card position in viewport coordinates
+    const cardViewportX = cardRelativeToViewport.dot(cameraRight);
+    const cardViewportY = cardRelativeToViewport.dot(cameraUp);
+
+    // Calculate scaled card dimensions
+    const scaledCardWidth = cardWidth * zoomFactor;
+    const scaledCardHeight = cardHeight * zoomFactor;
+
+    // Clamp card position to stay within viewport bounds
+    const clampedX = Math.max(
+      -viewportHalfWidth + scaledCardWidth / 2,
+      Math.min(viewportHalfWidth - scaledCardWidth / 2, cardViewportX)
+    );
+    
+    const clampedY = Math.max(
+      -viewportHalfHeight + scaledCardHeight / 2,
+      Math.min(viewportHalfHeight - scaledCardHeight / 2, cardViewportY)
+    );
+
+    // Convert back to world coordinates
+    const clampedWorldPosition = new Vector3()
+      .copy(viewportCenter)
+      .add(cameraRight.clone().multiplyScalar(clampedX))
+      .add(cameraUp.clone().multiplyScalar(clampedY));
+
+    // Ensure we don't move too far from original position (maintain context)
+    const offsetFromOriginal = clampedWorldPosition.distanceTo(cardPosition);
+    if (offsetFromOriginal > config.maxOffsetDistance) {
+      // Scale back the offset to stay within max distance
+      const offsetDirection = new Vector3()
+        .subVectors(clampedWorldPosition, cardPosition)
+        .normalize();
+      
+      clampedWorldPosition.copy(cardPosition)
+        .add(offsetDirection.multiplyScalar(config.maxOffsetDistance));
+    }
 
     return {
       angle,
       distance,
-      zoomFactor: finalZoomFactor,
-      moveDistance: finalMoveDistance
+      zoomFactor,
+      optimalPosition: clampedWorldPosition
     };
   }, [position, camera, groupRef]);
 
@@ -364,40 +419,21 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       const currentPositionZ = groupRef.current?.position.z || position[2];
       const currentScale = groupRef.current?.scale.x || 1;
 
-      // Get camera-dependent values
-      const { angle, zoomFactor, moveDistance } = calculateCameraValues();
+      // Get optimal positioning values
+      const { angle, zoomFactor, optimalPosition } = calculateOptimalPosition();
 
       if (newIsHovered) {
-        // HOVER: Start simultaneous slide + swirl/zoom animation
+        // HOVER: Move to optimal position with swirl/zoom animation
         animationCompletionRef.current = { targetState: 'open', mustComplete: true, cardId: event.id };
         registerAnimatingCard(event.id);
 
-        const cardWidth = dimensions.card.width;
-        const cardHeight = dimensions.card.height;
-
-        // Calculate perpendicular direction to timeline (timeline runs along Z-axis)
-        // We want to move away from the timeline, which means moving in the X direction
-        const awayFromTimeline = new Vector3(1, 0, 0); // Move in X direction (perpendicular to timeline)
-
-        // Determine which side to move to (positive or negative X) based on card position
-        // Cards on the left side of timeline should move left, cards on right should move right
-        const sideMultiplier = position[0] >= 0 ? 1 : -1; // Move away from center
-
-        // Calculate final position: slide away from timeline and up + move toward camera
-        const slideDistance = cardWidth * 1.5; // 1.5 full card widths away from timeline
-        const upDistance = cardHeight * 1.5; // 1.5 full card heights up
-
-        const finalX = position[0] + (awayFromTimeline.x * slideDistance * sideMultiplier);
-        const finalY = position[1] + upDistance + 0.5; // Additional lift for better visibility
-        const finalZ = position[2] - moveDistance; // Move toward camera to cover adjacent cards
-
-        // Start simultaneous animation (slide + swirl/zoom together)
+        // Start simultaneous animation to optimal position
         setAnimState({
-          targetRotationY: angle, // Full rotation
-          targetPositionX: finalX,
-          targetPositionY: finalY,
-          targetPositionZ: finalZ,
-          targetScale: zoomFactor, // Full scale
+          targetRotationY: angle,
+          targetPositionX: optimalPosition.x,
+          targetPositionY: optimalPosition.y,
+          targetPositionZ: optimalPosition.z,
+          targetScale: zoomFactor,
           animationStartTime: performance.now(),
           isAnimating: true,
           isFirstStage: false, // Single stage with all effects
@@ -408,9 +444,9 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           startPositionY: currentPositionY,
           startPositionZ: currentPositionZ,
           startScale: currentScale,
-          intermediatePositionX: finalX,
-          intermediatePositionY: finalY,
-          intermediatePositionZ: finalZ,
+          intermediatePositionX: optimalPosition.x,
+          intermediatePositionY: optimalPosition.y,
+          intermediatePositionZ: optimalPosition.z,
           animationDuration: 600, // Combined animation duration
         });
       } else {
@@ -447,7 +483,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         });
       }
     }
-  }, [isHovered, calculateCameraValues, position]);
+  }, [isHovered, calculateOptimalPosition, position]);
 
   // Animation frame (throttled for performance)
   const lastAnimationUpdateRef = useRef(0);
@@ -462,28 +498,30 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
     lastAnimationUpdateRef.current = now;
 
-    // Recalculate camera values if card is hovered and not animating
-    // This ensures the card stays properly oriented even when camera moves
+    // Recalculate optimal position if card is hovered and not animating
+    // This ensures the card stays properly positioned even when camera moves
     if (isHovered && !animState.isAnimating) {
-      const { angle, zoomFactor, moveDistance } = calculateCameraValues();
+      const { angle, zoomFactor, optimalPosition } = calculateOptimalPosition();
 
       // Only start a new animation if values have changed significantly
       const currentRotationY = groupRef.current.rotation.y;
       const currentPositionX = groupRef.current.position.x;
-      const currentScale = groupRef.current.scale.x;
+      const currentPositionY = groupRef.current.position.y;
       const currentPositionZ = groupRef.current.position.z;
+      const currentScale = groupRef.current.scale.x;
 
       const rotationDiff = Math.abs(currentRotationY - angle);
       const scaleDiff = Math.abs(currentScale - zoomFactor);
-      const positionZDiff = Math.abs(currentPositionZ - (position[2] - moveDistance));
+      const positionDiff = new Vector3(currentPositionX, currentPositionY, currentPositionZ)
+        .distanceTo(optimalPosition);
 
       // If any value has changed significantly, update the animation
-      if (rotationDiff > 0.1 || scaleDiff > 0.1 || positionZDiff > 0.1) {
+      if (rotationDiff > 0.1 || scaleDiff > 0.1 || positionDiff > 0.5) {
         setAnimState({
           targetRotationY: angle,
-          targetPositionX: position[0], // No side offset for camera tracking updates
-          targetPositionY: position[1] + 0.5,
-          targetPositionZ: position[2] - moveDistance,
+          targetPositionX: optimalPosition.x,
+          targetPositionY: optimalPosition.y,
+          targetPositionZ: optimalPosition.z,
           targetScale: zoomFactor,
           animationStartTime: now,
           isAnimating: true,
@@ -493,12 +531,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           animationDuration: 300, // Medium speed for camera tracking updates
           startRotationY: currentRotationY,
           startPositionX: currentPositionX,
-          startPositionY: groupRef.current.position.y,
+          startPositionY: currentPositionY,
           startPositionZ: currentPositionZ,
           startScale: currentScale,
-          intermediatePositionX: currentPositionX,
-          intermediatePositionY: groupRef.current.position.y,
-          intermediatePositionZ: currentPositionZ,
+          intermediatePositionX: optimalPosition.x,
+          intermediatePositionY: optimalPosition.y,
+          intermediatePositionZ: optimalPosition.z,
         });
       }
     }
