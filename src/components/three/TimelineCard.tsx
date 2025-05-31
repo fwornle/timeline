@@ -232,7 +232,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Create a force close callback specific to this card
     const forceClose = (cardId: string) => {
       if (cardId === event.id && onHover) {
-        console.log('Force closing card:', cardId);
+        // Force closing card
         onHover(null);
       }
     };
@@ -729,7 +729,6 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     // Simply notify parent - it will handle exclusivity
     if (onHover) {
-      console.log(`[TimelineCard] Calling onHover for card: ${event.id.slice(-6)}`);
       onHover(event.id);
     }
   };
