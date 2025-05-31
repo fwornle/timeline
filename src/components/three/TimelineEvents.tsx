@@ -286,7 +286,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     if (!hoveredCardId) {
       // Clear debug info when no card is properly opened
       setDebugInfo({});
-      return new Map<string, number>();
+      
+      // Ensure all visible cards are fully opaque when no card is open
+      const resetFadeMap = new Map<string, number>();
+      eventsToRender.forEach(event => {
+        resetFadeMap.set(event.id, 1.0);
+      });
+      return resetFadeMap;
     }
     
     // Use hoveredCardId as the opened card ID (this means the card is expanded/opened)
@@ -372,10 +378,21 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         const cardBounds = getCardScreenBounds(eventWorldPos, 1.0);
         
         // Check if this card's bounding box overlaps with the expanded opened card bounds
-        const overlaps = boundingBoxesOverlap(cardBounds, expandedOpenedBounds);
+        const geometricOverlaps = boundingBoxesOverlap(cardBounds, expandedOpenedBounds);
+        
+        // Also check temporal proximity: include cards within +1 day towards the future
+        const oneDayMs = 24 * 60 * 60 * 1000; // 1 day in milliseconds
+        const timeDiff = event.timestamp.getTime() - openedEvent.timestamp.getTime();
+        const isTemporallyNear = timeDiff >= 0 && timeDiff <= oneDayMs; // +1 day towards future
+        
+        // Card should be faded if it geometrically overlaps OR is temporally near (future-ward)
+        const overlaps = geometricOverlaps || isTemporallyNear;
         
         logger.debug(`Card ${event.id}:`, {
           bounds: cardBounds,
+          geometricOverlaps,
+          isTemporallyNear,
+          timeDiffDays: (timeDiff / (24 * 60 * 60 * 1000)).toFixed(2),
           overlaps,
           screenPos,
           worldPos: eventWorldPos
