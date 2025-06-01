@@ -665,12 +665,9 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         // Unregister card as animating
         unregisterAnimatingCard(event.id);
 
-        // Register/unregister card as open based on target state
-        if (animationCompletionRef.current.targetState === 'open') {
-          registerOpenCard(event.id);
-        } else if (animationCompletionRef.current.targetState === 'closed') {
-          unregisterOpenCard(event.id);
-          // Also clear hover state when card closes
+        // Handle card state transitions (no longer using global module state)
+        if (animationCompletionRef.current.targetState === 'closed') {
+          // Clear hover state when card closes
           if (onHover) {
             onHover(null);
           }
