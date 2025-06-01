@@ -8,7 +8,7 @@ import { dimensions } from '../../config';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { useAppSelector, useAppDispatch } from '../../store';
 import { hoverCard } from '../../store/intents/uiIntents';
-import { setMarkerFadeOpacity, setDebugMarkerFade } from '../../store/slices/uiSlice';
+import { setMarkerFadeOpacity, setDebugMarkerFade, setFadedCardsTemporalRange } from '../../store/slices/uiSlice';
 
 interface TimelineEventsProps {
   events: TimelineEvent[]; // All events for position calculation
@@ -444,6 +444,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       // Clear marker fade when no card is hovered
       dispatch(setMarkerFadeOpacity(1.0));
       dispatch(setDebugMarkerFade(false));
+      dispatch(setFadedCardsTemporalRange(null));
       return;
     }
     
@@ -462,27 +463,30 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         const minTimestamp = Math.min(...fadedCardTimestamps);
         const maxTimestamp = Math.max(...fadedCardTimestamps);
         
-        // Markers should be faded when there are any faded cards (not just when current time is in range)
-        // The original logic was: fade markers when the temporal range of faded cards covers markers
-        // Let's set markers to fade whenever there are faded cards in the scene
-        const markerOpacity = config.boundingBoxFadeOpacity;
-        dispatch(setMarkerFadeOpacity(markerOpacity));
+        // Store the temporal range of faded cards for markers to check against
+        const temporalRange = { minTimestamp, maxTimestamp };
+        dispatch(setFadedCardsTemporalRange(temporalRange));
         
-        // Set debug marker state for any faded cards in debug mode
+        // Set marker fade opacity (markers will individually apply this if they're in range)
+        dispatch(setMarkerFadeOpacity(config.boundingBoxFadeOpacity));
+        
+        // Set debug marker state - markers in temporal range will show green in debug mode
         dispatch(setDebugMarkerFade(debugMode));
         
         if (debugMode) {
-          logger.debug(`Marker fade calculation: fadedRange=${new Date(minTimestamp).toISOString()} to ${new Date(maxTimestamp).toISOString()}, fadedCards=${fadedCardTimestamps.length}, opacity=${markerOpacity}`);
+          logger.debug(`Marker fade calculation: fadedRange=${new Date(minTimestamp).toISOString()} to ${new Date(maxTimestamp).toISOString()}, fadedCards=${fadedCardTimestamps.length}, opacity=${config.boundingBoxFadeOpacity}`);
         }
       } else {
         // No cards are actually faded, ensure markers are fully visible
         dispatch(setMarkerFadeOpacity(1.0));
         dispatch(setDebugMarkerFade(false));
+        dispatch(setFadedCardsTemporalRange(null));
       }
     } else {
       // No cards are faded, ensure markers are fully visible
       dispatch(setMarkerFadeOpacity(1.0));
       dispatch(setDebugMarkerFade(false));
+      dispatch(setFadedCardsTemporalRange(null));
     }
   }, [cardFadeStates, hoveredCardId, eventsToRender, debugMode, dispatch, logger]);
 

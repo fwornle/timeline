@@ -48,10 +48,11 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   
-  // Get timezone from preferences, marker fade opacity and debug state from Redux
+  // Get timezone from preferences, marker fade state from Redux
   const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
   const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
   const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
+  const fadedCardsTemporalRange = useAppSelector(state => state.ui.fadedCardsTemporalRange);
 
   // Fetch calendar data when dates or timezone change
   React.useEffect(() => {
@@ -186,7 +187,18 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         const markerColor = specialDay.type === 'public' ? '#ff6b6b' : '#ffa726';
         const markerHeight = specialDay.type === 'public' ? 1.5 : 1.0;
         
-        // Add vertical line marker with fade opacity
+        // Check if this marker falls within the temporal range of faded cards
+        const markerDate = new Date(specialDay.date); // specialDay.date is a string in YYYY-MM-DD format
+        const markerTimestamp = markerDate.getTime();
+        const isMarkerInFadedRange = fadedCardsTemporalRange && 
+          markerTimestamp >= fadedCardsTemporalRange.minTimestamp && 
+          markerTimestamp <= fadedCardsTemporalRange.maxTimestamp;
+        
+        // Apply fade opacity only if marker is in range, otherwise full opacity
+        const actualOpacity = isMarkerInFadedRange ? markerFadeOpacity : 1.0;
+        const actualFillOpacity = isMarkerInFadedRange ? markerFadeOpacity : 1.0;
+        
+        // Add vertical line marker with conditional fade opacity
         ticks.push(
           <Line
             key={`holiday-${specialDay.date}`}
@@ -197,9 +209,19 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             color={markerColor}
             lineWidth={3}
             transparent={true}
-            opacity={markerFadeOpacity}
+            opacity={actualOpacity}
           />
         );
+        
+        // Add debug marker if this marker is in faded range and debug mode is on
+        if (isMarkerInFadedRange && debugMarkerFade) {
+          ticks.push(
+            <mesh key={`holiday-debug-${specialDay.date}`} position={[0, 2, position]}>
+              <boxGeometry args={[0.3, 1.5, 0.02]} />
+              <meshBasicMaterial color="green" transparent opacity={0.3} />
+            </mesh>
+          );
+        }
         
         // Add label for holidays (not bridge days to avoid clutter)
         if (specialDay.type === 'public' && showLabels) {
@@ -211,20 +233,10 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
               fontSize={0.3}
               anchorX="center"
               anchorY="bottom"
-              fillOpacity={markerFadeOpacity}
+              fillOpacity={actualFillOpacity}
             >
               {specialDay.name}
             </SafeText>
-          );
-        }
-
-        // Add debug marker for occlusion detection
-        if (debugMarkerFade) {
-          ticks.push(
-            <mesh key={`holiday-debug-${specialDay.date}`} position={[0, 2, position]}>
-              <boxGeometry args={[0.5, markerHeight * 2 + 0.4, 0.02]} />
-              <meshBasicMaterial color="#00ff00" transparent opacity={0.5} />
-            </mesh>
           );
         }
       }
