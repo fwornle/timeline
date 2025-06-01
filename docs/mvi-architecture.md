@@ -70,6 +70,8 @@ const initialState: TimelineState = {
 - Manages card selection and hover states with exclusive interaction system
 - Handles view modes (drone, view-all, focus) with automatic mode coordination
 - **Camera state automatically synced with preferences for persistence**
+- **Occlusion system state management** for timeline marker and card fading
+- **Temporal range tracking** for advanced visual clarity features
 
 **Repository Slice** (`src/store/slices/repositorySlice.ts`)
 - Manages repository connection and metadata
@@ -121,6 +123,25 @@ The View layer consists of pure React components that receive state via props an
 The Intent layer captures user interactions and translates them into actionable intents. It uses Redux Toolkit's `createAsyncThunk` for complex async operations and **automatic state persistence coordination**.
 
 #### UI Intents (`src/store/intents/uiIntents.ts`)
+
+**Card Hover Intent with Occlusion System Activation:**
+```typescript
+export const hoverCard = createAsyncThunk<
+  void,
+  string | null,
+  { state: RootState }
+>(
+  'ui/hoverCard',
+  async (cardId, { dispatch }) => {
+    // Update hover state
+    dispatch(setHoveredCardId(cardId));
+    
+    // Occlusion system automatically calculates fade states
+    // based on hovered card and updates temporal ranges
+    // for marker fading coordination
+  }
+);
+```
 
 **Enhanced Card Selection with Camera Coordination:**
 ```typescript
@@ -240,6 +261,50 @@ export const updateCameraPreferences = createAsyncThunk<
   }
 );
 ```
+
+### Occlusion System State Management
+
+The occlusion system adds sophisticated visual clarity features through Redux state management:
+
+```typescript
+// UI Slice - Occlusion State
+interface UIState {
+  // ... existing state
+  
+  // Occlusion system state
+  markerFadeOpacity: number;                    // Current opacity for faded markers
+  debugMarkerFade: boolean;                     // Debug visualization toggle  
+  fadedCardsTemporalRange: {                    // Timestamp range of faded cards
+    minTimestamp: number;
+    maxTimestamp: number;
+  } | null;
+}
+
+// Occlusion state actions
+const uiSlice = createSlice({
+  name: 'ui',
+  initialState,
+  reducers: {
+    setMarkerFadeOpacity: (state, action: PayloadAction<number>) => {
+      state.markerFadeOpacity = action.payload;
+    },
+    setDebugMarkerFade: (state, action: PayloadAction<boolean>) => {
+      state.debugMarkerFade = action.payload;
+    },
+    setFadedCardsTemporalRange: (state, action: PayloadAction<{ minTimestamp: number; maxTimestamp: number } | null>) => {
+      state.fadedCardsTemporalRange = action.payload;
+    },
+  },
+});
+```
+
+**Occlusion Calculation Flow:**
+1. **Card Hover**: User hovers over timeline card, triggering `hoverCard` intent
+2. **Fade Calculation**: `TimelineEvents` component calculates which cards should fade
+3. **Temporal Range**: Extract timestamp range of all faded cards
+4. **Marker Coordination**: Update Redux state with fade opacity and temporal range
+5. **Individual Marker Logic**: Each marker checks if it falls within temporal range
+6. **Synchronized Fading**: Cards, text, and markers fade with consistent opacity
 
 ## Data Flow with Persistence
 

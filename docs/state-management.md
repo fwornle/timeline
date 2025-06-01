@@ -139,6 +139,15 @@ interface UIState {
   cameraState: CameraState; // ⭐ Synced with Three.js camera and persisted
   selectedCardId: string | null;
   hoveredCardId: string | null;
+  
+  // ⭐ Occlusion system state for visual clarity
+  markerFadeOpacity: number;                    // Current opacity for faded markers
+  debugMarkerFade: boolean;                     // Debug visualization toggle
+  fadedCardsTemporalRange: {                    // Timestamp range of faded cards
+    minTimestamp: number;
+    maxTimestamp: number;
+  } | null;
+  
   showPreferences: boolean;
   showLoggingControl: boolean;
   sidebarOpen: boolean;
@@ -162,6 +171,19 @@ const uiSlice = createSlice({
     setSelectedCardId: (state, action: PayloadAction<string | null>) => {
       state.selectedCardId = action.payload;
     },
+    setHoveredCardId: (state, action: PayloadAction<string | null>) => {
+      state.hoveredCardId = action.payload;
+    },
+    // ⭐ Occlusion system reducers for visual clarity
+    setMarkerFadeOpacity: (state, action: PayloadAction<number>) => {
+      state.markerFadeOpacity = action.payload;
+    },
+    setDebugMarkerFade: (state, action: PayloadAction<boolean>) => {
+      state.debugMarkerFade = action.payload;
+    },
+    setFadedCardsTemporalRange: (state, action: PayloadAction<{ minTimestamp: number; maxTimestamp: number } | null>) => {
+      state.fadedCardsTemporalRange = action.payload;
+    },
     setDroneMode: (state, action: PayloadAction<boolean>) => {
       state.droneMode = action.payload;
       if (action.payload) {
@@ -180,6 +202,8 @@ const uiSlice = createSlice({
 - **View Mode Coordination**: Manages multiple camera modes (drone, view-all, focus)
 - **Interaction State**: Tracks card selection and hover states
 - **Animation Control**: Manages auto-drift and animation speed
+- **Occlusion System**: Advanced visual clarity through marker and card fading
+- **Temporal Range Tracking**: Coordinates fade effects across timeline markers
 
 ### Repository Slice
 
@@ -373,6 +397,25 @@ export const updateCameraWithSync = createAsyncThunk<
       target: new THREE.Vector3(newTarget.x, newTarget.y, newTarget.z),
       zoom: newZoom,
     }));
+  }
+);
+
+// ⭐ Card hover intent with occlusion system activation
+export const hoverCard = createAsyncThunk<
+  void,
+  string | null,
+  { state: RootState }
+>(
+  'ui/hoverCard',
+  async (cardId, { dispatch }) => {
+    // Update hover state - triggers occlusion system calculations
+    dispatch(setHoveredCardId(cardId));
+    
+    // Occlusion system automatically:
+    // 1. Calculates which cards should fade based on bounding box overlap
+    // 2. Determines temporal range of faded cards 
+    // 3. Updates marker fade opacity and temporal range state
+    // 4. Individual markers check if they fall within temporal range
   }
 );
 

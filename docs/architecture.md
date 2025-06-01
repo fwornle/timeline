@@ -125,9 +125,10 @@ The Redux store is organized into four main slices:
 
 #### **UI Slice** (`src/store/slices/uiSlice.ts`)
 - **Purpose**: Controls user interface state and interactions
-- **State**: Camera state, animation settings, card selection, view modes
-- **Actions**: updateCameraState, setSelectedCardId, setDroneMode, setViewAll
-- **Interaction Management**: Handles complex UI state coordination
+- **State**: Camera state, animation settings, card selection, view modes, occlusion system
+- **Actions**: updateCameraState, setSelectedCardId, setDroneMode, setViewAll, setMarkerFadeOpacity, setFadedCardsTemporalRange
+- **Interaction Management**: Handles complex UI state coordination including timeline occlusion
+- **Occlusion System**: Manages marker fading and temporal range tracking for enhanced visual clarity
 
 #### **Repository Slice** (`src/store/slices/repositorySlice.ts`)
 - **Purpose**: Manages repository connection and metadata
@@ -147,6 +148,7 @@ Complex user interactions are handled through async thunks in the intent layer:
 
 #### **UI Intents** (`src/store/intents/uiIntents.ts`)
 - `selectCard()`: Handles card selection with camera coordination
+- `hoverCard()`: Manages card hover state and triggers occlusion system
 - `updateTimelinePosition()`: Updates marker position with camera sync
 - `toggleViewAll()`: Manages view mode transitions
 - `focusOnCurrentPosition()`: Coordinates camera focus operations
@@ -333,8 +335,10 @@ sequenceDiagram
   - 3D timeline axis with tick marks
   - Draggable timeline marker (yellow pin)
   - Timeline hover detection zones
-  - Date/time labeling
+  - Date/time labeling with public holidays and bridge days
   - Interactive click-to-move functionality
+  - Calendar integration with timezone support
+  - Marker occlusion system with temporal range detection
 
 #### **TimelineEvents.tsx**
 - **Purpose**: Container for all timeline event cards
@@ -343,6 +347,9 @@ sequenceDiagram
   - Handles card positioning along timeline
   - Coordinates card interactions and animations
   - Implements global card state management
+  - Advanced occlusion system with bounding box detection
+  - Temporal range calculation for marker fading
+  - Debug visualization for development
 
 #### **TimelineCard.tsx**
 - **Purpose**: Individual 3D cards representing timeline events
@@ -352,6 +359,8 @@ sequenceDiagram
   - Exclusive card opening system
   - Global click-outside-to-close functionality
   - Animation state tracking and completion guarantees
+  - Text transparency during occlusion for enhanced visual clarity
+  - Fade opacity animation synchronized with occlusion system
 
 ### Animation System
 
@@ -374,6 +383,77 @@ sequenceDiagram
 - **Animation Completion Guarantees**: Cards always complete their animations
 - **Global State Tracking**: Cards register/unregister when opening/closing
 - **Background Click Detection**: Large invisible mesh catches clicks outside interactive elements
+
+### Timeline Occlusion System
+
+The timeline visualization implements an advanced occlusion system that enhances visual clarity by intelligently fading overlapping elements when cards are opened.
+
+#### **Core Occlusion Features**
+
+##### **Card Occlusion Detection**
+- **Bounding Box Analysis**: Screen-space bounding box overlap detection between opened card and other cards
+- **Temporal Proximity**: Cards within +1 day future range from opened card are automatically included
+- **Fade Strategies**: Configurable strategies (aggressive mode fades all cards, bounding box mode targets overlapping cards)
+- **Visual Clarity**: Reduces visual noise and helps users focus on the opened card content
+
+##### **Marker Occlusion System**
+- **Timeline Markers**: Holiday markers, bridge day markers, and the now marker participate in occlusion
+- **Temporal Range Tracking**: Redux state tracks the timestamp range of all faded cards
+- **Individual Marker Logic**: Each marker individually checks if it falls within the faded temporal range
+- **Opacity Synchronization**: Markers fade with the same opacity as cards for visual consistency
+
+##### **Text Transparency Integration**
+- **Three.js Text Rendering**: Uses `fillOpacity` property on SafeText components for proper Three.js text transparency
+- **Synchronized Fade**: Text opacity matches card/marker fade opacity for seamless visual experience
+- **Performance Optimized**: Avoids RGBA color manipulation that causes Three.js warnings
+
+#### **Technical Implementation**
+
+##### **Redux State Management**
+```typescript
+interface UIState {
+  markerFadeOpacity: number;                    // Opacity value for faded markers
+  debugMarkerFade: boolean;                     // Debug visualization toggle
+  fadedCardsTemporalRange: {                    // Timestamp range of faded cards
+    minTimestamp: number;
+    maxTimestamp: number;
+  } | null;
+}
+```
+
+##### **Occlusion Calculation Pipeline**
+1. **Card Hover Detection**: User hovers over timeline card
+2. **Bounding Box Calculation**: Calculate screen-space bounds of opened card with safety margins
+3. **Overlap Analysis**: Check all other cards for geometric or temporal overlap
+4. **Temporal Range Extraction**: Find min/max timestamps of all cards marked for fading
+5. **Marker Range Checking**: Each marker checks if its timestamp falls within the temporal range
+6. **Opacity Application**: Apply calculated fade opacity to cards, text, and markers
+
+##### **Debug Visualization System**
+- **Green Debug Markers**: Visual indicators show which markers are being faded
+- **Bounding Box Visualization**: Debug overlays show calculated screen-space bounds
+- **Console Logging**: Detailed logging of occlusion calculations and fade decisions
+- **Real-time Updates**: Debug visualization updates in real-time as cards are hovered
+
+#### **Configuration and Customization**
+
+##### **Occlusion Configuration** (`src/config/dimensions.ts`)
+```typescript
+occlusion: {
+  enableFrontCardFading: true,              // Enable/disable occlusion system
+  fadeStrategy: 'boundingBox',              // 'aggressive' or 'boundingBox'
+  boundingBoxMargin: 0.1,                   // Safety margin for bounding box detection
+  boundingBoxFadeOpacity: 0.15,             // Opacity for faded elements
+  aggressiveFadeOpacity: 0.05               // Opacity for aggressive mode
+}
+```
+
+##### **Calendar Integration**
+- **Holiday Markers**: Public holidays are displayed as red vertical lines
+- **Bridge Day Markers**: Bridge days shown as orange vertical lines  
+- **Timezone Support**: Calendar data respects user's timezone preference
+- **Occlusion Participation**: Calendar markers participate in the occlusion system
+- **Date Conversion**: Proper handling of string dates vs Date objects for temporal calculations
 
 ### User Interaction System
 

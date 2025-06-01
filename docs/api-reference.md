@@ -26,8 +26,14 @@ const markerPosition = useAppSelector(state => state.timeline.markerPosition);
 ```typescript
 const uiState = useAppSelector(state => state.ui);
 const selectedCardId = useAppSelector(state => state.ui.selectedCardId);
+const hoveredCardId = useAppSelector(state => state.ui.hoveredCardId);
 const cameraState = useAppSelector(state => state.ui.cameraState);
 const droneMode = useAppSelector(state => state.ui.droneMode);
+
+// Occlusion system state
+const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
+const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
+const fadedCardsTemporalRange = useAppSelector(state => state.ui.fadedCardsTemporalRange);
 ```
 
 #### Repository State
@@ -58,15 +64,28 @@ dispatch(resetTimeline());
 ```typescript
 import {
   setSelectedCardId,
+  setHoveredCardId,
   updateCameraState,
   setDroneMode,
-  setViewAll
+  setViewAll,
+  setMarkerFadeOpacity,
+  setDebugMarkerFade,
+  setFadedCardsTemporalRange
 } from '../store/slices/uiSlice';
 
 dispatch(setSelectedCardId('card-123'));
+dispatch(setHoveredCardId('card-456'));
 dispatch(updateCameraState({ position: { x: 0, y: 10, z: 5 } }));
 dispatch(setDroneMode(true));
 dispatch(setViewAll(false));
+
+// Occlusion system actions
+dispatch(setMarkerFadeOpacity(0.15));
+dispatch(setDebugMarkerFade(true));
+dispatch(setFadedCardsTemporalRange({
+  minTimestamp: 1640995200000,
+  maxTimestamp: 1641081600000
+}));
 ```
 
 ### Async Thunks (Intents)
@@ -93,6 +112,7 @@ dispatch(purgeTimelineCache({ repoUrl }));
 ```typescript
 import {
   selectCard,
+  hoverCard,
   updateTimelinePosition,
   toggleViewAll,
   toggleDroneMode
@@ -103,6 +123,9 @@ dispatch(selectCard({
   cardId: 'card-123',
   position: { x: 0, y: 0, z: 100 }
 }));
+
+// Hover a card (triggers occlusion system)
+dispatch(hoverCard('card-456'));
 
 // Update timeline position
 dispatch(updateTimelinePosition({
@@ -350,15 +373,174 @@ Individual timeline event card component.
 interface TimelineCardProps {
   event: TimelineEvent;
   position: [number, number, number];
-  isSelected: boolean;
+  selected: boolean;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
-  onPositionUpdate: (id: string, position: Vector3) => void;
-  getAnimationProps: (id: string) => CardAnimationProps;
+  animationProps: {
+    scale: number;
+    rotation: readonly [number, number, number];
+    positionY: number;
+    springConfig: {
+      mass: number;
+      tension: number;
+      friction: number;
+    };
+  };
+  wiggle?: boolean;
   isMarkerDragging?: boolean;
   isTimelineHovering?: boolean;
   droneMode?: boolean;
+  isHovered?: boolean;
+  fadeOpacity?: number; // ⭐ Occlusion system
+  debugMarker?: boolean; // ⭐ Debug visualization
 }
+```
+
+### Occlusion System API
+
+The timeline occlusion system provides enhanced visual clarity through intelligent fading.
+
+#### **Core Occlusion Types**
+
+```typescript
+// Temporal range for marker fading
+interface FadedCardsTemporalRange {
+  minTimestamp: number;
+  maxTimestamp: number;
+}
+
+// Occlusion configuration
+interface OcclusionConfig {
+  enableFrontCardFading: boolean;
+  fadeStrategy: 'aggressive' | 'boundingBox';
+  boundingBoxMargin: number;
+  boundingBoxFadeOpacity: number;
+  aggressiveFadeOpacity: number;
+}
+```
+
+#### **Redux Occlusion State**
+
+```typescript
+// UI slice occlusion state
+interface OcclusionState {
+  markerFadeOpacity: number;
+  debugMarkerFade: boolean;
+  fadedCardsTemporalRange: FadedCardsTemporalRange | null;
+}
+
+// Redux selectors for occlusion
+const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
+const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
+const fadedCardsTemporalRange = useAppSelector(state => state.ui.fadedCardsTemporalRange);
+```
+
+#### **Occlusion Actions**
+
+```typescript
+// Import occlusion actions
+import {
+  setMarkerFadeOpacity,
+  setDebugMarkerFade,
+  setFadedCardsTemporalRange
+} from '../store/slices/uiSlice';
+
+// Update marker fade opacity
+dispatch(setMarkerFadeOpacity(0.15));
+
+// Enable debug visualization
+dispatch(setDebugMarkerFade(true));
+
+// Set temporal range for marker fading
+dispatch(setFadedCardsTemporalRange({
+  minTimestamp: Date.now() - 86400000, // Yesterday
+  maxTimestamp: Date.now() + 86400000  // Tomorrow
+}));
+
+// Clear occlusion state
+dispatch(setMarkerFadeOpacity(1.0));
+dispatch(setDebugMarkerFade(false));
+dispatch(setFadedCardsTemporalRange(null));
+```
+
+#### **Occlusion Intent Integration**
+
+```typescript
+// Card hover with occlusion activation
+import { hoverCard } from '../store/intents/uiIntents';
+
+// Hover triggers occlusion calculations
+dispatch(hoverCard('card-123')); // Activates occlusion system
+dispatch(hoverCard(null));       // Deactivates occlusion system
+```
+
+#### **Marker Occlusion Implementation**
+
+```typescript
+// Timeline marker with occlusion support
+const TimelineMarker: React.FC<MarkerProps> = ({ date, label }) => {
+  // Get occlusion state from Redux
+  const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
+  const fadedCardsTemporalRange = useAppSelector(state => state.ui.fadedCardsTemporalRange);
+  const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
+  
+  // Individual marker logic - check temporal range
+  const markerTimestamp = new Date(date).getTime();
+  const isMarkerInFadedRange = fadedCardsTemporalRange && 
+    markerTimestamp >= fadedCardsTemporalRange.minTimestamp && 
+    markerTimestamp <= fadedCardsTemporalRange.maxTimestamp;
+  
+  // Apply fade only if marker is in temporal range
+  const actualOpacity = isMarkerInFadedRange ? markerFadeOpacity : 1.0;
+  
+  return (
+    <group>
+      {/* Marker with conditional fade */}
+      <Line
+        points={[[0, -1, 0], [0, 1, 0]]}
+        color="#ff0000"
+        transparent
+        opacity={actualOpacity}
+      />
+      
+      {/* Text with fillOpacity for proper Three.js transparency */}
+      <SafeText
+        fillOpacity={actualOpacity}
+      >
+        {label}
+      </SafeText>
+      
+      {/* Debug visualization */}
+      {isMarkerInFadedRange && debugMarkerFade && (
+        <mesh>
+          <boxGeometry args={[0.3, 1.5, 0.02]} />
+          <meshBasicMaterial color="green" transparent opacity={0.3} />
+        </mesh>
+      )}
+    </group>
+  );
+};
+```
+
+#### **Text Transparency Pattern**
+
+```typescript
+// Correct way to handle text transparency in Three.js
+<SafeText
+  position={[0, 0, 0]}
+  color="#000000"
+  fontSize={0.3}
+  fillOpacity={fadeOpacity} // ✅ Use fillOpacity property
+>
+  Text content
+</SafeText>
+
+// Incorrect - causes Three.js warnings
+<SafeText
+  color={`rgba(0,0,0,${fadeOpacity})`} // ❌ Don't use RGBA
+>
+  Text content
+</SafeText>
 ```
 
 ## Redux State Types
@@ -411,6 +593,7 @@ interface UIState {
   viewAll: boolean;
   focusCurrentMode: boolean;
   debugMode: boolean;
+  cameraCyclingMode: boolean;
 
   // Camera state
   cameraState: CameraState;
@@ -418,6 +601,14 @@ interface UIState {
   // Card states
   selectedCardId: string | null;
   hoveredCardId: string | null;
+
+  // Occlusion system
+  markerFadeOpacity: number;
+  debugMarkerFade: boolean;
+  fadedCardsTemporalRange: {
+    minTimestamp: number;
+    maxTimestamp: number;
+  } | null;
 
   // Modal states
   showPreferences: boolean;

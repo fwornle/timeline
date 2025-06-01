@@ -25,17 +25,21 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 - **Card Interactions**: Hover and click timeline cards for detailed information
 - **Camera Controls**: Multiple camera modes (manual, view-all, focus, drone mode)
 - **Auto-drift Mode**: Automated timeline playback with adjustable speed
+- **⭐ Timeline Occlusion System**: Advanced visual clarity with intelligent card and marker fading
 - **⭐ State Persistence**: Camera position and timeline marker automatically preserved across app reloads
 
 ### 🎨 Advanced Animations
 - **Smooth Transitions**: Fluid camera movements and card animations
 - **Exclusive Card Opening**: Only one card open at a time with guaranteed animation completion
+- **Timeline Occlusion**: Intelligent fading of overlapping cards and markers for enhanced visual clarity
+- **Text Transparency**: Proper Three.js text transparency with coordinated fade effects
 - **Global State Management**: Sophisticated interaction handling prevents stuck UI states
 - **Performance Optimized**: 60fps animations with efficient rendering
 
 ### 🛠️ Developer Features
 - **Professional Logging**: Category-based logging system with real-time control
 - **Debug Mode**: Comprehensive debugging tools and performance monitoring
+- **Occlusion Debug**: Visual debug markers for occlusion system development
 - **Hot Module Replacement**: Instant development feedback with Vite
 - **TypeScript**: Full type safety throughout the application
 
@@ -130,6 +134,19 @@ The application automatically starts both React frontend and Node.js backend ser
 
 **⭐ Your camera position and timeline marker position are automatically saved and restored when you reload the app!**
 
+### Advanced Visual Features
+
+#### Timeline Occlusion System
+
+When you hover over timeline cards, the application automatically enhances visual clarity:
+
+- **Card Fading**: Other cards that overlap or are temporally close fade to reduce visual noise
+- **Marker Fading**: Holiday markers and timeline indicators within the temporal range also fade
+- **Text Transparency**: Card text properly fades along with the card materials
+- **Debug Mode**: Enable debug mode to see green visual indicators showing which elements are being faded
+
+This intelligent system uses bounding box detection and temporal proximity (+1 day future) to determine which elements should fade, creating a cleaner focus on the card you're examining.
+
 ### Configuration
 
 Key configuration options can be customized in `src/config/`:
@@ -176,9 +193,10 @@ The application uses **Redux Toolkit** with **MVI (Model-View-Intent)** architec
 
 **Key Concepts:**
 - **Timeline Slice**: Manages events and marker position (with persistence)
-- **UI Slice**: Controls camera state and interface (with persistence)
+- **UI Slice**: Controls camera state, interface, and occlusion system (with persistence)
 - **Repository Slice**: Handles repository connections
 - **Preferences Slice**: Automatically persists all user settings
+- **Occlusion System**: Advanced visual clarity through intelligent element fading
 
 ![Component Integration](docs/images/component-integration-updated.png)
 
@@ -228,6 +246,7 @@ All architecture diagrams are available as PNG files in `docs/images/`:
 
 #### **Sequence Diagrams**
 - **[Marker Persistence Flow](docs/images/marker-persistence-sequence.png)**: Timeline marker position persistence
+- **[Occlusion System Flow](docs/images/occlusion-system-flow.png)**: Timeline occlusion system workflow and state management
 - **[MVI Sequence Diagram](docs/images/mvi-sequence-diagram.png)**: Detailed interaction flows
 - **[Metrics Visualization Flow](docs/images/metrics-visualization-sequence.png)**: Horizontal metrics plot data flow
 

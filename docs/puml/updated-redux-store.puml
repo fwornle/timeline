@@ -46,6 +46,9 @@ class UIState {
   +cameraState: CameraState ⭐
   +selectedCardId: string | null
   +hoveredCardId: string | null
+  +markerFadeOpacity: number ⭐
+  +debugMarkerFade: boolean ⭐
+  +fadedCardsTemporalRange: FadedCardsRange | null ⭐
   +showPreferences: boolean
   +showLoggingControl: boolean
   +sidebarOpen: boolean
@@ -54,7 +57,10 @@ class UIState {
   Actions:
   +updateCameraState(state) ⭐
   +setSelectedCardId(id)
-  +setHoveredCardId(id)
+  +setHoveredCardId(id) ⭐
+  +setMarkerFadeOpacity(opacity) ⭐
+  +setDebugMarkerFade(enabled) ⭐
+  +setFadedCardsTemporalRange(range) ⭐
   +setDroneMode(enabled)
   +setViewAll(enabled)
   +setAnimationSpeed(speed)
@@ -106,6 +112,11 @@ class StoredCameraState {
   +zoom: number
 }
 
+class FadedCardsRange {
+  +minTimestamp: number
+  +maxTimestamp: number
+}
+
 class TimelineEvent {
   +id: string
   +type: 'git' | 'spec'
@@ -145,6 +156,7 @@ RootState --> RepositoryState
 RootState --> PreferencesState
 
 UIState --> CameraState
+UIState --> FadedCardsRange
 PreferencesState --> StoredCameraState
 TimelineState --> TimelineEvent
 TimelineEvent --> EventStats
@@ -165,6 +177,8 @@ end note
 note bottom of UIState
   ⭐ cameraState: Synced with Three.js camera objects
   Updated through updateCameraWithSync() intent
+  ⭐ Occlusion system: markerFadeOpacity, debugMarkerFade, fadedCardsTemporalRange
+  Controls visual clarity through intelligent marker and card fading
 end note
 
 @enduml
