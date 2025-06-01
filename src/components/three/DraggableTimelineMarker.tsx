@@ -31,8 +31,9 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const raycasterRef = useRef(new Raycaster());
   const initialPositionRef = useRef<number>(position);
   
-  // Get marker fade opacity from Redux
+  // Get marker fade opacity and debug state from Redux
   const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
+  const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
 
   // Update the marker position when the prop changes from outside
   useEffect(() => {
@@ -232,6 +233,14 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         >
           {labelText}
         </SafeText>
+      )}
+
+      {/* Debug marker for occlusion detection */}
+      {debugMarkerFade && (
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[1.2, 3, 0.02]} />
+          <meshBasicMaterial color="#00ff00" transparent opacity={0.5} />
+        </mesh>
       )}
     </group>
   );

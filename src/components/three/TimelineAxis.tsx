@@ -48,9 +48,10 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   
-  // Get timezone from preferences and marker fade opacity from Redux
+  // Get timezone from preferences, marker fade opacity and debug state from Redux
   const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
   const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
+  const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
 
   // Fetch calendar data when dates or timezone change
   React.useEffect(() => {
@@ -214,6 +215,16 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             >
               {specialDay.name}
             </SafeText>
+          );
+        }
+
+        // Add debug marker for occlusion detection
+        if (debugMarkerFade) {
+          ticks.push(
+            <mesh key={`holiday-debug-${specialDay.date}`} position={[0, 2, position]}>
+              <boxGeometry args={[0.5, markerHeight * 2 + 0.4, 0.02]} />
+              <meshBasicMaterial color="#00ff00" transparent opacity={0.5} />
+            </mesh>
           );
         }
       }
