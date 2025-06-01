@@ -31,9 +31,10 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const raycasterRef = useRef(new Raycaster());
   const initialPositionRef = useRef<number>(position);
   
-  // Get marker fade opacity and debug state from Redux
+  // Get marker fade state from Redux
   const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
   const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
+  const fadedCardsTemporalRange = useAppSelector(state => state.ui.fadedCardsTemporalRange);
 
   // Update the marker position when the prop changes from outside
   useEffect(() => {
@@ -173,7 +174,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
               parseInt(color.slice(3, 5), 16) / 255,
               parseInt(color.slice(5, 7), 16) / 255
             ] },
-            opacity: { value: (isDragging ? 0.9 : 0.7) * markerFadeOpacity }, // More opaque when dragging, but respect fade
+            opacity: { value: (isDragging ? 0.9 : 0.7) * (fadedCardsTemporalRange ? markerFadeOpacity : 1.0) }, // More opaque when dragging, apply fade only if temporal range exists
             fade: { value: isDragging ? 0.9 : 0.7 }, // Less fade when dragging
           }}
           vertexShader={`
@@ -206,7 +207,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
         transparent={true}
-        opacity={markerFadeOpacity}
+        opacity={fadedCardsTemporalRange ? markerFadeOpacity : 1.0}
       />
 
       {/* Horizontal marker */}
@@ -218,7 +219,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
         transparent={true}
-        opacity={markerFadeOpacity}
+        opacity={fadedCardsTemporalRange ? markerFadeOpacity : 1.0}
       />
 
       {/* Label */}
@@ -229,14 +230,14 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
           fontSize={0.5}
           anchorX="center"
           anchorY="bottom"
-          fillOpacity={markerFadeOpacity}
+          fillOpacity={fadedCardsTemporalRange ? markerFadeOpacity : 1.0}
         >
           {labelText}
         </SafeText>
       )}
 
-      {/* Debug marker for occlusion detection */}
-      {debugMarkerFade && (
+      {/* Debug marker for occlusion detection - only show if temporal range exists */}
+      {debugMarkerFade && fadedCardsTemporalRange && (
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[1.2, 3, 0.02]} />
           <meshBasicMaterial color="#00ff00" transparent opacity={0.5} />

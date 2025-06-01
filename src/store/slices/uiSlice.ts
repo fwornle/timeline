@@ -30,6 +30,7 @@ interface UIState {
   // Occlusion states
   markerFadeOpacity: number;
   debugMarkerFade: boolean;
+  fadedCardsTemporalRange: { minTimestamp: number; maxTimestamp: number } | null;
 
   // Modal states
   showPreferences: boolean;
@@ -60,6 +61,7 @@ const initialState: UIState = {
   hoveredCardId: null,
   markerFadeOpacity: 1.0,
   debugMarkerFade: false,
+  fadedCardsTemporalRange: null,
   showPreferences: false,
   showLoggingControl: false,
   sidebarOpen: false,
@@ -112,6 +114,9 @@ const uiSlice = createSlice({
     setDebugMarkerFade: (state, action: PayloadAction<boolean>) => {
       state.debugMarkerFade = action.payload;
     },
+    setFadedCardsTemporalRange: (state, action: PayloadAction<{ minTimestamp: number; maxTimestamp: number } | null>) => {
+      state.fadedCardsTemporalRange = action.payload;
+    },
     setShowPreferences: (state, action: PayloadAction<boolean>) => {
       state.showPreferences = action.payload;
     },
@@ -151,6 +156,7 @@ export const {
   setHoveredCardId,
   setMarkerFadeOpacity,
   setDebugMarkerFade,
+  setFadedCardsTemporalRange,
   setShowPreferences,
   setShowLoggingControl,
   setSidebarOpen,
