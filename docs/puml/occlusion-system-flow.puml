@@ -1,0 +1,124 @@
+@startuml occlusion-system-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceStyle strictuml
+
+title Timeline Occlusion System Flow
+
+actor User
+participant "TimelineCard" as Card
+participant "hoverCard Intent" as HoverIntent
+participant "Redux UI Slice" as Redux
+participant "TimelineEvents" as Events
+participant "TimelineAxis" as Axis
+participant "DraggableTimelineMarker" as Marker
+
+User -> Card : Hover over card
+activate Card
+
+Card -> HoverIntent : dispatch(hoverCard(cardId))
+activate HoverIntent
+
+HoverIntent -> Redux : setHoveredCardId(cardId)
+activate Redux
+
+Redux -> Events : hoveredCardId state change
+activate Events
+
+note over Events
+**Occlusion Calculation Pipeline:**
+1. Calculate screen-space bounding box
+2. Check overlap with other cards
+3. Include +1 day temporal proximity
+4. Extract timestamp range of faded cards
+end note
+
+Events -> Events : cardFadeStates = useMemo()
+Events -> Events : Calculate bounding box overlaps
+Events -> Events : Include temporal proximity (+1 day)
+Events -> Events : Extract fade timestamps
+
+Events -> Redux : setMarkerFadeOpacity(0.15)
+Events -> Redux : setFadedCardsTemporalRange({min, max})
+Events -> Redux : setDebugMarkerFade(debugMode)
+
+Redux -> Axis : markerFadeOpacity, fadedCardsTemporalRange
+activate Axis
+
+Redux -> Marker : markerFadeOpacity, fadedCardsTemporalRange
+activate Marker
+
+note over Axis
+**Holiday Marker Logic:**
+for each holiday marker:
+  markerTimestamp = new Date(holiday.date).getTime()
+  isInRange = timestamp >= min && timestamp <= max
+  opacity = isInRange ? markerFadeOpacity : 1.0
+end note
+
+Axis -> Axis : Check each holiday marker timestamp\nagainst temporal range
+Axis -> Axis : Apply fade opacity if in range
+
+note over Marker
+**Now Marker Logic:**
+if (fadedCardsTemporalRange) {
+  opacity = markerFadeOpacity
+} else {
+  opacity = 1.0
+}
+end note
+
+Marker -> Marker : Apply conditional fade opacity
+
+note over Events
+**Card Text Transparency:**
+for each card:
+  textOpacity = cardFadeOpacity
+  apply fillOpacity to SafeText components
+end note
+
+Events -> Card : Apply fadeOpacity to card material\nand fillOpacity to text
+
+deactivate Events
+deactivate Redux
+deactivate HoverIntent
+deactivate Card
+
+User -> Card : Move mouse away
+activate Card
+
+Card -> HoverIntent : dispatch(hoverCard(null))
+activate HoverIntent
+
+HoverIntent -> Redux : setHoveredCardId(null)
+activate Redux
+
+Redux -> Events : hoveredCardId = null
+activate Events
+
+Events -> Redux : setMarkerFadeOpacity(1.0)
+Events -> Redux : setFadedCardsTemporalRange(null)
+Events -> Redux : setDebugMarkerFade(false)
+
+Redux -> Axis : Reset to full opacity
+Redux -> Marker : Reset to full opacity
+Redux -> Card : Reset to full opacity
+
+deactivate Events
+deactivate Redux
+deactivate HoverIntent
+deactivate Card
+deactivate Axis
+deactivate Marker
+
+note over User, Marker
+**Key Features:**
+✅ Bounding box overlap detection
+✅ Temporal proximity inclusion (+1 day future)
+✅ Individual marker temporal range checking
+✅ Text transparency with fillOpacity
+✅ Debug visualization with green markers
+✅ Synchronized fade across all components
+end note
+
+@enduml

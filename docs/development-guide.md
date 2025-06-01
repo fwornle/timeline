@@ -110,7 +110,7 @@ timeline/
 
 ### State Management with Redux
 
-The application uses Redux Toolkit following the MVI pattern:
+The application uses Redux Toolkit following the MVI pattern, including advanced features like the **timeline occlusion system** for enhanced visual clarity:
 
 #### **Setting Up Redux in Components**
 
@@ -119,8 +119,8 @@ The application uses Redux Toolkit following the MVI pattern:
 import { useAppDispatch, useAppSelector } from '../store';
 
 // Import actions and intents
-import { setSelectedCardId } from '../store/slices/uiSlice';
-import { selectCard, updateTimelinePosition } from '../store/intents/uiIntents';
+import { setSelectedCardId, setHoveredCardId } from '../store/slices/uiSlice';
+import { selectCard, hoverCard, updateTimelinePosition } from '../store/intents/uiIntents';
 
 const MyComponent: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -132,6 +132,11 @@ const MyComponent: React.FC = () => {
   // Dispatch intents (Intent layer)
   const handleCardClick = useCallback((cardId: string) => {
     dispatch(selectCard({ cardId }));
+  }, [dispatch]);
+  
+  // Occlusion system integration
+  const handleCardHover = useCallback((cardId: string | null) => {
+    dispatch(hoverCard(cardId)); // Triggers occlusion calculations
   }, [dispatch]);
 
   return (
@@ -217,6 +222,223 @@ export const fetchNewFeatureData = createAsyncThunk<
     }
   }
 );
+```
+
+### Timeline Occlusion System Development
+
+The timeline implements an advanced occlusion system for enhanced visual clarity. Here's how to work with it:
+
+![Occlusion System Flow](images/occlusion-system-flow.png)
+
+#### **Understanding the Occlusion System**
+
+The occlusion system automatically fades markers and cards when a timeline card is hovered, using:
+- **Bounding box overlap detection** in screen space
+- **Temporal proximity** (cards within +1 day future)
+- **Individual marker logic** for precise temporal range checking
+- **Text transparency** with Three.js `fillOpacity`
+
+#### **Implementing Occlusion in Components**
+
+```typescript
+// TimelineCard component with occlusion support
+const TimelineCard: React.FC<TimelineCardProps> = ({ 
+  event, 
+  fadeOpacity, // Passed from occlusion system
+  onHover 
+}) => {
+  // Apply fade opacity to card material
+  const cardOpacity = fadeOpacity;
+  
+  // Apply text transparency using fillOpacity
+  const textOpacity = fadeOpacity;
+  
+  return (
+    <group>
+      {/* Card mesh with fade opacity */}
+      <mesh>
+        <boxGeometry args={[4, 2, 0.1]} />
+        <meshStandardMaterial 
+          color="#ffffff" 
+          transparent 
+          opacity={cardOpacity} 
+        />
+      </mesh>
+      
+      {/* Text with fillOpacity for proper Three.js transparency */}
+      <SafeText
+        position={[0, 0, 0.1]}
+        color="#000000"
+        fontSize={0.3}
+        fillOpacity={textOpacity} // ⭐ Key for text transparency
+      >
+        {event.title}
+      </SafeText>
+    </group>
+  );
+};
+```
+
+#### **Marker Occlusion Implementation**
+
+```typescript
+// Timeline marker with occlusion support
+const TimelineMarker: React.FC<MarkerProps> = ({ position, label }) => {
+  // Get occlusion state from Redux
+  const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
+  const fadedCardsTemporalRange = useAppSelector(state => state.ui.fadedCardsTemporalRange);
+  const debugMarkerFade = useAppSelector(state => state.ui.debugMarkerFade);
+  
+  // Individual marker logic - check if marker falls within temporal range
+  const markerTimestamp = new Date(label.date).getTime();
+  const isMarkerInFadedRange = fadedCardsTemporalRange && 
+    markerTimestamp >= fadedCardsTemporalRange.minTimestamp && 
+    markerTimestamp <= fadedCardsTemporalRange.maxTimestamp;
+  
+  // Apply fade only if marker is in temporal range
+  const actualOpacity = isMarkerInFadedRange ? markerFadeOpacity : 1.0;
+  
+  return (
+    <group position={[0, 2, position]}>
+      {/* Marker line with conditional fade */}
+      <Line
+        points={[[0, -1, 0], [0, 1, 0]]}
+        color="#ff0000"
+        lineWidth={3}
+        transparent
+        opacity={actualOpacity}
+      />
+      
+      {/* Debug visualization when marker is faded */}
+      {isMarkerInFadedRange && debugMarkerFade && (
+        <mesh>
+          <boxGeometry args={[0.3, 2, 0.02]} />
+          <meshBasicMaterial color="green" transparent opacity={0.3} />
+        </mesh>
+      )}
+      
+      {/* Text with fillOpacity */}
+      <SafeText
+        position={[0, 1.2, 0]}
+        color="#ff0000"
+        fontSize={0.3}
+        fillOpacity={actualOpacity}
+      >
+        {label.name}
+      </SafeText>
+    </group>
+  );
+};
+```
+
+#### **Occlusion State Management in TimelineEvents**
+
+```typescript
+// TimelineEvents component - occlusion calculation logic
+const TimelineEvents: React.FC<TimelineEventsProps> = ({ 
+  events, 
+  debugMode 
+}) => {
+  const dispatch = useAppDispatch();
+  const hoveredCardId = useAppSelector(state => state.ui.hoveredCardId);
+  
+  // Calculate which cards should be faded
+  const cardFadeStates = useMemo(() => {
+    if (!hoveredCardId) return new Map<string, number>();
+    
+    const fadeMap = new Map<string, number>();
+    const openedEvent = events.find(e => e.id === hoveredCardId);
+    if (!openedEvent) return fadeMap;
+    
+    // Bounding box overlap detection logic
+    events.forEach(event => {
+      if (event.id === hoveredCardId) {
+        fadeMap.set(event.id, 1.0); // Opened card is fully visible
+        return;
+      }
+      
+      // Check geometric overlap and temporal proximity
+      const geometricOverlaps = checkBoundingBoxOverlap(event, openedEvent);
+      const timeDiff = event.timestamp.getTime() - openedEvent.timestamp.getTime();
+      const isTemporallyNear = timeDiff >= 0 && timeDiff <= 24 * 60 * 60 * 1000; // +1 day
+      
+      if (geometricOverlaps || isTemporallyNear) {
+        fadeMap.set(event.id, 0.15); // Fade occluded cards
+      } else {
+        fadeMap.set(event.id, 1.0); // Keep others fully visible
+      }
+    });
+    
+    return fadeMap;
+  }, [hoveredCardId, events]);
+  
+  // Update marker fade state based on card fade calculations
+  useEffect(() => {
+    if (!hoveredCardId) {
+      dispatch(setMarkerFadeOpacity(1.0));
+      dispatch(setFadedCardsTemporalRange(null));
+      return;
+    }
+    
+    // Extract temporal range of faded cards
+    const fadedCardTimestamps = Array.from(cardFadeStates.entries())
+      .filter(([_, opacity]) => opacity < 1.0)
+      .map(([cardId, _]) => {
+        const event = events.find(e => e.id === cardId);
+        return event ? event.timestamp.getTime() : null;
+      })
+      .filter(timestamp => timestamp !== null) as number[];
+    
+    if (fadedCardTimestamps.length > 0) {
+      const minTimestamp = Math.min(...fadedCardTimestamps);
+      const maxTimestamp = Math.max(...fadedCardTimestamps);
+      
+      dispatch(setFadedCardsTemporalRange({ minTimestamp, maxTimestamp }));
+      dispatch(setMarkerFadeOpacity(0.15));
+      dispatch(setDebugMarkerFade(debugMode));
+    }
+  }, [cardFadeStates, hoveredCardId, events, debugMode, dispatch]);
+  
+  // Render cards with fade opacity
+  return (
+    <group>
+      {events.map(event => (
+        <TimelineCard
+          key={event.id}
+          event={event}
+          fadeOpacity={cardFadeStates.get(event.id) ?? 1.0}
+          onHover={(cardId) => dispatch(hoverCard(cardId))}
+        />
+      ))}
+    </group>
+  );
+};
+```
+
+#### **Best Practices for Occlusion System**
+
+1. **Text Transparency**: Always use `fillOpacity` on SafeText components, not RGBA colors
+2. **Individual Marker Logic**: Each marker should independently check temporal range
+3. **Performance**: Use `useMemo` for expensive occlusion calculations
+4. **Debug Support**: Implement debug visualization for development
+5. **State Coordination**: Use Redux to coordinate fade state across all components
+
+#### **Common Occlusion Patterns**
+
+```typescript
+// ✅ Correct: Use fillOpacity for text transparency
+<SafeText fillOpacity={fadeOpacity}>Text</SafeText>
+
+// ❌ Incorrect: Don't use RGBA colors (causes Three.js warnings)
+<SafeText color={`rgba(255,255,255,${fadeOpacity})`}>Text</SafeText>
+
+// ✅ Correct: Individual marker temporal range checking
+const isInRange = fadedCardsTemporalRange && 
+  markerTimestamp >= fadedCardsTemporalRange.minTimestamp && 
+  markerTimestamp <= fadedCardsTemporalRange.maxTimestamp;
+
+// ❌ Incorrect: Don't assume all markers should fade
+const opacity = hoveredCardId ? markerFadeOpacity : 1.0;
 ```
 
 ### Redux DevTools Integration
