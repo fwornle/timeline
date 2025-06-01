@@ -48,8 +48,9 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   
-  // Get timezone from preferences
+  // Get timezone from preferences and marker fade opacity from Redux
   const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
+  const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
 
   // Fetch calendar data when dates or timezone change
   React.useEffect(() => {
@@ -184,7 +185,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
         const markerColor = specialDay.type === 'public' ? '#ff6b6b' : '#ffa726';
         const markerHeight = specialDay.type === 'public' ? 1.5 : 1.0;
         
-        // Add vertical line marker
+        // Add vertical line marker with fade opacity
         ticks.push(
           <Line
             key={`holiday-${specialDay.date}`}
@@ -194,6 +195,8 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
             ]}
             color={markerColor}
             lineWidth={3}
+            transparent={true}
+            opacity={markerFadeOpacity}
           />
         );
         
@@ -207,6 +210,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
               fontSize={0.3}
               anchorX="center"
               anchorY="bottom"
+              fillOpacity={markerFadeOpacity}
             >
               {specialDay.name}
             </SafeText>

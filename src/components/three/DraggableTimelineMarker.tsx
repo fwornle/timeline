@@ -4,6 +4,7 @@ import { useThree } from '@react-three/fiber';
 import { Group, Vector3, Vector2, Raycaster } from 'three';
 import { threeColors } from '../../config';
 import { SafeText } from './SafeText';
+import { useAppSelector } from '../../store';
 
 interface DraggableTimelineMarkerProps {
   position: number;
@@ -29,6 +30,9 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
   const [isDragging, setIsDragging] = useState(false);
   const raycasterRef = useRef(new Raycaster());
   const initialPositionRef = useRef<number>(position);
+  
+  // Get marker fade opacity from Redux
+  const markerFadeOpacity = useAppSelector(state => state.ui.markerFadeOpacity);
 
   // Update the marker position when the prop changes from outside
   useEffect(() => {
@@ -168,7 +172,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
               parseInt(color.slice(3, 5), 16) / 255,
               parseInt(color.slice(5, 7), 16) / 255
             ] },
-            opacity: { value: isDragging ? 0.9 : 0.7 }, // More opaque when dragging
+            opacity: { value: (isDragging ? 0.9 : 0.7) * markerFadeOpacity }, // More opaque when dragging, but respect fade
             fade: { value: isDragging ? 0.9 : 0.7 }, // Less fade when dragging
           }}
           vertexShader={`
@@ -200,6 +204,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         ]}
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
+        transparent={true}
+        opacity={markerFadeOpacity}
       />
 
       {/* Horizontal marker */}
@@ -210,6 +216,8 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
         ]}
         color={color}
         lineWidth={isDragging ? 4 : 3} // Thicker when dragging
+        transparent={true}
+        opacity={markerFadeOpacity}
       />
 
       {/* Label */}
@@ -220,6 +228,7 @@ export const DraggableTimelineMarker: React.FC<DraggableTimelineMarkerProps> = (
           fontSize={0.5}
           anchorX="center"
           anchorY="bottom"
+          fillOpacity={markerFadeOpacity}
         >
           {labelText}
         </SafeText>
