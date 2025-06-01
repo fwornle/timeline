@@ -670,6 +670,10 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           registerOpenCard(event.id);
         } else if (animationCompletionRef.current.targetState === 'closed') {
           unregisterOpenCard(event.id);
+          // Also clear hover state when card closes
+          if (onHover) {
+            onHover(null);
+          }
         }
       }
     }
