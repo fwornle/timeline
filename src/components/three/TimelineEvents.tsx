@@ -46,7 +46,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   droneMode = false,
   debugMode = false
 }) => {
-  const logger = useLogger({ component: 'TimelineEvents', topic: 'rendering' });
+  const logger = useLogger({ component: 'THREE', topic: 'rendering' });
   
   // Use visibleEvents for rendering if provided, otherwise render all events
   const eventsToRender = visibleEvents || events;
@@ -77,23 +77,18 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Handle hover with exclusivity
   const handleCardHover = useCallback((cardId: string | null) => {
-    // Debug logging first
-    // Debug logging
-    if (debugMode) {
-      logger.debug(`handleCardHover called with: ${cardId ? cardId.slice(-6) : 'null'}`);
-    }
+    // Always log hover changes for debugging
+    logger.debug(`handleCardHover called with: ${cardId ? cardId.slice(-6) : 'null'}`);
     
     // Update local hover state for occlusion detection
     setLocalHoveredCard(cardId);
     
-    // Debug logging
-    if (debugMode) {
-      logger.debug(`Local hover state updated: ${cardId ? cardId.slice(-6) : 'null'}`);
-    }
+    // Always log local state changes
+    logger.debug(`Local hover state updated: ${cardId ? cardId.slice(-6) : 'null'}`);
     
     // Forward to parent for actual card interaction
     onHover(cardId);
-  }, [onHover, debugMode, logger]);
+  }, [onHover, logger]);
 
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
