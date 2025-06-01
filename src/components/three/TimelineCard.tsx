@@ -766,6 +766,9 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Get card colors and dimensions from configuration
   const cardColors = event.type === 'git' ? threeColors.cards.git : threeColors.cards.spec;
   const cardOpacities = event.type === 'git' ? threeOpacities.cards.git : threeOpacities.cards.spec;
+  
+  // Calculate text opacity based on current card opacity
+  const textOpacity = currentOpacity;
 
   // Memoize text content to prevent font reprocessing during animations
   const textContent = useMemo(() => {
@@ -859,6 +862,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           ]}
           fontSize={dimensions.typography.card.headerTitle.fontSize}
           color={cardColors.text}
+          fillOpacity={textOpacity}
           anchorX="left"
           anchorY="middle"
         >
@@ -873,6 +877,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           lineHeight={1.3}
           textAlign="left"
           color="#ffffff"
+          fillOpacity={textOpacity}
           anchorX="left"
           anchorY="top"
           overflowWrap="break-word"
@@ -899,6 +904,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           ]}
           fontSize={dimensions.typography.card.typeIndicator.fontSize}
           color={cardColors.accent}
+          fillOpacity={textOpacity}
           anchorX="left"
           anchorY="middle"
         >
@@ -911,6 +917,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
             position={[0, 0.15, 0]}
             fontSize={0.11}
             color="#e0e0e0"
+            fillOpacity={textOpacity}
             anchorX="center"
             anchorY="middle"
           >
@@ -920,6 +927,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
             position={[0, -0.1, 0]}
             fontSize={0.11}
             color="#e0e0e0"
+            fillOpacity={textOpacity}
             anchorX="center"
             anchorY="middle"
           >
@@ -936,6 +944,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           ]}
           fontSize={dimensions.typography.card.dateText.fontSize}
           color={cardColors.text}
+          fillOpacity={textOpacity}
           anchorX="right"
           anchorY="middle"
         >
