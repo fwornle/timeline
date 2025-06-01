@@ -29,6 +29,7 @@ interface UIState {
 
   // Occlusion states
   markerFadeOpacity: number;
+  debugMarkerFade: boolean;
 
   // Modal states
   showPreferences: boolean;
@@ -58,6 +59,7 @@ const initialState: UIState = {
   selectedCardId: null,
   hoveredCardId: null,
   markerFadeOpacity: 1.0,
+  debugMarkerFade: false,
   showPreferences: false,
   showLoggingControl: false,
   sidebarOpen: false,
@@ -107,6 +109,9 @@ const uiSlice = createSlice({
     setMarkerFadeOpacity: (state, action: PayloadAction<number>) => {
       state.markerFadeOpacity = action.payload;
     },
+    setDebugMarkerFade: (state, action: PayloadAction<boolean>) => {
+      state.debugMarkerFade = action.payload;
+    },
     setShowPreferences: (state, action: PayloadAction<boolean>) => {
       state.showPreferences = action.payload;
     },
@@ -145,6 +150,7 @@ export const {
   setSelectedCardId,
   setHoveredCardId,
   setMarkerFadeOpacity,
+  setDebugMarkerFade,
   setShowPreferences,
   setShowLoggingControl,
   setSidebarOpen,

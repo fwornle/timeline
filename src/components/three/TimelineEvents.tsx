@@ -8,7 +8,7 @@ import { dimensions } from '../../config';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { useAppSelector, useAppDispatch } from '../../store';
 import { hoverCard } from '../../store/intents/uiIntents';
-import { setMarkerFadeOpacity } from '../../store/slices/uiSlice';
+import { setMarkerFadeOpacity, setDebugMarkerFade } from '../../store/slices/uiSlice';
 
 interface TimelineEventsProps {
   events: TimelineEvent[]; // All events for position calculation
@@ -295,8 +295,6 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       // Clear debug info when no card is hovered or open
       logger.debug('No opened card - clearing all fade states'); // Always log this, not just in debug mode
       setDebugInfo({});
-      // Also clear marker fade opacity
-      dispatch(setMarkerFadeOpacity(1.0));
       return new Map<string, number>();
     }
     
@@ -435,10 +433,23 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       logger.debug(`Final fade map (${fadeEntries.length} cards):`, fadeEntries.map(([id, opacity]) => `${id.slice(-6)}: ${opacity.toFixed(3)}`));
     }
     
-    // Calculate marker fade opacity based on the temporal range of all faded cards
-    if (fadeMap.size > 0) {
+    return fadeMap;
+  }, [hoveredCardId, selectedCardId, eventsToRender, getEventPosition, camera, debugMode]);
+  
+  // Handle marker fade updates in a separate useEffect to avoid dispatch during render
+  useEffect(() => {
+    const config = dimensions.animation.card.occlusion;
+    
+    if (!hoveredCardId) {
+      // Clear marker fade when no card is hovered
+      dispatch(setMarkerFadeOpacity(1.0));
+      dispatch(setDebugMarkerFade(false));
+      return;
+    }
+    
+    if (cardFadeStates.size > 0) {
       // Find the temporal range of all faded cards
-      const fadedCardTimestamps = Array.from(fadeMap.entries())
+      const fadedCardTimestamps = Array.from(cardFadeStates.entries())
         .filter(([_, opacity]) => opacity < 1.0) // Only cards that are actually faded
         .map(([cardId, _]) => {
           const event = eventsToRender.find(e => e.id === cardId);
@@ -451,29 +462,29 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         const minTimestamp = Math.min(...fadedCardTimestamps);
         const maxTimestamp = Math.max(...fadedCardTimestamps);
         
-        // Check if current position (now marker) falls within this range
-        const now = new Date();
-        const nowTime = now.getTime();
-        const isCurrentPositionInRange = nowTime >= minTimestamp && nowTime <= maxTimestamp;
-        
-        // If current position is within the faded range, fade markers
-        const markerOpacity = isCurrentPositionInRange ? config.boundingBoxFadeOpacity : 1.0;
+        // Markers should be faded when there are any faded cards (not just when current time is in range)
+        // The original logic was: fade markers when the temporal range of faded cards covers markers
+        // Let's set markers to fade whenever there are faded cards in the scene
+        const markerOpacity = config.boundingBoxFadeOpacity;
         dispatch(setMarkerFadeOpacity(markerOpacity));
         
+        // Set debug marker state for any faded cards in debug mode
+        dispatch(setDebugMarkerFade(debugMode));
+        
         if (debugMode) {
-          logger.debug(`Marker fade calculation: nowTime=${now.toISOString()}, fadedRange=${new Date(minTimestamp).toISOString()} to ${new Date(maxTimestamp).toISOString()}, isInRange=${isCurrentPositionInRange}, opacity=${markerOpacity}`);
+          logger.debug(`Marker fade calculation: fadedRange=${new Date(minTimestamp).toISOString()} to ${new Date(maxTimestamp).toISOString()}, fadedCards=${fadedCardTimestamps.length}, opacity=${markerOpacity}`);
         }
       } else {
         // No cards are actually faded, ensure markers are fully visible
         dispatch(setMarkerFadeOpacity(1.0));
+        dispatch(setDebugMarkerFade(false));
       }
     } else {
       // No cards are faded, ensure markers are fully visible
       dispatch(setMarkerFadeOpacity(1.0));
+      dispatch(setDebugMarkerFade(false));
     }
-    
-    return fadeMap;
-  }, [hoveredCardId, selectedCardId, eventsToRender, getEventPosition, camera, debugMode, dispatch]);
+  }, [cardFadeStates, hoveredCardId, eventsToRender, debugMode, dispatch, logger]);
 
 
   // Memoize the cards to prevent unnecessary re-renders
