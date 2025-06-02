@@ -121,6 +121,24 @@ The application automatically starts both React frontend and Node.js backend ser
 
 ## Usage Guide
 
+### Application Screenshots
+
+#### Settings and Configuration
+
+![Timeline Settings](docs/images/timeline-settings.png)
+*Repository Settings dialog showing Git repository URL configuration, theme selection (System/Light/Dark), timezone settings for holiday markers, animation speed control, and auto-drift toggle for automatic timeline scrolling.*
+
+![Logging Configuration](docs/images/timeline-logging-config.png)
+*Professional logging system with real-time configuration. Features hierarchical log levels (ERROR, WARN, INFO, DEBUG, TRACE) and category-based filtering across 18 different subsystems including UI, DATA, CACHE, GIT, SPEC, and THREE.js components.*
+
+#### Interactive Timeline Navigation
+
+![Timeline Focus View](docs/images/timeline-focus.png)
+*3D timeline view showing commit cards positioned along a temporal axis with the current marker. Demonstrates the spatial organization of git commits in 3D space with the signature yellow timeline marker indicating current position.*
+
+![Timeline Hover Interaction](docs/images/timeline-hover.png)
+*Detailed commit card view when hovering over timeline events. Shows commit information including title, file changes (+0 ~1 -0), line changes (+20 -10), and date (5/22/2025). Other cards fade intelligently using the timeline occlusion system for enhanced visual clarity.*
+
 ### Basic Usage
 
 1. Enter a Git repository URL in the top bar
