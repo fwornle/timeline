@@ -1,6 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '../index';
 import type { Preferences, StoredCameraState } from '../../services/storage';
+import { addToRecentRepositories } from '../../services/storage';
 import * as THREE from 'three';
 import { updatePreferences } from '../slices/preferencesSlice';
 import { updateCameraState } from '../slices/uiSlice';
@@ -53,11 +54,18 @@ export const updateRepositoryPreferences = createAsyncThunk<
   { state: RootState }
 >(
   'preferences/updateRepository',
-  async (settings, { dispatch }) => {
+  async (settings, { dispatch, getState }) => {
+    const state = getState();
     const preferences: Partial<Preferences> = {};
     
     if (settings.repoUrl !== undefined) {
       preferences.repoUrl = settings.repoUrl;
+      
+      // Add to recent repositories if it's a valid URL
+      if (settings.repoUrl) {
+        const currentRecent = state.preferences.recentRepositories || [];
+        preferences.recentRepositories = addToRecentRepositories(settings.repoUrl, currentRecent);
+      }
     }
     
     if (settings.username !== undefined) {

@@ -3,6 +3,7 @@ import { Modal, Form, Alert } from 'react-bootstrap';
 import type { Preferences } from '../services/storage';
 import { useAppSelector, useAppDispatch } from '../store';
 import { updatePreferences } from '../store/slices/preferencesSlice';
+import { updateRepositoryPreferences } from '../store/intents/preferencesIntents';
 import { timezonesByRegion, DEFAULT_TIMEZONE } from '../config/timezones';
 
 interface PreferencesModalProps {
@@ -50,14 +51,15 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    // Update preferences with repo info
-    const updatedPrefs = {
-      ...prefs,
+    // Update repository preferences (which will also add to recent repositories)
+    dispatch(updateRepositoryPreferences({
       repoUrl,
       username: username || undefined
-    };
-
-    dispatch(updatePreferences(updatedPrefs));
+    }));
+    
+    // Update other preferences
+    const { repoUrl: _, username: __, ...otherPrefs } = prefs;
+    dispatch(updatePreferences(otherPrefs));
 
     // Store credentials if provided for HTTPS URLs
     if (repoUrl.startsWith('http') && username && password) {
@@ -117,7 +119,37 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
               isInvalid={!!errors.repoUrl}
             />
             <Form.Control.Feedback type="invalid">{errors.repoUrl}</Form.Control.Feedback>
-            <Form.Text muted>
+            
+            {preferences.recentRepositories && preferences.recentRepositories.length > 0 && (
+              <div className="mt-2">
+                <Form.Text className="text-muted d-block mb-1">
+                  Or select from recent repositories:
+                </Form.Text>
+                <Form.Select
+                  size="sm"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setRepoUrl(e.target.value);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: 'var(--color-surface-elevated-light)',
+                    border: '1px solid var(--color-border-light)',
+                    color: 'var(--color-text-primary-light)'
+                  }}
+                >
+                  <option value="">Select a recent repository...</option>
+                  {preferences.recentRepositories.map((url, index) => (
+                    <option key={index} value={url}>
+                      {url.replace(/^https?:\/\//, '').replace(/\.git$/, '')}
+                    </option>
+                  ))}
+                </Form.Select>
+              </div>
+            )}
+            
+            <Form.Text className="text-muted mt-2 d-block">
               Enter the URL of the Git repository you want to visualize.
               Both HTTPS and SSH formats are supported.
             </Form.Text>

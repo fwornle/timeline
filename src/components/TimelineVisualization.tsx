@@ -19,6 +19,7 @@ import {
   setError
 } from '../store/slices/timelineSlice';
 import { selectCard, hoverCard, updateTimelinePosition } from '../store/intents/uiIntents';
+import { updateRepositoryPreferences } from '../store/intents/preferencesIntents';
 import { calculateTimelineLength } from '../utils/timeline/timelineCalculations';
 
 interface TimelineVisualizationProps {
@@ -129,12 +130,21 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
   // Use the timeline data hook to fetch data
   const timelineData = useTimelineData(repoUrl);
 
+  // Track if we've already added this repo to recent list
+  const hasAddedToRecentRef = useRef(false);
+
   // Sync timeline data with Redux state
   useEffect(() => {
     if (timelineData.events.length > 0) {
       dispatch(setEvents(timelineData.events));
       dispatch(setLoading(false));
       dispatch(setError(null));
+      
+      // Add repository to recent list on successful load
+      if (repoUrl && !hasAddedToRecentRef.current && !timelineData.usingMockedData) {
+        hasAddedToRecentRef.current = true;
+        dispatch(updateRepositoryPreferences({ repoUrl }));
+      }
     } else if (timelineData.hasError) {
       dispatch(setError('Failed to load timeline data'));
       dispatch(setLoading(false));
@@ -142,7 +152,12 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
       dispatch(setLoading(true));
       dispatch(setError(null));
     }
-  }, [timelineData.events, timelineData.isLoading, timelineData.hasError, dispatch]);
+  }, [timelineData.events, timelineData.isLoading, timelineData.hasError, timelineData.usingMockedData, repoUrl, dispatch]);
+  
+  // Reset the added flag when repo URL changes
+  useEffect(() => {
+    hasAddedToRecentRef.current = false;
+  }, [repoUrl]);
 
   // Use data from the hook for compatibility flags
   const isGitHistoryMocked = timelineData.isGitHistoryMocked;
