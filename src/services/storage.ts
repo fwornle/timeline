@@ -12,6 +12,7 @@ export type Preferences = {
   // Repository information
   repoUrl?: string;
   username?: string;
+  recentRepositories?: string[]; // Last 5 repository URLs
 
   // Animation settings
   animationSpeed?: number;
@@ -61,4 +62,18 @@ export function loadPreferences(): Preferences {
 
 export function clearPreferences() {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+// Helper function to add a repository to recent list
+export function addToRecentRepositories(repoUrl: string, currentRecent?: string[]): string[] {
+  const recent = currentRecent || [];
+  
+  // Remove the URL if it already exists
+  const filtered = recent.filter(url => url !== repoUrl);
+  
+  // Add the new URL at the beginning
+  const updated = [repoUrl, ...filtered];
+  
+  // Keep only the last 5
+  return updated.slice(0, 5);
 }
