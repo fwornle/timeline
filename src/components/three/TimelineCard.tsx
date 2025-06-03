@@ -5,7 +5,7 @@ import { SafeText } from './SafeText';
 import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../data/types/TimelineEvent';
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, threeColors, threeOpacities } from '../../config';
-import { useLogger } from '../../utils/logging/hooks/useLogger';
+import { useDebugLogger } from '../../utils/logging/useDebugLogger';
 import {
   globalClickHandlers,
   registerOpenCard,
@@ -107,7 +107,35 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   fadeOpacity = 1.0,
   debugMarker = false
 }) => {
-  const logger = useLogger({ component: 'THREE', topic: 'cards' });
+  const logger = useDebugLogger('THREE', 'cards');
+  
+  // Track renders in development
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  
+  // Track prop changes
+  const prevPropsRef = useRef<TimelineCardProps | null>(null);
+  
+  useEffect(() => {
+    if (prevPropsRef.current) {
+      const changes: string[] = [];
+      if (prevPropsRef.current.isHovered !== isHovered) changes.push(`isHovered: ${prevPropsRef.current.isHovered} -> ${isHovered}`);
+      if (prevPropsRef.current.selected !== selected) changes.push(`selected: ${prevPropsRef.current.selected} -> ${selected}`);
+      if (Math.abs(prevPropsRef.current.fadeOpacity - fadeOpacity) > 0.01) changes.push(`fadeOpacity: ${prevPropsRef.current.fadeOpacity?.toFixed(2)} -> ${fadeOpacity.toFixed(2)}`);
+      if (prevPropsRef.current.wiggle !== wiggle) changes.push(`wiggle: ${prevPropsRef.current.wiggle} -> ${wiggle}`);
+      if (prevPropsRef.current.isMarkerDragging !== isMarkerDragging) changes.push(`isMarkerDragging: ${prevPropsRef.current.isMarkerDragging} -> ${isMarkerDragging}`);
+      
+      if (changes.length > 0) {
+        logger.debug('TimelineCard re-rendered due to prop changes', {
+          cardId: event.id.slice(-6),
+          renderCount: renderCountRef.current,
+          changes
+        });
+      }
+    }
+    
+    prevPropsRef.current = { event, selected, onSelect, onHover, position, animationProps, wiggle, isMarkerDragging, droneMode, isHovered, fadeOpacity, debugMarker };
+  });
 
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
@@ -133,9 +161,13 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       cameraState.isCameraMoving = true;
       cameraState.lastCameraMoveTime = now;
 
-      // If this card is hovered and camera is moving, clear hover state
-      if (isHovered && onHover) {
-        onHover(null);
+      // If this card is hovered and camera is moving significantly, clear hover state
+      // But don't clear if we're in the middle of an animation (card opening/closing)
+      if (isHovered && onHover && !animationCompletionRef.current.mustComplete) {
+        // Only clear hover if camera moved a lot (user is actively moving camera)
+        if (distanceMoved > 0.5) {
+          onHover(null);
+        }
       }
     } else {
       // Check if camera cooldown period has passed
@@ -277,7 +309,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       lastAppliedFadeOpacityRef.current = fadeOpacity;
       setCurrentOpacity(fadeOpacity);
     }
-  }, [fadeOpacity, logger]); // Only depends on fadeOpacity changes
+  }, [fadeOpacity]); // Only depends on fadeOpacity changes
 
 
   // Wiggle animation frame (throttled for performance)
@@ -473,6 +505,14 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   useEffect(() => {
     // Use explicit hover state from parent instead of inferring from scale
     const newIsHovered = isHovered;
+    
+    logger.debug('TimelineCard useEffect triggered', {
+      cardId: event.id.slice(-6),
+      newIsHovered,
+      prevIsHovered: prevHoveredRef.current,
+      currentAnimationTarget: animationCompletionRef.current.targetState,
+      mustComplete: animationCompletionRef.current.mustComplete
+    });
 
     // Only trigger animation if hover state changed
     if (newIsHovered !== prevHoveredRef.current) {
@@ -518,6 +558,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         });
       } else {
         // UNHOVER: Return to original position (single stage)
+        logger.debug('Starting close animation', {
+          cardId: event.id.slice(-6),
+          currentTargetState: animationCompletionRef.current.targetState,
+          mustComplete: animationCompletionRef.current.mustComplete,
+          isHovered: newIsHovered
+        });
         animationCompletionRef.current = { targetState: 'closed', mustComplete: true, cardId: event.id };
         registerAnimatingCard(event.id);
 
