@@ -34,8 +34,7 @@ const hoverLoggingMiddleware: Middleware = store => next => action => {
         timestamp: Date.now()
       });
     } catch (e) {
-      // Silently fail if logging doesn't work
-      console.log('Hover action:', action.type, action.payload);
+      // Silently fail if logging doesn't work - don't use console.log
     }
   }
   
