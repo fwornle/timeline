@@ -5,7 +5,7 @@ import { useThree } from '@react-three/fiber';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { calculateEventZPositionWithIndex } from '../../utils/timeline/timelineCalculations';
 import { dimensions } from '../../config';
-import { useLogger } from '../../utils/logging/hooks/useLogger';
+import { useDebugLogger } from '../../utils/logging/useDebugLogger';
 import { useAppSelector, useAppDispatch } from '../../store';
 import { hoverCard } from '../../store/intents/uiIntents';
 import { setMarkerFadeOpacity, setDebugMarkerFade, setFadedCardsTemporalRange } from '../../store/slices/uiSlice';
@@ -48,7 +48,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   droneMode = false,
   debugMode = false
 }) => {
-  const logger = useLogger({ component: 'THREE', topic: 'rendering' });
+  const logger = useDebugLogger('THREE', 'rendering');
   
   // Use visibleEvents for rendering if provided, otherwise render all events
   const eventsToRender = visibleEvents || events;
@@ -80,18 +80,12 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Handle hover with Redux
   const handleCardHover = useCallback((cardId: string | null) => {
-    // Always log hover changes for debugging
-    logger.debug(`handleCardHover called with: ${cardId ? cardId.slice(-6) : 'null'}`);
-    
     // Use Redux intent to update hover state
     dispatch(hoverCard(cardId));
     
-    // Always log Redux state changes
-    logger.debug(`Redux hover state updated: ${cardId ? cardId.slice(-6) : 'null'}`);
-    
     // Forward to parent for actual card interaction
     onHover(cardId);
-  }, [dispatch, onHover, logger]);
+  }, [dispatch, onHover]);
 
   // Memoize sorted events to avoid recalculating on every render
   const sortedEvents = useMemo(() => {
@@ -277,23 +271,40 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
              box1.maxY < box2.minY || box2.maxY < box1.minY);
   };
 
+  // Track last hover change time to debounce occlusion calculations
+  const lastHoverChangeRef = useRef(0);
+  const [debouncedHoveredCardId, setDebouncedHoveredCardId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedHoveredCardId(hoveredCardId);
+      lastHoverChangeRef.current = Date.now();
+    }, 50); // 50ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [hoveredCardId]);
+  
   // Calculate which cards should be faded due to occlusion
   const cardFadeStates = useMemo(() => {
     // Debug Redux state
     if (debugMode) {
-      logger.debug(`cardFadeStates useMemo running with hoveredCardId: ${hoveredCardId ? hoveredCardId.slice(-6) : 'null'}`);
+      logger.debug(`cardFadeStates useMemo running with debouncedHoveredCardId: ${debouncedHoveredCardId ? debouncedHoveredCardId.slice(-6) : 'null'}`);
       logger.debug('Occlusion check (Redux):', {
-        hoveredCardId,
+        debouncedHoveredCardId,
         eventsToRenderCount: eventsToRender.length
       });
     }
     
-    // Only fade cards when a card is hovered (using clean Redux state)
-    const openedCardId = hoveredCardId;
+    // Only fade cards when a card is hovered (using debounced Redux state)
+    const openedCardId = debouncedHoveredCardId;
     
     if (!openedCardId) {
       // Clear debug info when no card is hovered or open
-      logger.debug('No opened card - clearing all fade states'); // Always log this, not just in debug mode
+      logger.debug('No opened card - clearing all fade states', {
+        hoveredCardId,
+        openedCardId,
+        timestamp: Date.now()
+      });
       setDebugInfo({});
       return new Map<string, number>();
     }
@@ -434,13 +445,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     }
     
     return fadeMap;
-  }, [hoveredCardId, selectedCardId, eventsToRender, getEventPosition, camera, debugMode]);
+  }, [debouncedHoveredCardId, selectedCardId, eventsToRender, getEventPosition, camera, debugMode]);
   
   // Handle marker fade updates in a separate useEffect to avoid dispatch during render
   useEffect(() => {
     const config = dimensions.animation.card.occlusion;
     
-    if (!hoveredCardId) {
+    if (!debouncedHoveredCardId) {
       // Clear marker fade when no card is hovered
       dispatch(setMarkerFadeOpacity(1.0));
       dispatch(setDebugMarkerFade(false));
@@ -488,7 +499,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       dispatch(setDebugMarkerFade(false));
       dispatch(setFadedCardsTemporalRange(null));
     }
-  }, [cardFadeStates, hoveredCardId, eventsToRender, debugMode, dispatch, logger]);
+  }, [cardFadeStates, debouncedHoveredCardId, eventsToRender, debugMode, dispatch]);
 
 
   // Memoize the cards to prevent unnecessary re-renders
@@ -499,11 +510,6 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         debugInfo.cardOverlaps?.get(event.id) === true;
       
       const fadeOpacity = cardFadeStates.get(event.id) ?? 1.0;
-      
-      // Debug fade opacity application
-      if (debugMode && fadeOpacity < 1.0) {
-        logger.debug(`Applying fade opacity ${fadeOpacity.toFixed(3)} to card ${event.id.slice(-6)}`);
-      }
 
       return (
         <TimelineCard

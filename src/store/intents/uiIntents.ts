@@ -36,13 +36,23 @@ export const selectCard = createAsyncThunk<
 
 // Intent to hover over a card
 export const hoverCard = createAsyncThunk<
-  void,
+  string | null,
   string | null,
   { state: RootState }
 >(
   'ui/hoverCard',
-  async (cardId, { dispatch }) => {
+  async (cardId, { dispatch, getState }) => {
+    const state = getState();
+    const logger = new Logger({ component: 'REDUX', topic: 'ui' });
+    
+    logger.debug('hoverCard intent called', {
+      newCardId: cardId ? cardId.slice(-6) : 'null',
+      currentHoveredCardId: state.ui.hoveredCardId ? state.ui.hoveredCardId.slice(-6) : 'null',
+      timestamp: Date.now()
+    });
+    
     dispatch(setHoveredCardId(cardId));
+    return cardId;
   }
 );
 
