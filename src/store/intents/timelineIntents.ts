@@ -9,6 +9,7 @@ import {
   setIsUsingMockData,
   updateCounts 
 } from '../slices/timelineSlice';
+import { setIsReloadingSoft, setIsReloadingHard } from '../slices/uiSlice';
 
 // Intent to fetch timeline data
 export const fetchTimelineData = createAsyncThunk<
@@ -115,5 +116,62 @@ export const resetTimelineWithEvent = createAsyncThunk<void, void, { state: Root
     window.dispatchEvent(new CustomEvent('timeline-reset'));
     
     // Reset store state is handled by the reducer
+  }
+);
+
+// Intent to purge cache and reload timeline data
+export const purgeAndReloadTimeline = createAsyncThunk<
+  void,
+  { repoUrl: string; hard?: boolean },
+  { state: RootState }
+>(
+  'timeline/purgeAndReload',
+  async ({ repoUrl, hard = false }, { dispatch }) => {
+    if (!repoUrl) {
+      return;
+    }
+
+    // Set loading and reload state
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+    dispatch(hard ? setIsReloadingHard(true) : setIsReloadingSoft(true));
+
+    try {
+      // Purge the cache on the server
+      const purgeEndpoint = hard ? '/purge/hard' : '/purge';
+      const purgeResponse = await fetch(
+        `http://localhost:3030/api/v1${purgeEndpoint}?repository=${encodeURIComponent(repoUrl)}`,
+        { method: 'POST' }
+      );
+
+      if (!purgeResponse.ok) {
+        throw new Error(`Failed to purge cache: ${purgeResponse.statusText}`);
+      }
+
+      // Wait a bit to ensure cache is cleared
+      await new Promise(resolve => setTimeout(resolve, hard ? 1000 : 500));
+
+      // Clear the Redux store state to force a fresh fetch
+      dispatch(setEvents([]));
+      dispatch(setCacheData({ key: `${repoUrl}-git`, data: [] }));
+      dispatch(setCacheData({ key: `${repoUrl}-spec`, data: [] }));
+      dispatch(setCacheData({ key: `${repoUrl}-both`, data: [] }));
+
+      // Dispatch the timeline-reload event to trigger useTimelineData hook
+      const event = new CustomEvent('timeline-reload', { detail: { hard } });
+      window.dispatchEvent(event);
+
+      // Wait for the data to be loaded by monitoring state changes
+      // The useTimelineData hook will handle fetching new data
+      // We'll listen for the loading state to be cleared
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to purge and reload';
+      dispatch(setError(message));
+      console.error('Purge and reload failed:', error);
+      
+      // Only clear reload states on error
+      dispatch(setIsReloadingSoft(false));
+      dispatch(setIsReloadingHard(false));
+    }
   }
 );

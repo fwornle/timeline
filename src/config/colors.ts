@@ -138,6 +138,12 @@ export const colors = {
       border: 'rgba(226, 232, 240, 1)',          // border-light
       focus: 'rgba(37, 99, 235, 1)',             // accent-600
       text: 'rgba(15, 23, 42, 1)',               // text-primary-light
+    },
+
+    // Reload states
+    reload: {
+      soft: 'rgba(59, 130, 246, 0.3)',           // accent-500 with low opacity
+      hard: 'rgba(245, 158, 11, 0.3)',           // warning with low opacity
     }
   }
 };

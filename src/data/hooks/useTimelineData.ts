@@ -206,6 +206,25 @@ export function useTimelineData(repoUrl: string) {
     doFetch();
   }, [repoUrl, isFetching, hasInitialFetch, gitService, specService]); // Include all dependencies
 
+  // Listen for timeline-reload event to trigger fresh data fetch
+  useEffect(() => {
+    const handleTimelineReload = (event: CustomEvent) => {
+      Logger.info(Logger.Categories.DATA, 'Timeline reload event received', { 
+        repoUrl,
+        hard: event.detail?.hard 
+      });
+      
+      // Force a fresh fetch
+      setHasInitialFetch(false);
+      fetchTimelineData(true);
+    };
+
+    window.addEventListener('timeline-reload', handleTimelineReload as EventListener);
+    return () => {
+      window.removeEventListener('timeline-reload', handleTimelineReload as EventListener);
+    };
+  }, [repoUrl, fetchTimelineData]);
+
   // Helper function to fetch data (no retries)
   const fetchData = useCallback(async (type: 'git' | 'spec') => {
     try {
@@ -248,13 +267,18 @@ export function useTimelineData(repoUrl: string) {
     }
 
     setIsFetching(true);
-    setState(prev => ({
-      ...prev,
+    // Clear existing data immediately to show loading state
+    setState({
+      events: [],
+      period: null,
       sources: {
         git: { isLoading: true, error: null },
         spec: { isLoading: true, error: null }
       }
-    }));
+    });
+    
+    // Reset the hasInitialFetch flag to allow fresh data fetch
+    setHasInitialFetch(false);
 
     try {
       if (hardPurge) {
@@ -296,6 +320,9 @@ export function useTimelineData(repoUrl: string) {
             spec: { isLoading: false, error: null }
           }
         });
+        
+        // Mark that we have fetched data
+        setHasInitialFetch(true);
       } else {
         // Soft purge - purge and reload each data source separately
 
@@ -432,6 +459,11 @@ export function useTimelineData(repoUrl: string) {
 
       // Set hasInitialFetch to true to prevent automatic refetching
       setHasInitialFetch(true);
+      
+      // Log completion
+      Logger.info(Logger.Categories.DATA, `${hardPurge ? 'Hard' : 'Soft'} purge and refresh completed`, { 
+        repoUrl
+      });
     }
   }, [repoUrl, isFetching, fetchData]);
 

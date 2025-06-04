@@ -41,6 +41,8 @@ interface UIState {
 
   // Loading states
   isInitializing: boolean;
+  isReloadingSoft: boolean;
+  isReloadingHard: boolean;
 }
 
 const initialState: UIState = {
@@ -66,6 +68,8 @@ const initialState: UIState = {
   showLoggingControl: false,
   sidebarOpen: false,
   isInitializing: true,
+  isReloadingSoft: false,
+  isReloadingHard: false,
 };
 
 const uiSlice = createSlice({
@@ -129,6 +133,12 @@ const uiSlice = createSlice({
     setIsInitializing: (state, action: PayloadAction<boolean>) => {
       state.isInitializing = action.payload;
     },
+    setIsReloadingSoft: (state, action: PayloadAction<boolean>) => {
+      state.isReloadingSoft = action.payload;
+    },
+    setIsReloadingHard: (state, action: PayloadAction<boolean>) => {
+      state.isReloadingHard = action.payload;
+    },
     resetUI: (state) => {
       state.selectedCardId = null;
       state.hoveredCardId = null;
@@ -161,6 +171,8 @@ export const {
   setShowLoggingControl,
   setSidebarOpen,
   setIsInitializing,
+  setIsReloadingSoft,
+  setIsReloadingHard,
   resetUI,
 } = uiSlice.actions;
 
