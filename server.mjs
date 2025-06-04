@@ -47,8 +47,8 @@ if (!fs.existsSync(TIMELINE_CACHE_DIR)) {
 
 // Helper function to sanitize repository URL for filename
 function sanitizeRepoUrl(repository) {
-  // Replace common URL control characters with underscores
-  return repository.replace(/[%@:\/]/g, '_');
+  // Replace ALL non-alphanumeric characters with underscores (same as service wrapper)
+  return repository.replace(/[^a-zA-Z0-9]/g, '_');
 }
 
 // Helper function to get repo directory path
@@ -94,6 +94,147 @@ function purgeCacheFiles(repository) {
       console.log(`[${localTime()}] [CACHE] Purged ${type} cache for repo ${repository}`);
     }
   });
+}
+
+// Helper function to attempt cloning a repository
+async function attemptClone(repository) {
+  try {
+    const repoDir = getRepoDir(repository);
+    
+    // Determine if URL is HTTPS or SSH
+    const isHttps = repository.startsWith('http');
+    console.log(`[${localTime()}] [CLONE] Attempting to clone with ${isHttps ? 'HTTPS' : 'SSH'}: ${repository}`);
+
+    // Create a promise that will be rejected after timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Git clone operation timed out after 60 seconds'));
+      }, 60000); // 60 second timeout
+    });
+
+    // Race the git operation against the timeout
+    await Promise.race([
+      exec(`git clone ${repository} ${repoDir}`),
+      timeoutPromise
+    ]);
+
+    console.log(`[${localTime()}] [CLONE] Repository cloned successfully`);
+    return true;
+  } catch (error) {
+    console.error(`[${localTime()}] [CLONE] Failed to clone repository:`, error.message);
+    return false;
+  }
+}
+
+// Reload repository data (soft reload logic)
+async function reloadRepositoryData(repository) {
+  console.log(`[${localTime()}] [RELOAD] Starting soft reload for ${repository}`);
+  
+  // Step 1: Purge cache files
+  purgeCacheFiles(repository);
+  
+  // Step 2: Check if repository is cloned
+  const repoDir = getRepoDir(repository);
+  const isCloned = fs.existsSync(repoDir);
+  
+  if (isCloned) {
+    console.log(`[${localTime()}] [RELOAD] Repository already cloned at ${repoDir}`);
+    // Step 2.1: Recreate cache files from cloned repo
+    await recreateCacheFromClone(repository);
+  } else {
+    console.log(`[${localTime()}] [RELOAD] Repository not cloned, attempting to clone`);
+    // Step 2.2: Attempt to clone
+    const cloneSuccess = await attemptClone(repository);
+    
+    if (cloneSuccess) {
+      // Step 2.2.1: Clone successful, recreate cache
+      await recreateCacheFromClone(repository);
+    } else {
+      // Step 2.2.2: Clone failed, create mock data
+      console.log(`[${localTime()}] [RELOAD] Clone failed, creating mock data`);
+      await createMockCache(repository);
+    }
+  }
+}
+
+// Recreate cache from cloned repository
+async function recreateCacheFromClone(repository) {
+  console.log(`[${localTime()}] [RELOAD] Recreating cache from cloned repository`);
+  
+  // Recreate git cache
+  try {
+    const gitService = await createGitRepositoryService(repository);
+    const gitData = await gitService.getHistory();
+    
+    const gitCache = {
+      success: true,
+      data: gitData || [],
+      timestamp: new Date().toISOString(),
+      mocked: false
+    };
+    
+    writeCache(repository, 'git', gitCache);
+    console.log(`[${localTime()}] [RELOAD] Git cache recreated with ${gitData.length} items`);
+  } catch (error) {
+    console.error(`[${localTime()}] [RELOAD] Failed to recreate git cache:`, error.message);
+    // Even if git history fails, create empty cache with mocked=false
+    const gitCache = {
+      success: true,
+      data: [],
+      timestamp: new Date().toISOString(),
+      mocked: false
+    };
+    writeCache(repository, 'git', gitCache);
+  }
+  
+  // Recreate spec cache
+  try {
+    const specData = await processSpecsWithPromptLevel(repository);
+    
+    // Even if spec directory doesn't exist or is empty, mark as not mocked
+    const specCache = {
+      success: true,
+      data: specData || [],
+      timestamp: new Date().toISOString(),
+      mocked: false
+    };
+    
+    writeCache(repository, 'spec', specCache);
+    console.log(`[${localTime()}] [RELOAD] Spec cache recreated with ${specData.length} items`);
+  } catch (error) {
+    console.error(`[${localTime()}] [RELOAD] Failed to recreate spec cache:`, error.message);
+    // Create empty cache with mocked=false since repo exists
+    const specCache = {
+      success: true,
+      data: [],
+      timestamp: new Date().toISOString(),
+      mocked: false
+    };
+    writeCache(repository, 'spec', specCache);
+  }
+}
+
+// Create mock cache when repository cannot be cloned
+async function createMockCache(repository) {
+  console.log(`[${localTime()}] [RELOAD] Creating mock cache data`);
+  
+  // Create mock git cache
+  const gitCache = {
+    success: true,
+    data: generateMockGitData(),
+    timestamp: new Date().toISOString(),
+    mocked: true
+  };
+  writeCache(repository, 'git', gitCache);
+  
+  // Create mock spec cache
+  const specCache = {
+    success: true,
+    data: generateMockSpecData(),
+    timestamp: new Date().toISOString(),
+    mocked: true
+  };
+  writeCache(repository, 'spec', specCache);
 }
 
 // Purge a specific cache file (git or spec)
@@ -447,16 +588,16 @@ async function findAvailablePort(startPort) {
 let activeOperations = new Map();
 
 // Add helper function for operation locking
-async function withOperationLock(repository, operation) {
-  const operationKey = `${operation}_${repository}`;
+async function withOperationLock(repository, operationFn) {
+  const operationKey = `reload_${repository}`;
   if (activeOperations.has(operationKey)) {
-    throw new Error(`Operation ${operation} already in progress for ${repository}`);
+    throw new Error(`Reload operation already in progress for ${repository}`);
   }
 
   try {
     activeOperations.set(operationKey, true);
     await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to ensure cleanup
-    return await operation();
+    return await operationFn();
   } finally {
     activeOperations.delete(operationKey);
   }
@@ -632,9 +773,20 @@ const server = http.createServer(async (req, res) => {
     if (path === `${API_PREFIX}/purge` && req.method === 'POST') {
       const { repository } = query;
       if (repository) {
-        purgeCacheFiles(repository);
-        res.writeHead(200);
-        res.end(JSON.stringify({ success: true, message: 'Cache files purged' }));
+        try {
+          await withOperationLock(repository, async () => {
+            await reloadRepositoryData(repository);
+          });
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'Soft reload completed' }));
+        } catch (error) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ 
+            success: false, 
+            message: 'Soft reload failed',
+            error: error.message 
+          }));
+        }
       } else {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Repository required' }));
@@ -686,23 +838,23 @@ const server = http.createServer(async (req, res) => {
           await withOperationLock(repository, async () => {
             console.log(`[${localTime()}] [CACHE] Starting hard reload for repo ${repository}`);
 
-            // Delete the entire repository directory
+            // Step 1: Delete the entire repository directory
             const repoDir = getRepoDir(repository);
             if (fs.existsSync(repoDir)) {
               await fs.promises.rm(repoDir, { recursive: true, force: true });
+              console.log(`[${localTime()}] [CACHE] Removed cloned repo at ${repoDir}`);
             }
 
-            // Clear caches
-            purgeCacheFiles(repository);
-            console.log(`[${localTime()}] [CACHE] Purged git and spec caches for repo ${repository}`);
+            // Step 2: Proceed with soft reload (which will purge cache and attempt clone)
+            await reloadRepositoryData(repository);
           });
           res.writeHead(200);
-          res.end(JSON.stringify({ success: true, message: 'Cache and cloned repo purged' }));
+          res.end(JSON.stringify({ success: true, message: 'Hard reload completed' }));
         } catch (error) {
           res.writeHead(500);
           res.end(JSON.stringify({
             success: false,
-            message: 'Failed to purge repo',
+            message: 'Hard reload failed',
             error: error.message
           }));
         }
@@ -732,32 +884,21 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Try to get real data
-        let gitData;
-        let isMocked = false;
-        try {
-          const gitService = await createGitRepositoryService(repository);
-          gitData = await gitService.getHistory();
-          if (!gitData || gitData.length === 0) {
-            throw new Error('No git data found');
-          }
-          console.log(`[${localTime()}] [API] Retrieved real git data for repo ${repository}: ${gitData.length} items`);
-        } catch (error) {
-          console.log(`[${localTime()}] [API] Failed to get real git data, generating mock data:`, error);
-          gitData = generateMockGitData();
-          isMocked = true;
+        // If no cache exists, trigger a soft reload to create it
+        console.log(`[${localTime()}] [API] No git cache found, triggering soft reload for ${repository}`);
+        await reloadRepositoryData(repository);
+        
+        // Now try to read the cache again
+        const newCache = readCache(repository, 'git');
+        if (newCache) {
+          console.log(`[${localTime()}] [API] Returning newly created git cache for repo ${repository}: ${newCache.data?.length || 0} items`);
+          res.writeHead(200);
+          res.end(JSON.stringify(newCache));
+          return;
+        } else {
+          // This should not happen, but handle it gracefully
+          throw new Error('Failed to create git cache');
         }
-
-        const response = {
-          success: true,
-          data: gitData,
-          timestamp: new Date().toISOString(),
-          mocked: isMocked
-        };
-
-        writeCache(repository, 'git', response);
-        res.writeHead(200);
-        res.end(JSON.stringify(response));
       } catch (error) {
         console.error('Git history request failed', {
           query,
@@ -851,32 +992,21 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Try to get real data
-        let specData;
-        let isMocked = false;
-        try {
-          // Use enhanced spec processing if available
-          specData = await processSpecsWithPromptLevel(repository);
-          if (!specData || specData.length === 0) {
-            throw new Error('No spec data found');
-          }
-          console.log(`[${localTime()}] [API] Retrieved spec data for repo ${repository}: ${specData.length} items`);
-        } catch (error) {
-          console.log(`[${localTime()}] [API] Failed to get real spec data, generating mock data:`, error);
-          specData = generateMockSpecData();
-          isMocked = true;
+        // If no cache exists, trigger a soft reload to create it
+        console.log(`[${localTime()}] [API] No spec cache found, triggering soft reload for ${repository}`);
+        await reloadRepositoryData(repository);
+        
+        // Now try to read the cache again
+        const newCache = readCache(repository, 'spec');
+        if (newCache) {
+          console.log(`[${localTime()}] [API] Returning newly created spec cache for repo ${repository}: ${newCache.data?.length || 0} items`);
+          res.writeHead(200);
+          res.end(JSON.stringify(newCache));
+          return;
+        } else {
+          // This should not happen, but handle it gracefully
+          throw new Error('Failed to create spec cache');
         }
-
-        const response = {
-          success: true,
-          data: specData,
-          timestamp: new Date().toISOString(),
-          mocked: isMocked
-        };
-
-        writeCache(repository, 'spec', response);
-        res.writeHead(200);
-        res.end(JSON.stringify(response));
       } catch (error) {
         console.error('Spec history request failed', {
           query,
