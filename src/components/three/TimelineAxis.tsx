@@ -25,6 +25,7 @@ interface TimelineAxisProps {
   droneMode?: boolean;
   eventCount?: number;
   showHolidays?: boolean;
+  showBridgeDays?: boolean;
   debugMode?: boolean;
 }
 
@@ -42,6 +43,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
   droneMode = false,
   eventCount = 0,
   showHolidays = true,
+  showBridgeDays = false,
   debugMode = false,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
@@ -56,7 +58,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
   // Fetch calendar data when dates or timezone change
   React.useEffect(() => {
-    if (!showHolidays || !startDate || !endDate) {
+    if ((!showHolidays && !showBridgeDays) || !startDate || !endDate) {
       setCalendarData(null);
       return;
     }
@@ -96,7 +98,7 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
     };
 
     fetchCalendarData();
-  }, [showHolidays, startDate, endDate, timezone]);
+  }, [showHolidays, showBridgeDays, startDate, endDate, timezone]);
 
   // Check if debug visualization should be shown (from Redux debug mode)
   const showDebugPlanes = debugMode;
@@ -171,9 +173,12 @@ export const TimelineAxis: React.FC<TimelineAxisProps> = ({
 
   // Generate holiday markers if calendar data is available
   if (calendarData && startDate && endDate) {
-    const allSpecialDays = [...calendarData.holidays, ...calendarData.bridgeDays];
+    const specialDays = [
+      ...(showHolidays ? calendarData.holidays : []),
+      ...(showBridgeDays ? calendarData.bridgeDays : [])
+    ];
     
-    allSpecialDays.forEach((specialDay) => {
+    specialDays.forEach((specialDay) => {
       const specialDate = new Date(specialDay.date);
       
       // Only show if within our date range

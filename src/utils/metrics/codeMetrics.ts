@@ -51,8 +51,11 @@ export function calculateCodeMetrics(events: TimelineEvent[]): CodeMetricsPoint[
   const endTime = gitEvents[gitEvents.length - 1].timestamp;
   const totalTimeSpan = endTime.getTime() - startTime.getTime();
 
-  // Create time intervals (e.g., daily intervals for better granularity)
-  const intervalMs = Math.max(24 * 60 * 60 * 1000, totalTimeSpan / 50); // At least daily, max 50 points
+  // Create time intervals - ensure daily intervals for proper weekend detection
+  // Use daily intervals for short periods to avoid weekend detection issues
+  const dayMs = 24 * 60 * 60 * 1000;
+  const totalDays = Math.ceil(totalTimeSpan / dayMs);
+  const intervalMs = totalDays <= 30 ? dayMs : Math.max(dayMs, totalTimeSpan / 50); // Daily for short periods, max 50 points for longer periods
 
   // Debug logging
   Logger.debug(Logger.Categories.DATA, 'calculateCodeMetrics processing', {
@@ -64,13 +67,24 @@ export function calculateCodeMetrics(events: TimelineEvent[]): CodeMetricsPoint[
   });
   const timePoints: Date[] = [];
 
-  for (let time = startTime.getTime(); time <= endTime.getTime(); time += intervalMs) {
-    timePoints.push(new Date(time));
-  }
-
-  // Ensure we include the end time
-  if (timePoints[timePoints.length - 1].getTime() < endTime.getTime()) {
-    timePoints.push(endTime);
+  if (totalDays <= 30) {
+    // For short periods, ensure one point per day for accurate weekend detection
+    const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
+    const endDay = new Date(endTime.getFullYear(), endTime.getMonth(), endTime.getDate());
+    
+    for (let time = startDay.getTime(); time <= endDay.getTime(); time += dayMs) {
+      timePoints.push(new Date(time));
+    }
+  } else {
+    // For longer periods, use the calculated interval
+    for (let time = startTime.getTime(); time <= endTime.getTime(); time += intervalMs) {
+      timePoints.push(new Date(time));
+    }
+    
+    // Ensure we include the end time
+    if (timePoints[timePoints.length - 1].getTime() < endTime.getTime()) {
+      timePoints.push(endTime);
+    }
   }
 
   // Process each time point

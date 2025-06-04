@@ -12,6 +12,7 @@ import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { threeColors } from '../../config';
 import { calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
+import { useAppSelector } from '../../store';
 
 
 export interface TimelineSceneProps {
@@ -63,6 +64,10 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   const logger = useLogger({ component: 'TimelineScene', topic: 'ui' });
   const [isMarkerDragging, setIsMarkerDragging] = useState(false);
   const [isTimelineHovering, setIsTimelineHovering] = useState(false);
+  
+  // Get calendar preferences
+  const showHolidays = useAppSelector(state => state.preferences.showHolidays) ?? true;
+  const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? false;
 
   // Handle timeline hover state changes
   const handleTimelineHoverChange = useCallback((isHovering: boolean) => {
@@ -223,7 +228,8 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           onTimelineHoverChange={handleTimelineHoverChange}
           droneMode={droneMode}
           eventCount={events.length}
-          showHolidays={true}
+          showHolidays={showHolidays}
+          showBridgeDays={showBridgeDays}
           debugMode={debugMode}
         />
         <ViewportFilteredEvents

@@ -24,6 +24,10 @@ export type Preferences = {
   // Localization settings
   timezone?: string;
 
+  // Calendar settings
+  showHolidays?: boolean;
+  showBridgeDays?: boolean;
+
   // Camera state
   cameraState?: StoredCameraState;
 

@@ -40,12 +40,17 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   const [hoveredPoint, setHoveredPoint] = useState<number>(-1);
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
 
-  // Get timezone from preferences
+  // Get timezone and calendar preferences
   const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
+  const showHolidays = useAppSelector(state => state.preferences.showHolidays) ?? true;
+  const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? false; // Default to false to reduce clutter
 
-  // Fetch calendar data when timezone or date range changes
+  // Fetch calendar data when timezone, preferences, or date range changes
   useEffect(() => {
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate || (!showHolidays && !showBridgeDays)) {
+      setCalendarData(null);
+      return;
+    }
 
     const fetchCalendarData = async () => {
       try {
@@ -79,7 +84,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
     };
 
     fetchCalendarData();
-  }, [timezone, startDate, endDate]);
+  }, [timezone, startDate, endDate, showHolidays, showBridgeDays]);
 
   // Calculate metrics from events
   const metricsPoints = useMemo(() => {
@@ -377,7 +382,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                   })()}
 
                   {/* Holiday markers - faint red bars for public holidays */}
-                  {calendarData && (() => {
+                  {calendarData && showHolidays && (() => {
                     const holidayBars: React.ReactElement[] = [];
 
                     calendarData.holidays.forEach((holiday, index) => {
@@ -429,7 +434,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                   })()}
 
                   {/* Bridge day markers - faint red diagonally striped bars */}
-                  {calendarData && (() => {
+                  {calendarData && showBridgeDays && (() => {
                     const bridgeBars: React.ReactElement[] = [];
 
                     calendarData.bridgeDays.forEach((bridgeDay, index) => {
