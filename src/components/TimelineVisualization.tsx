@@ -11,7 +11,9 @@ import { Vector3 } from 'three';
 import {
   setSelectedCardId,
   setHoveredCardId,
-  updateCameraState
+  updateCameraState,
+  setIsReloadingSoft,
+  setIsReloadingHard
 } from '../store/slices/uiSlice';
 import {
   setEvents,
@@ -140,6 +142,10 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
       dispatch(setLoading(false));
       dispatch(setError(null));
       
+      // Clear reload states when data is successfully loaded
+      dispatch(setIsReloadingSoft(false));
+      dispatch(setIsReloadingHard(false));
+      
       // Add repository to recent list on successful load
       if (repoUrl && !hasAddedToRecentRef.current && !timelineData.usingMockedData) {
         hasAddedToRecentRef.current = true;
@@ -148,6 +154,10 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
     } else if (timelineData.hasError) {
       dispatch(setError('Failed to load timeline data'));
       dispatch(setLoading(false));
+      
+      // Clear reload states even on error
+      dispatch(setIsReloadingSoft(false));
+      dispatch(setIsReloadingHard(false));
     } else if (timelineData.isLoading) {
       dispatch(setLoading(true));
       dispatch(setError(null));

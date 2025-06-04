@@ -6,7 +6,6 @@ import { useAppDispatch, useAppSelector } from '../store';
 import { usePreferencesMigration } from '../store/hooks/usePreferencesMigration';
 import {
   setIsInitializing,
-  setDebugMode,
   setCameraCyclingMode,
   setFocusCurrentMode
 } from '../store/slices/uiSlice';
@@ -30,6 +29,7 @@ import {
   toggleDebugModeWithLogging,
   resetTimelineToStart
 } from '../store/intents/uiIntents';
+import { purgeAndReloadTimeline } from '../store/intents/timelineIntents';
 import type { CameraState } from '../components/three/TimelineCamera';
 import { Vector3 } from 'three';
 
@@ -162,18 +162,23 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
   }, [dispatch]);
 
 
+  // Get repository URL from Redux store
+  const repoUrl = useAppSelector(state => state.repository.url);
+
   // Create props for TopBar
   const topBarProps = {
     onRepoUrlChange: handleRepoUrlChange,
     onReloadData: () => {
-      // Dispatch a custom event for soft reload
-      const event = new CustomEvent('timeline-reload', { detail: { hard: false } });
-      window.dispatchEvent(event);
+      // Use the Redux intent for soft reload
+      if (repoUrl) {
+        dispatch(purgeAndReloadTimeline({ repoUrl, hard: false }));
+      }
     },
     onHardReload: () => {
-      // Dispatch a custom event for hard reload
-      const event = new CustomEvent('timeline-reload', { detail: { hard: true } });
-      window.dispatchEvent(event);
+      // Use the Redux intent for hard reload
+      if (repoUrl) {
+        dispatch(purgeAndReloadTimeline({ repoUrl, hard: true }));
+      }
     },
     isLoading,
   };
@@ -243,7 +248,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="main-layout d-flex flex-column vh-100">
       <TopBar {...topBarProps} />
       <main className="flex-fill overflow-hidden">
-        {React.cloneElement(children as React.ReactElement<any>, { routeProps: homeProps })}
+        {React.cloneElement(children as React.ReactElement, { routeProps: homeProps })}
       </main>
       <BottomBar {...bottomBarProps} />
     </div>

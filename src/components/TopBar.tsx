@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Navbar, Container, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, { useState, useRef } from 'react';
+import { Navbar, Container, OverlayTrigger, Tooltip, Overlay } from 'react-bootstrap';
 import PreferencesModal from './PreferencesModal';
 import { LoggingControl } from './ui/LoggingControl';
 import { useAppSelector } from '../store';
 import { useLogger } from '../utils/logging/hooks/useLogger';
+import { colors } from '../config/colors';
 
 interface TopBarProps {
   onRepoUrlChange?: (url: string) => void;
@@ -21,7 +22,14 @@ const TopBar: React.FC<TopBarProps> = ({
   const [showPrefs, setShowPrefs] = useState(false);
   const [showLoggingControl, setShowLoggingControl] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showSoftTooltip, setShowSoftTooltip] = useState(false);
+  const [showHardTooltip, setShowHardTooltip] = useState(false);
+  const softReloadRef = useRef<HTMLButtonElement>(null);
+  const hardReloadRef = useRef<HTMLButtonElement>(null);
+  
   const repoUrl = useAppSelector(state => state.preferences.repoUrl);
+  const isReloadingSoft = useAppSelector(state => state.ui.isReloadingSoft);
+  const isReloadingHard = useAppSelector(state => state.ui.isReloadingHard);
   const logger = useLogger({ component: 'TopBar', topic: 'ui' });
 
   const handleRepoUrlChange = (url: string) => {
@@ -101,74 +109,98 @@ const TopBar: React.FC<TopBarProps> = ({
               {repoUrl && (
                 <>
                   {/* Reload Data Button */}
-                  <OverlayTrigger
-                    placement="bottom"
-                    overlay={<Tooltip>Reload data from cache or upstream repository</Tooltip>}
-                  >
-                    <button
-                      className="btn btn-sm"
-                      style={{
-                        backgroundColor: 'transparent',
-                        border: '1px solid var(--color-primary-400)',
-                        color: 'var(--color-primary-100)',
-                        borderRadius: '6px',
-                        padding: '0.375rem 0.75rem',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
+                  <button
+                    ref={softReloadRef}
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: isReloadingSoft ? colors.ui.reload.soft : 'transparent',
+                      border: '1px solid var(--color-primary-400)',
+                      color: 'var(--color-primary-100)',
+                      borderRadius: '6px',
+                      padding: '0.375rem 0.75rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isReloadingSoft) {
                         e.currentTarget.style.backgroundColor = 'var(--color-primary-700)';
                         e.currentTarget.style.borderColor = 'var(--color-primary-300)';
-                      }}
-                      onMouseLeave={(e) => {
+                      }
+                      setShowSoftTooltip(true);
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isReloadingSoft) {
                         e.currentTarget.style.backgroundColor = 'transparent';
                         e.currentTarget.style.borderColor = 'var(--color-primary-400)';
-                      }}
-                      onClick={() => {
-                        logger.info('Soft reload requested');
-                        onReloadData?.();
-                      }}
-                      disabled={isLoading}
-                    >
-                      <i className={`bi ${isLoading ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} />
-                    </button>
-                  </OverlayTrigger>
+                      }
+                      setShowSoftTooltip(false);
+                    }}
+                    onClick={() => {
+                      logger.info('Soft reload requested');
+                      setShowSoftTooltip(false);
+                      onReloadData?.();
+                    }}
+                    disabled={isLoading || isReloadingSoft || isReloadingHard}
+                  >
+                    <i className={`bi ${(isLoading || isReloadingSoft) ? 'bi-hourglass-split' : 'bi-arrow-clockwise'}`} />
+                  </button>
+                  <Overlay
+                    target={softReloadRef.current}
+                    show={showSoftTooltip && !isReloadingSoft && !isReloadingHard}
+                    placement="bottom"
+                  >
+                    {(props) => (
+                      <Tooltip {...props}>
+                        Reload data from cache or upstream repository
+                      </Tooltip>
+                    )}
+                  </Overlay>
 
                   {/* Hard Reload Button */}
-                  <OverlayTrigger
-                    placement="bottom"
-                    overlay={
-                      <Tooltip>
-                        <strong>Warning:</strong> This will delete the local repository clone and all cached data
-                      </Tooltip>
-                    }
-                  >
-                    <button
-                      className="btn btn-sm"
-                      style={{
-                        backgroundColor: 'transparent',
-                        border: '1px solid var(--color-warning)',
-                        color: 'var(--color-warning)',
-                        borderRadius: '6px',
-                        padding: '0.375rem 0.75rem',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
+                  <button
+                    ref={hardReloadRef}
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: isReloadingHard ? colors.ui.reload.hard : 'transparent',
+                      border: '1px solid var(--color-warning)',
+                      color: isReloadingHard ? 'white' : 'var(--color-warning)',
+                      borderRadius: '6px',
+                      padding: '0.375rem 0.75rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isReloadingHard) {
                         e.currentTarget.style.backgroundColor = 'var(--color-warning)';
                         e.currentTarget.style.color = 'white';
-                      }}
-                      onMouseLeave={(e) => {
+                      }
+                      setShowHardTooltip(true);
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isReloadingHard) {
                         e.currentTarget.style.backgroundColor = 'transparent';
                         e.currentTarget.style.color = 'var(--color-warning)';
-                      }}
-                      onClick={() => {
-                        logger.info('Hard reload requested');
-                        onHardReload?.();
-                      }}
-                      disabled={isLoading}
-                    >
-                      <i className={`bi ${isLoading ? 'bi-hourglass-split' : 'bi-exclamation-triangle'}`} />
-                    </button>
-                  </OverlayTrigger>
+                      }
+                      setShowHardTooltip(false);
+                    }}
+                    onClick={() => {
+                      logger.info('Hard reload requested');
+                      setShowHardTooltip(false);
+                      onHardReload?.();
+                    }}
+                    disabled={isLoading || isReloadingSoft || isReloadingHard}
+                  >
+                    <i className={`bi ${(isLoading || isReloadingHard) ? 'bi-hourglass-split' : 'bi-exclamation-triangle'}`} />
+                  </button>
+                  <Overlay
+                    target={hardReloadRef.current}
+                    show={showHardTooltip && !isReloadingSoft && !isReloadingHard}
+                    placement="bottom"
+                  >
+                    {(props) => (
+                      <Tooltip {...props}>
+                        <strong>Warning:</strong> This will delete the local repository clone and all cached data
+                      </Tooltip>
+                    )}
+                  </Overlay>
                 </>
               )}
 
