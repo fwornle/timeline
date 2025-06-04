@@ -123,6 +123,24 @@ export function useTimelineData(repoUrl: string) {
     }
   }, [repoUrl, gitService, specService]);
 
+  // Reset state when repository URL changes
+  useEffect(() => {
+    // Clear all data when repository changes
+    setState({
+      events: [],
+      period: null,
+      sources: {
+        git: { isLoading: false, error: null },
+        spec: { isLoading: false, error: null }
+      }
+    });
+    setHasInitialFetch(false);
+    setIsGitHistoryMocked(false);
+    setIsSpecHistoryMocked(false);
+    
+    Logger.info(Logger.Categories.DATA, 'Repository URL changed, clearing data', { repoUrl });
+  }, [repoUrl]);
+
   // Initial data fetch - only once when repoUrl changes
   useEffect(() => {
     // Skip if no repo URL or already fetching

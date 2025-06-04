@@ -84,7 +84,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     dispatch(hoverCard(cardId));
     
     // Forward to parent for actual card interaction
-    onHover(cardId);
+    if (onHover) {
+      onHover(cardId);
+    }
   }, [dispatch, onHover]);
 
   // Memoize sorted events to avoid recalculating on every render
