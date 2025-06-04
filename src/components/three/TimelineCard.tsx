@@ -109,6 +109,15 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 }) => {
   const logger = useDebugLogger('THREE', 'cards');
   
+  // Track if component is mounted to avoid state updates after unmount
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  
   // Track renders in development
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
@@ -121,7 +130,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       const changes: string[] = [];
       if (prevPropsRef.current.isHovered !== isHovered) changes.push(`isHovered: ${prevPropsRef.current.isHovered} -> ${isHovered}`);
       if (prevPropsRef.current.selected !== selected) changes.push(`selected: ${prevPropsRef.current.selected} -> ${selected}`);
-      if (Math.abs(prevPropsRef.current.fadeOpacity - fadeOpacity) > 0.01) changes.push(`fadeOpacity: ${prevPropsRef.current.fadeOpacity?.toFixed(2)} -> ${fadeOpacity.toFixed(2)}`);
+      if (Math.abs((prevPropsRef.current.fadeOpacity || 1.0) - fadeOpacity) > 0.01) changes.push(`fadeOpacity: ${(prevPropsRef.current.fadeOpacity || 1.0).toFixed(2)} -> ${fadeOpacity.toFixed(2)}`);
       if (prevPropsRef.current.wiggle !== wiggle) changes.push(`wiggle: ${prevPropsRef.current.wiggle} -> ${wiggle}`);
       if (prevPropsRef.current.isMarkerDragging !== isMarkerDragging) changes.push(`isMarkerDragging: ${prevPropsRef.current.isMarkerDragging} -> ${isMarkerDragging}`);
       
@@ -166,7 +175,11 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       if (isHovered && onHover && !animationCompletionRef.current.mustComplete) {
         // Only clear hover if camera moved a lot (user is actively moving camera)
         if (distanceMoved > 0.5) {
-          onHover(null);
+          try {
+            if (onHover) onHover(null);
+          } catch (e) {
+            // Silently ignore if onHover fails during component transitions
+          }
         }
       }
     } else {
@@ -257,7 +270,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const clearHover = (_: string | null) => {
       if (onHover) {
-        onHover(null);
+        if (onHover) onHover(null);
       }
     };
 
@@ -265,7 +278,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     const forceClose = (cardId: string) => {
       if (cardId === event.id && onHover) {
         // Force closing card
-        onHover(null);
+        if (onHover) onHover(null);
       }
     };
 
@@ -715,7 +728,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         if (animationCompletionRef.current.targetState === 'closed') {
           // Clear hover state when card closes
           if (onHover) {
-            onHover(null);
+            if (onHover) onHover(null);
           }
         }
       }
@@ -725,7 +738,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     if (pendingHoverClearRef.current && isMouseStable() && isHovered) {
       pendingHoverClearRef.current = false;
       if (onHover) {
-        onHover(null);
+        if (onHover) onHover(null);
       }
     }
   });
@@ -750,7 +763,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Then, open the card (hover state) - simplified conditions
     if (!isMarkerDragging && !droneMode) {
       if (onHover) {
-        onHover(event.id);
+        try {
+          onHover(event.id);
+        } catch (error) {
+          // Silently ignore errors during component transitions
+          logger.debug('Error calling onHover in click handler', { error });
+        }
       }
     }
   };
@@ -781,7 +799,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     // Simply notify parent - it will handle exclusivity
     if (onHover) {
-      onHover(event.id);
+      try {
+        onHover(event.id);
+      } catch (error) {
+        // Silently ignore errors during component transitions
+        logger.debug('Error calling onHover during transition', { error });
+      }
     }
   };
 
@@ -801,7 +824,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     if (isMouseStable()) {
       // Simply notify parent to clear hover
       if (onHover) {
-        onHover(null);
+        try {
+          onHover(null);
+        } catch (error) {
+          // Silently ignore errors during component transitions
+          logger.debug('Error clearing hover during transition', { error });
+        }
       }
     } else {
       // Mark that we need to check for delayed hover clearing

@@ -102,24 +102,30 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   const chartData = useMemo(() => {
     if (metricsPoints.length === 0) return null;
 
-    const maxLOC = Math.max(...metricsPoints.map(p => p.cumulativeLinesOfCode));
-    const maxFiles = Math.max(...metricsPoints.map(p => p.totalFiles));
-    const maxCommits = Math.max(...metricsPoints.map(p => p.commitCount));
+    const maxLOC = Math.max(...metricsPoints.map(p => p.cumulativeLinesOfCode || 0), 1);
+    const maxFiles = Math.max(...metricsPoints.map(p => p.totalFiles || 0), 1);
+    const maxCommits = Math.max(...metricsPoints.map(p => p.commitCount || 0), 1);
 
-    return metricsPoints.map((point, index) => ({
-      index,
-      timestamp: point.timestamp,
-      loc: point.cumulativeLinesOfCode,
-      files: point.totalFiles,
-      commits: point.commitCount,
-      locNormalized: (point.cumulativeLinesOfCode / maxLOC) * 100,
-      filesNormalized: (point.totalFiles / maxFiles) * 100,
-      commitsNormalized: (point.commitCount / maxCommits) * 100,
-      linesAdded: point.linesAdded,
-      linesDeleted: point.linesDeleted,
-      filesModified: point.filesModified,
-      isWeekend: point.timestamp.getDay() === 0 || point.timestamp.getDay() === 6, // Sunday = 0, Saturday = 6
-    }));
+    return metricsPoints.map((point, index) => {
+      const loc = point.cumulativeLinesOfCode || 0;
+      const files = point.totalFiles || 0;
+      const commits = point.commitCount || 0;
+      
+      return {
+        index,
+        timestamp: point.timestamp,
+        loc,
+        files,
+        commits,
+        locNormalized: (loc / maxLOC) * 100,
+        filesNormalized: (files / maxFiles) * 100,
+        commitsNormalized: (commits / maxCommits) * 100,
+        linesAdded: point.linesAdded,
+        linesDeleted: point.linesDeleted,
+        filesModified: point.filesModified,
+        isWeekend: point.timestamp.getDay() === 0 || point.timestamp.getDay() === 6, // Sunday = 0, Saturday = 6
+      };
+    });
   }, [metricsPoints]);
 
   // SVG chart dimensions - use full available width
@@ -152,14 +158,28 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
 
   // Create path strings for SVG lines
   const createPath = (data: any[], metric: 'locNormalized' | 'filesNormalized' | 'commitsNormalized') => {
-    if (!data.length) return '';
+    if (!data || data.length === 0) return '';
+    if (data.length === 1) {
+      // Single point - draw a small horizontal line
+      const x = innerWidth / 2;
+      const y = innerHeight - (data[0][metric] / 100) * innerHeight;
+      if (isNaN(x) || isNaN(y)) return '';
+      return `M ${x - 5},${y} L ${x + 5},${y}`;
+    }
 
     const points = data.map((d, i) => {
       const x = (i / (data.length - 1)) * innerWidth;
-      const y = innerHeight - (d[metric] / 100) * innerHeight;
+      const y = innerHeight - ((d[metric] || 0) / 100) * innerHeight;
+      
+      // Validate coordinates
+      if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
+        return null;
+      }
+      
       return `${x},${y}`;
-    });
+    }).filter(point => point !== null);
 
+    if (points.length === 0) return '';
     return `M ${points.join(' L ')}`;
   };
 
@@ -509,7 +529,10 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
 
                   {/* Data points */}
                   {chartData.map((d, i) => {
-                    const x = (i / (chartData.length - 1)) * innerWidth;
+                    // Handle single point case
+                    const x = chartData.length === 1 
+                      ? innerWidth / 2 
+                      : (i / (chartData.length - 1)) * innerWidth;
                     const isCurrentPoint = i === currentMarkerIndex;
                     const isHovered = i === hoveredPoint;
                     const radius = isCurrentPoint
@@ -530,11 +553,17 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                                      : metric === 'totalFiles' ? d.filesNormalized
                                      : d.commitsNormalized;
 
+                          // Skip rendering if coordinates are invalid
+                          const cy = innerHeight - ((yPos || 0) / 100) * innerHeight;
+                          if (isNaN(x) || isNaN(cy) || !isFinite(x) || !isFinite(cy)) {
+                            return null;
+                          }
+
                           return (
                             <circle
                               key={metric}
                               cx={x}
-                              cy={innerHeight - (yPos / 100) * innerHeight}
+                              cy={cy}
                               r={radius}
                               fill={isCurrentPoint ? metricsConfig.colors.currentPosition.fill : config.line}
                               stroke={isCurrentPoint ? metricsConfig.colors.currentPosition.stroke : config.lineHover}

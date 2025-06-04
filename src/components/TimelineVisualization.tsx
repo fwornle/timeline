@@ -157,7 +157,8 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
   // Reset the added flag when repo URL changes
   useEffect(() => {
     hasAddedToRecentRef.current = false;
-  }, [repoUrl]);
+    logger.info('Repository URL changed, clearing timeline data', { repoUrl });
+  }, [repoUrl, logger]);
 
   // Use data from the hook for compatibility flags
   const isGitHistoryMocked = timelineData.isGitHistoryMocked;
