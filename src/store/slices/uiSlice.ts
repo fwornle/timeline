@@ -19,6 +19,9 @@ interface UIState {
   focusCurrentMode: boolean;
   debugMode: boolean;
   cameraCyclingMode: boolean;
+  
+  // Performance profiling
+  performanceProfilingEnabled: boolean;
 
   // Camera state
   cameraState: CameraState;
@@ -54,6 +57,7 @@ const initialState: UIState = {
   focusCurrentMode: false,
   debugMode: false,
   cameraCyclingMode: false,
+  performanceProfilingEnabled: false,
   cameraState: {
     position: { x: 0, y: 20, z: 50 },
     target: { x: 0, y: 0, z: 0 },
@@ -139,6 +143,9 @@ const uiSlice = createSlice({
     setIsReloadingHard: (state, action: PayloadAction<boolean>) => {
       state.isReloadingHard = action.payload;
     },
+    setPerformanceProfilingEnabled: (state, action: PayloadAction<boolean>) => {
+      state.performanceProfilingEnabled = action.payload;
+    },
     resetUI: (state) => {
       state.selectedCardId = null;
       state.hoveredCardId = null;
@@ -160,6 +167,7 @@ export const {
   setFocusCurrentMode,
   setDebugMode,
   setCameraCyclingMode,
+  setPerformanceProfilingEnabled,
   updateCameraState,
   setCameraState,
   setSelectedCardId,

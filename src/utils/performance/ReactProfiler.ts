@@ -7,7 +7,7 @@
 import React from 'react';
 import { Logger } from '../logging/Logger';
 
-interface PerformanceEntry {
+interface ProfilerEntry {
   name: string;
   startTime: number;
   duration: number;
@@ -22,8 +22,8 @@ interface PerformanceThresholds {
 
 class ReactProfiler {
   private static instance: ReactProfiler;
-  private entries: PerformanceEntry[] = [];
-  private isEnabled: boolean = false;
+  private entries: ProfilerEntry[] = [];
+  public isEnabled: boolean = false;
   private thresholds: PerformanceThresholds = {
     warning: 5,   // React's default warning threshold
     error: 16     // One frame at 60fps
@@ -75,6 +75,15 @@ class ReactProfiler {
       throw e;
     } finally {
       const duration = performance.now() - startTime;
+      
+      // Log slow operations using Logger (only when profiling is enabled)
+      if (duration > 1 && this.isEnabled) {
+        Logger.debug('PERFORMANCE', `ReactProfiler recording: ${name}`, {
+          duration: duration.toFixed(2) + 'ms',
+          component: component || 'unknown'
+        });
+      }
+      
       this.recordEntry({
         name,
         startTime,
@@ -123,14 +132,38 @@ class ReactProfiler {
    */
   getReport(): {
     totalEntries: number;
-    slowEntries: PerformanceEntry[];
+    slowEntries: ProfilerEntry[];
     averageDuration: number;
     maxDuration: number;
     componentStats: Record<string, { count: number; avgDuration: number; maxDuration: number }>;
   } {
+    // Log info using Logger (use INFO so it shows up)
+    Logger.info('PERFORMANCE', 'ReactProfiler report requested', {
+      totalEntries: this.entries.length,
+      enabled: this.isEnabled,
+      sampleEntries: this.entries.slice(0, 5).map(e => ({
+        name: e.name,
+        duration: e.duration.toFixed(2) + 'ms',
+        component: e.component
+      }))
+    });
+    
     const slowEntries = this.entries.filter(entry => entry.duration >= this.thresholds.warning);
     const totalDuration = this.entries.reduce((sum, entry) => sum + entry.duration, 0);
-    const maxDuration = Math.max(...this.entries.map(entry => entry.duration), 0);
+    const maxDuration = this.entries.length > 0 ? Math.max(...this.entries.map(entry => entry.duration)) : 0;
+    
+    // Debug the calculation
+    Logger.info('PERFORMANCE', 'Report calculation debug', {
+      entriesCount: this.entries.length,
+      totalDuration: totalDuration.toFixed(2) + 'ms',
+      maxDuration: maxDuration.toFixed(2) + 'ms',
+      slowEntriesCount: slowEntries.length,
+      firstFewEntries: this.entries.slice(0, 3).map(e => ({
+        name: e.name,
+        duration: e.duration,
+        component: e.component
+      }))
+    });
     
     // Component statistics
     const componentStats: Record<string, { count: number; totalDuration: number; maxDuration: number }> = {};
@@ -212,7 +245,7 @@ class ReactProfiler {
     }
   }
 
-  private recordEntry(entry: PerformanceEntry): void {
+  recordEntry(entry: ProfilerEntry): void {
     this.entries.push(entry);
 
     // Keep only the most recent entries
@@ -220,19 +253,21 @@ class ReactProfiler {
       this.entries = this.entries.slice(-this.maxEntries);
     }
 
-    // Log slow operations immediately
-    if (entry.duration >= this.thresholds.error) {
-      Logger.error('PERFORMANCE', `Very slow operation detected: ${entry.name}`, {
-        duration: entry.duration.toFixed(2) + 'ms',
-        component: entry.component,
-        threshold: this.thresholds.error + 'ms'
-      });
-    } else if (entry.duration >= this.thresholds.warning) {
-      Logger.warn('PERFORMANCE', `Slow operation detected: ${entry.name}`, {
-        duration: entry.duration.toFixed(2) + 'ms',
-        component: entry.component,
-        threshold: this.thresholds.warning + 'ms'
-      });
+    // Log slow operations immediately (only when profiling is enabled)
+    if (this.isEnabled) {
+      if (entry.duration >= this.thresholds.error) {
+        Logger.debug('PERFORMANCE', `Very slow operation detected: ${entry.name}`, {
+          duration: entry.duration.toFixed(2) + 'ms',
+          component: entry.component,
+          threshold: this.thresholds.error + 'ms'
+        });
+      } else if (entry.duration >= this.thresholds.warning) {
+        Logger.debug('PERFORMANCE', `Slow operation detected: ${entry.name}`, {
+          duration: entry.duration.toFixed(2) + 'ms',
+          component: entry.component,
+          threshold: this.thresholds.warning + 'ms'
+        });
+      }
     }
   }
 
@@ -242,23 +277,50 @@ class ReactProfiler {
     }
 
     try {
-      const observer = new PerformanceObserver((list) => {
-        if (!this.isEnabled) return;
-
+      // Observe long tasks specifically
+      const longTaskObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
-          // Look for React-related performance entries
-          if (entry.name.includes('React') || entry.name.includes('Scheduler')) {
-            this.recordEntry({
+          // Always record long tasks (even if profiler is "disabled")
+          this.recordEntry({
+            name: `LongTask.${entry.name}`,
+            startTime: entry.startTime,
+            duration: entry.duration,
+            component: 'Browser'
+          });
+          
+          // Also log them immediately (only when profiling is enabled)
+          if (this.isEnabled) {
+            Logger.debug('PERFORMANCE', 'Long task detected by ReactProfiler', {
               name: entry.name,
-              startTime: entry.startTime,
-              duration: entry.duration
+              duration: entry.duration.toFixed(2) + 'ms',
+              startTime: entry.startTime.toFixed(2) + 'ms'
             });
           }
         });
       });
 
-      observer.observe({ entryTypes: ['measure', 'navigation', 'resource'] });
+      longTaskObserver.observe({ entryTypes: ['longtask'] });
+
+      // Observe React performance measures
+      const measureObserver = new PerformanceObserver((list) => {
+        if (!this.isEnabled) return;
+
+        const entries = list.getEntries();
+        entries.forEach((entry) => {
+          // Look for React-related performance entries
+          if (entry.name.includes('React') || entry.name.includes('Scheduler') || entry.name.includes('⚛️')) {
+            this.recordEntry({
+              name: entry.name,
+              startTime: entry.startTime,
+              duration: entry.duration,
+              component: 'React'
+            });
+          }
+        });
+      });
+
+      measureObserver.observe({ entryTypes: ['measure'] });
     } catch (e) {
       Logger.warn('PERFORMANCE', 'Could not setup PerformanceObserver', { error: e });
     }
@@ -284,10 +346,23 @@ export const ReactProfilerComponent: React.FC<{
   onRender?: (id: string, phase: string, actualDuration: number) => void;
 }> = ({ children, name, onRender }) => {
   const handleRender = (id: string, phase: string, actualDuration: number) => {
-    if (reactProfiler) {
-      reactProfiler.profile(`React.${phase}`, () => {
-        // The actual rendering is already done, just record the timing
-      }, name);
+    if (reactProfiler && reactProfiler.isEnabled) {
+      // Record the actual React render time
+      reactProfiler.recordEntry({
+        name: `React.${phase}.${name}`,
+        startTime: performance.now() - actualDuration,
+        duration: actualDuration,
+        component: name
+      });
+      
+      // Log significant renders (only when profiling is enabled)
+      if (actualDuration > 5 && reactProfiler.isEnabled) {
+        Logger.debug('PERFORMANCE', `Slow React render detected: ${name}`, {
+          phase,
+          duration: actualDuration.toFixed(2) + 'ms',
+          threshold: '5ms'
+        });
+      }
     }
     
     if (onRender) {

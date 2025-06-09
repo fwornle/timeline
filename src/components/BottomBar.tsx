@@ -4,6 +4,8 @@ import { useAppSelector } from '../store';
 import type { CameraState } from '../store/slices/uiSlice';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { positionToDate } from '../utils/timeline/timelineCalculations';
+import { useAppDispatch } from '../store';
+import { togglePerformanceProfiling } from '../store/intents/uiIntents';
 
 interface BottomBarProps {
   gitCount?: number;
@@ -59,8 +61,10 @@ const BottomBar: React.FC<BottomBarProps> = ({
   onResetTimeline
 }) => {
   const logger = useLogger({ component: 'BottomBar', topic: 'ui' });
+  const dispatch = useAppDispatch();
   const repoUrl = useAppSelector(state => state.preferences.repoUrl);
   const actualEventCount = useAppSelector(state => state.timeline.events.length);
+  const performanceProfilingEnabled = useAppSelector(state => state.ui.performanceProfilingEnabled);
   const showControls = !!repoUrl;
   
   // Get visible events count from session storage (updated by ViewportFilteredEvents)
@@ -183,6 +187,10 @@ const BottomBar: React.FC<BottomBarProps> = ({
       }
       onDebugModeChange(newValue);
     }
+  };
+
+  const handlePerformanceProfilingToggle = () => {
+    dispatch(togglePerformanceProfiling());
   };
 
   // Helper function to convert camera target position to a date
@@ -571,6 +579,35 @@ const BottomBar: React.FC<BottomBarProps> = ({
                     title={cameraCyclingMode ? 'Disable camera cycling mode' : 'Enable camera cycling mode'}
                   >
                     <i className="bi bi-camera-reels"></i>
+                  </button>
+                )}
+
+                {/* Performance profiling toggle - Only shown in debug mode */}
+                {debugMode && (
+                  <button
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: performanceProfilingEnabled ? 'var(--color-accent-600)' : 'transparent',
+                      border: '1px solid var(--color-accent-600)',
+                      color: performanceProfilingEnabled ? 'white' : 'var(--color-accent-600)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.5rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!performanceProfilingEnabled) {
+                        e.currentTarget.style.backgroundColor = 'var(--color-accent-50)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!performanceProfilingEnabled) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                    onClick={handlePerformanceProfilingToggle}
+                    title={performanceProfilingEnabled ? 'Disable performance profiling' : 'Enable performance profiling'}
+                  >
+                    <i className="bi bi-speedometer2"></i>
                   </button>
                 )}
 

@@ -61,7 +61,8 @@
       "Bash(./rewrite-commits.sh:*)",
       "Bash(claude --version)",
       "Bash(jq:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   },

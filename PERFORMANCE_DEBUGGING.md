@@ -8,15 +8,25 @@ The "message handler took X ms" warnings come from React's Concurrent Mode detec
 
 ## Performance Monitoring Setup
 
-Performance monitoring is automatically enabled in development mode. You should see a console message when it starts:
+Performance monitoring is **disabled by default** to avoid overhead during normal development. You can enable it in two ways:
+
+### Method 1: UI Toggle (Recommended)
+
+1. Enable DEBUG mode by clicking the bug icon (🐛) in the bottom bar
+2. Click the performance profiling toggle button (speedometer icon 📊) that appears in DEBUG mode
+3. You'll see logging messages confirming profiling is enabled
+
+### Method 2: Console Commands
+
+You should see a console message when the app starts:
 
 ```
-🚀 Performance monitoring enabled
+🚀 Performance monitoring initialized (disabled by default - use UI toggle in DEBUG mode)
 💡 Use window.perfDebug to control profiling:
-   - window.perfDebug.report() - Show current performance report
-   - window.perfDebug.clear() - Clear performance data
    - window.perfDebug.enable() - Enable profiling
    - window.perfDebug.disable() - Disable profiling
+   - window.perfDebug.report() - Show current performance report
+   - window.perfDebug.clear() - Clear performance data
 ```
 
 ## How to Debug Performance Issues
@@ -143,7 +153,7 @@ function MyComponent() {
 
 ## Next Steps
 
-1. **Visit http://localhost:3002** in your browser
+1. **Visit http://localhost:3001** in your browser
 2. **Open browser dev tools** (`F12`)
 3. **Interact with the timeline** (hover over cards, scroll, etc.)
 4. **Run `window.perfDebug.report()`** to see performance data
