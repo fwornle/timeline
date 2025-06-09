@@ -57,12 +57,19 @@ const mouseState = {
   // Last recorded mouse position
   lastX: 0,
   lastY: 0,
+  // Position when card started opening
+  openStartX: 0,
+  openStartY: 0,
   // Time when mouse last moved significantly
   lastMoveTime: 0,
   // Threshold for significant mouse movement (pixels)
   moveThreshold: 5,
+  // Threshold for closing an open card (pixels) - larger to prevent accidental closing
+  closeThreshold: 40,
   // Time to wait before considering mouse "settled" (ms)
   settleTime: 100,
+  // Debounce time before opening a card (ms)
+  openDebounceTime: 150,
 };
 
 // Update mouse position tracking
@@ -206,7 +213,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     targetState: 'open' | 'closed';
     mustComplete: boolean;
     cardId: string;
-  }>({ targetState: 'closed', mustComplete: false, cardId: '' });
+    openStartTime: number;
+  }>({ targetState: 'closed', mustComplete: false, cardId: '', openStartTime: 0 });
 
   // Animation state with two-stage animation support
   const [animState, setAnimState] = useState({
@@ -544,7 +552,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
       if (newIsHovered) {
         // HOVER: Move to optimal position with swirl/zoom animation
-        animationCompletionRef.current = { targetState: 'open', mustComplete: true, cardId: event.id };
+        animationCompletionRef.current = { 
+          targetState: 'open', 
+          mustComplete: true, 
+          cardId: event.id,
+          openStartTime: performance.now()
+        };
         registerAnimatingCard(event.id);
 
         // Start simultaneous animation to optimal position
@@ -577,7 +590,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           mustComplete: animationCompletionRef.current.mustComplete,
           isHovered: newIsHovered
         });
-        animationCompletionRef.current = { targetState: 'closed', mustComplete: true, cardId: event.id };
+        animationCompletionRef.current = { 
+          targetState: 'closed', 
+          mustComplete: true, 
+          cardId: event.id,
+          openStartTime: 0
+        };
         registerAnimatingCard(event.id);
 
         const targetRotationY = 0;
@@ -736,9 +754,16 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
     // Check for delayed hover clearing when mouse becomes stable
     if (pendingHoverClearRef.current && isMouseStable() && isHovered) {
-      pendingHoverClearRef.current = false;
-      if (onHover) {
-        if (onHover) onHover(null);
+      // Check mouse distance before clearing
+      const deltaX = Math.abs(mouseState.x - mouseState.openStartX);
+      const deltaY = Math.abs(mouseState.y - mouseState.openStartY);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      if (distance >= mouseState.closeThreshold) {
+        pendingHoverClearRef.current = false;
+        if (onHover) {
+          if (onHover) onHover(null);
+        }
       }
     }
   });
@@ -773,6 +798,20 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
   };
 
+  // Track hover intent with debouncing
+  const hoverIntentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHoverEventRef = useRef<{ cardId: string; time: number } | null>(null);
+
+  // Cleanup hover intent timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverIntentTimeoutRef.current) {
+        clearTimeout(hoverIntentTimeoutRef.current);
+        hoverIntentTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
@@ -797,15 +836,35 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Clear any pending hover clear since we're hovering again
     pendingHoverClearRef.current = false;
 
-    // Simply notify parent - it will handle exclusivity
-    if (onHover) {
-      try {
-        onHover(event.id);
-      } catch (error) {
-        // Silently ignore errors during component transitions
-        logger.debug('Error calling onHover during transition', { error });
-      }
+    // Clear any existing hover intent timeout
+    if (hoverIntentTimeoutRef.current) {
+      clearTimeout(hoverIntentTimeoutRef.current);
+      hoverIntentTimeoutRef.current = null;
     }
+
+    // Record hover intent
+    const now = performance.now();
+    lastHoverEventRef.current = { cardId: event.id, time: now };
+
+    // Set debounced hover intent
+    hoverIntentTimeoutRef.current = setTimeout(() => {
+      // Check if we're still hovering the same card
+      if (lastHoverEventRef.current?.cardId === event.id) {
+        // Record mouse position when card starts opening
+        mouseState.openStartX = e.nativeEvent.clientX;
+        mouseState.openStartY = e.nativeEvent.clientY;
+        
+        // Notify parent to open card
+        if (onHover) {
+          try {
+            onHover(event.id);
+          } catch (error) {
+            // Silently ignore errors during component transitions
+            logger.debug('Error calling onHover during transition', { error });
+          }
+        }
+      }
+    }, mouseState.openDebounceTime);
   };
 
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
@@ -814,9 +873,36 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Update mouse position tracking
     updateMousePosition(e.nativeEvent.clientX, e.nativeEvent.clientY);
 
+    // Clear any pending hover intent
+    if (hoverIntentTimeoutRef.current) {
+      clearTimeout(hoverIntentTimeoutRef.current);
+      hoverIntentTimeoutRef.current = null;
+    }
+    lastHoverEventRef.current = null;
+
+    // If card is currently open or opening, check mouse distance before closing
+    if (isHovered || animationCompletionRef.current.targetState === 'open') {
+      const deltaX = Math.abs(e.nativeEvent.clientX - mouseState.openStartX);
+      const deltaY = Math.abs(e.nativeEvent.clientY - mouseState.openStartY);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      // Only close if mouse moved far enough away
+      if (distance < mouseState.closeThreshold) {
+        // Mouse hasn't moved far enough, don't close the card
+        return;
+      }
+    }
+
     // If an animation is in progress that must complete, don't interrupt it
     // The card will complete its opening animation even if mouse moves away
     if (animationCompletionRef.current.mustComplete) {
+      // For opening animations, ensure they've had time to complete
+      if (animationCompletionRef.current.targetState === 'open') {
+        const timeSinceOpen = performance.now() - animationCompletionRef.current.openStartTime;
+        if (timeSinceOpen < 600) { // Opening animation duration
+          return;
+        }
+      }
       return;
     }
 
