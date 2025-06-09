@@ -5,6 +5,7 @@ import { TimelineEvents } from './TimelineEvents';
 import { TimelineEvent } from '../../data/types/TimelineEvent';
 import { useViewportFiltering } from '../../hooks/useViewportFiltering';
 import { useAppSelector } from '../../store';
+import { useLogger } from '../../utils/logging/hooks/useLogger';
 
 interface ViewportFilteredEventsProps {
   events: TimelineEvent[];
@@ -82,6 +83,19 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
   // Debug logging handled by useViewportFiltering hook
   
 
+  // Debug logging for visible events using useLogger
+  const logger = useLogger({ component: 'ViewportFilteredEvents', topic: 'rendering' });
+  
+  if (props.debugMode) {
+    logger.debug('ViewportFilteredEvents rendering:', {
+      visibleEventsCount: visibleEvents.length,
+      totalEventsCount: props.events.length,
+      firstVisibleEvent: visibleEvents[0]?.id.slice(0, 8),
+      showThinnedCards,
+      thinnedEventsCount: thinnedEvents.length
+    });
+  }
+
   return (
     <>
       {/* Regular visible events */}
@@ -92,6 +106,7 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
         onSelect={props.onSelect}
         onHover={props.onHover}
         onPositionUpdate={props.onPositionUpdate}
+        isThinnedCards={false}
         getAnimationProps={props.getAnimationProps}
         currentPosition={props.currentPosition}
         isMarkerDragging={props.isMarkerDragging}
