@@ -39,6 +39,7 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 ### 🛠️ Developer Features
 - **Professional Logging**: Category-based logging system with real-time control
 - **Debug Mode**: Comprehensive debugging tools and performance monitoring
+- **React Performance Profiling**: Advanced performance monitoring with React hooks and browser-level profiling
 - **Occlusion Debug**: Visual debug markers for occlusion system development
 - **Hot Module Replacement**: Instant development feedback with Vite
 - **TypeScript**: Full type safety throughout the application
@@ -248,7 +249,7 @@ WebGL 2.0 support is required for 3D visualization.
 - Large repositories may take longer to load initially
 - Enable hardware acceleration in your browser for best performance
 - Adjust animation speed and auto-drift settings based on device capabilities
-- Consider using the built-in performance profiling tools for optimization
+- Use the built-in React performance profiling system for detailed optimization insights
 
 ## 📚 Documentation
 
@@ -262,6 +263,7 @@ WebGL 2.0 support is required for 3D visualization.
 ### **Development Resources**
 
 - **[Development Guide](docs/development-guide.md)**: Setup, workflows, and MVI development patterns
+- **[Performance Profiling](docs/performance-profiling.md)**: Comprehensive React performance monitoring and optimization guide
 - **[API Reference](docs/api-reference.md)**: Redux store APIs, backend endpoints, and component interfaces
 - **[Product Requirements](docs/product-requirements.md)**: Original product specifications and features
 
@@ -298,6 +300,7 @@ All architecture diagrams are available as PNG files in `docs/images/`:
 - **Type Definitions**: See `src/data/types/` for TypeScript interfaces
 - **Configuration**: See `src/config/` for app configuration
 - **Logging System**: See `src/utils/logging/` for debug tools
+- **Performance Profiling**: See `src/utils/performance/` for React performance monitoring
 
 > **Note**: All PlantUML source files are available in `docs/puml/` for easy modification and regeneration of diagrams.
 

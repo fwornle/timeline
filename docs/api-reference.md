@@ -784,6 +784,73 @@ interface LoggerInstance {
 const logger = useLogger({ component: 'MyComponent', topic: 'ui' });
 ```
 
+### Performance Profiling Hooks
+
+```typescript
+// usePerformanceProfiler
+interface UsePerformanceProfilerOptions {
+  componentName: string;
+  enabled?: boolean;
+  threshold?: number;
+  trackRenders?: boolean;
+  trackEffects?: boolean;
+}
+
+interface UsePerformanceProfilerResult {
+  profileFunction: <T>(name: string, fn: () => T) => T;
+  profileAsyncFunction: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
+  trackExpensiveOperation: <T>(operationName: string, operation: () => T) => T;
+  getStats: () => ComponentStats;
+  renderCount: number;
+}
+
+const profiler = usePerformanceProfiler({
+  componentName: 'MyComponent',
+  enabled: true,
+  threshold: 5
+});
+
+// useAnimationProfiler
+interface UseAnimationProfilerResult {
+  trackFrame: (callback?: () => void) => void;
+  getFrameStats: () => FrameStats;
+}
+
+const animationProfiler = useAnimationProfiler('MyComponent', true);
+
+// useThreeJsProfiler
+interface UseThreeJsProfilerResult {
+  profileRender: (renderFn: () => void) => void;
+  profileAnimation: (animationFn: () => void) => void;
+  profileGeometry: <T>(geometryFn: () => T) => T;
+}
+
+const threeProfiler = useThreeJsProfiler('MyComponent', true);
+```
+
+### Global Performance Debugging
+
+```typescript
+// Available globally as window.perfDebug
+interface PerfDebug {
+  enable(): Promise<boolean>;
+  disable(): Promise<boolean>;
+  status(): Promise<{ enabled: boolean; entries: number }>;
+  report(): Promise<PerformanceReport>;
+  summary(): Promise<PerformanceSummary>;
+  analyze(): Promise<PerformanceAnalysis>;
+  writeToFile(filename?: string): Promise<{ filename: string; data: any }>;
+  clear(): Promise<boolean>;
+  rawEntries(): Promise<any[]>;
+}
+
+// Usage
+window.perfDebug.enable();
+window.perfDebug.report();
+```
+
+For detailed usage, see the **[Performance Profiling Guide](performance-profiling.md)**.
+
 ## Configuration System
 
 ### Color Configuration

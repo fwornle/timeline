@@ -464,6 +464,8 @@ dispatch(update({ pos: 100 }));                    // ❌ Unclear
 
 ### Performance Best Practices
 
+For comprehensive performance optimization, see the **[React Performance Profiling Guide](performance-profiling.md)** which covers advanced profiling techniques, component monitoring, and performance optimization workflows.
+
 #### **Selective State Selection**
 
 ```typescript
@@ -591,6 +593,22 @@ Enable debug mode for additional information:
 />
 ```
 
+#### **Performance Profiling**
+Use the built-in React performance profiling system:
+```javascript
+// Enable profiling
+window.perfDebug.enable()
+
+// Generate performance reports
+window.perfDebug.report()
+window.perfDebug.analyze()
+
+// Export detailed analysis
+window.perfDebug.writeToFile('performance-report.json')
+```
+
+See the **[Performance Profiling Guide](performance-profiling.md)** for comprehensive documentation.
+
 ### Backend Debugging
 
 #### **Server Logs**
@@ -632,6 +650,7 @@ cat .timeline-cache/repo-name.spec.json
 - Check network connectivity and firewall
 
 #### **Performance Issues**
+- Use the React performance profiling system (see [Performance Profiling Guide](performance-profiling.md))
 - Reduce animation speed
 - Disable drone mode
 - Close other browser tabs
