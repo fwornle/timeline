@@ -317,11 +317,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     
     if (!openedCardId) {
       // Clear debug info when no card is hovered or open
-      logger.debug('No opened card - clearing all fade states', {
-        hoveredCardId,
-        openedCardId,
-        timestamp: Date.now()
-      });
+      if (debugMode) {
+        logger.debug('No opened card - clearing all fade states', {
+          hoveredCardId,
+          openedCardId,
+          timestamp: Date.now()
+        });
+      }
       setDebugInfo({});
       return new Map<string, number>();
     }

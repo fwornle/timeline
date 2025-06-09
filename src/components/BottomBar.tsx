@@ -122,7 +122,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
         hasTarget: !!cameraState.target
       });
     }
-  }, [cameraState, debugMode]);
+  }, [cameraState, debugMode, logger]);
 
   // Log when debug mode changes
   React.useEffect(() => {
@@ -131,29 +131,29 @@ const BottomBar: React.FC<BottomBarProps> = ({
     }
     // Force component re-render when debug mode changes
     setLastDebugModeChange(Date.now());
-  }, [debugMode]);
+  }, [debugMode, logger]);
 
   // Conditional logging inside the component
   React.useEffect(() => {
     if (debugMode) {
       logger.debug('BottomBar rendering with debugMode:', { debugMode, lastChange: lastDebugModeChange });
     }
-  }, [debugMode, lastDebugModeChange]);
+  }, [debugMode, lastDebugModeChange, logger]);
 
   // Helper function to convert position to a date
   const getPositionDate = (): string => {
-    if (debugMode) {
-      logger.debug('Position date calculation', { 
-        startDate, 
-        endDate, 
-        currentPosition, 
-        actualEventCount,
-        timelineLength 
-      });
-    }
+    logger.debug('BottomBar getPositionDate called with:', { 
+      startDate, 
+      endDate, 
+      currentPosition, 
+      actualEventCount,
+      timelineLength,
+      debugMode
+    });
     
     if (!startDate || !endDate) {
-      return `Position: ${currentPosition.toFixed(2)}`;
+      logger.error('Timeline dates not set:', { startDate, endDate, currentPosition, actualEventCount });
+      return `Position: ${currentPosition.toFixed(2)} (dates not loaded)`;
     }
 
     try {
@@ -176,8 +176,8 @@ const BottomBar: React.FC<BottomBarProps> = ({
         minute: '2-digit'
       });
     } catch (e) {
-      logger.error('Error calculating date from position:', { error: e });
-      return `Position: ${currentPosition.toFixed(2)}`;
+      logger.error('Error calculating date from position:', { error: e, startDate, endDate, currentPosition });
+      return `Position: ${currentPosition.toFixed(2)} (calc error)`;
     }
   };
 

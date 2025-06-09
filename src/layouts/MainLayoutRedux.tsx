@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import TopBar from '../components/TopBar';
 import BottomBar from '../components/BottomBar';
 import { useAppDispatch, useAppSelector } from '../store';
+import { useLogger } from '../utils/logging/hooks/useLogger';
 import { usePreferencesMigration } from '../store/hooks/usePreferencesMigration';
 import {
   setIsInitializing,
@@ -39,6 +40,7 @@ interface MainLayoutProps {
 
 const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
   const dispatch = useAppDispatch();
+  const logger = useLogger({ component: 'MainLayoutRedux', topic: 'timeline' });
 
   // Use preferences migration hook for backward compatibility
   const { preferences } = usePreferencesMigration();
@@ -233,7 +235,13 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     initialCameraState: cameraState,
     initialMarkerPosition: currentPosition,
     onTimelineDatesChange: (startDate: Date, endDate: Date) => {
-      console.log('MainLayoutRedux received timeline dates:', { startDate, endDate });
+      logger.debug('MainLayoutRedux received timeline dates:', { startDate, endDate });
+      logger.debug('Setting timeline state:', { 
+        beforeStart: timelineStartDate, 
+        beforeEnd: timelineEndDate,
+        newStart: startDate,
+        newEnd: endDate
+      });
       setTimelineStartDate(startDate);
       setTimelineEndDate(endDate);
     },
@@ -249,7 +257,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="main-layout d-flex flex-column vh-100">
       <TopBar {...topBarProps} />
       <main className="flex-fill overflow-hidden">
-        {React.isValidElement(children) ? React.cloneElement(children, homeProps) : children}
+        {React.isValidElement(children) ? React.cloneElement(children, { routeProps: homeProps }) : children}
       </main>
       <BottomBar {...bottomBarProps} />
     </div>

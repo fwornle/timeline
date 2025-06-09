@@ -63,7 +63,7 @@ export const levelsConfig = LOG_LEVELS;
 export const categoriesConfig = LOG_CATEGORIES;
 
 // Define initial active state separately - Logger will handle this internally
-export const initialActiveLevels = [LogLevels.ERROR, LogLevels.WARN]; // Default to WARN and above only
+export const initialActiveLevels = [LogLevels.ERROR, LogLevels.WARN, LogLevels.INFO, LogLevels.DEBUG]; // Include DEBUG for development
 export const initialActiveCategories = Object.values(LogCategories); // Start with all active
 
 // Export types for TypeScript

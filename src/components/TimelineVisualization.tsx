@@ -316,7 +316,24 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
       lastEventCountRef.current = events.length;
       const gitEvents = events.filter(e => e.type === 'git');
       const specEvents = events.filter(e => e.type === 'spec');
+      
+      logger.debug('TimelineVisualization calling onDataLoaded', {
+        totalEvents: events.length,
+        gitEventsCount: gitEvents.length,
+        specEventsCount: specEvents.length,
+        hasCallback: !!onDataLoadedRef.current,
+        eventHash: eventHash.slice(0, 100) + '...'
+      });
+      
       onDataLoadedRef.current(gitEvents, specEvents, isGitHistoryMocked, isSpecHistoryMocked);
+    } else {
+      logger.debug('TimelineVisualization onDataLoaded conditions not met', {
+        hasCallback: !!onDataLoadedRef.current,
+        eventsLength: events.length,
+        eventHash: eventHash.slice(0, 50),
+        lastEventHash: lastEventHashRef.current?.slice(0, 50),
+        hashChanged: eventHash !== lastEventHashRef.current
+      });
     }
   }, [events, isGitHistoryMocked, isSpecHistoryMocked, debugMode, logger]);
 

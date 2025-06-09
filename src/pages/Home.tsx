@@ -36,7 +36,7 @@ const Home: React.FC<HomeProps> = ({
   focusCurrentMode = false,
   debugMode = false
 }) => {
-  const logger = useLogger({ component: 'Home', topic: 'ui' });
+  const logger = useLogger({ component: 'UI', topic: 'ui' });
   const [error, setError] = useState<Error | null>(null);
 
   // Debug logging for props received only when in debug mode
@@ -117,15 +117,28 @@ const Home: React.FC<HomeProps> = ({
           if ((gitEvents.length > 0 || specEvents.length > 0)) {
             const allEvents = [...gitEvents, ...specEvents];
             if (allEvents.length > 0) {
+              // Validate timestamps first
+              const invalidEvents = allEvents.filter(e => !e.timestamp || !(e.timestamp instanceof Date) || isNaN(e.timestamp.getTime()));
+              if (invalidEvents.length > 0) {
+                logger.error('Found events with invalid timestamps:', { 
+                  invalidCount: invalidEvents.length,
+                  sampleEvents: invalidEvents.slice(0, 3).map(e => ({ id: e.id, timestamp: e.timestamp }))
+                });
+                return;
+              }
+              
               // Sort events by timestamp
               const sortedEvents = [...allEvents].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
               const startDate = sortedEvents[0].timestamp;
               const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
 
-              console.log('Setting timeline dates:', { startDate, endDate, eventCount: allEvents.length });
+              logger.debug('Setting timeline dates:', { startDate, endDate, eventCount: allEvents.length, hasCallback: !!onTimelineDatesChange });
 
               if (onTimelineDatesChange) {
+                logger.debug('Calling onTimelineDatesChange with:', { startDate, endDate });
                 onTimelineDatesChange(startDate, endDate);
+              } else {
+                logger.error('onTimelineDatesChange callback is not provided!');
               }
 
               // Calculate and pass timelineLength
