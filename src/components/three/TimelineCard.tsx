@@ -8,6 +8,7 @@ import { dimensions, threeColors, threeOpacities } from '../../config';
 import { useDebugLogger } from '../../utils/logging/useDebugLogger';
 import { usePerformanceProfiler, useThreeJsProfiler } from '../../utils/performance/usePerformanceProfiler';
 import { ReactProfilerComponent } from '../../utils/performance/ReactProfiler';
+import { useAppSelector } from '../../store';
 import {
   globalClickHandlers,
   registerAnimatingCard,
@@ -116,16 +117,19 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 }) => {
   const logger = useDebugLogger('THREE', 'cards');
   
+  // Get performance profiling state from Redux
+  const performanceProfilingEnabled = useAppSelector(state => state.ui.performanceProfilingEnabled);
+  
   // Performance profiling
   const { trackExpensiveOperation } = usePerformanceProfiler({
     componentName: `TimelineCard-${event.id.slice(-6)}`,
-    enabled: process.env.NODE_ENV === 'development',
+    enabled: performanceProfilingEnabled,
     threshold: 5
   });
   
   const { profileRender, profileAnimation } = useThreeJsProfiler(
     `TimelineCard-${event.id.slice(-6)}`,
-    process.env.NODE_ENV === 'development'
+    performanceProfilingEnabled
   );
   
   // Track if component is mounted to avoid state updates after unmount

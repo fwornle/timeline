@@ -71,6 +71,10 @@ export function initializePerformanceMonitoring(): void {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach(async (entry) => {
+          // Check if profiling is enabled before logging
+          const { reactProfiler } = await import('./ReactProfiler');
+          if (!reactProfiler.isEnabled) return;
+          
           const { Logger } = await import('../logging/Logger');
           Logger.debug('PERFORMANCE', '🐌 Long task detected', {
             name: entry.name,
@@ -93,6 +97,10 @@ export function initializePerformanceMonitoring(): void {
         const entries = list.getEntries();
         entries.forEach(async (entry) => {
           if ((entry as any).value > 0.1) { // CLS threshold
+            // Check if profiling is enabled before logging
+            const { reactProfiler } = await import('./ReactProfiler');
+            if (!reactProfiler.isEnabled) return;
+            
             const { Logger } = await import('../logging/Logger');
             Logger.debug('PERFORMANCE', '📐 Layout shift detected', {
               value: (entry as any).value,
