@@ -51,10 +51,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 }) => {
   const logger = useDebugLogger('THREE', 'rendering');
   
+  // Get performance profiling state from Redux
+  const performanceProfilingEnabled = useAppSelector(state => state.ui.performanceProfilingEnabled);
+  
   // Performance profiling
   const { trackExpensiveOperation } = usePerformanceProfiler({
     componentName: 'TimelineEvents',
-    enabled: process.env.NODE_ENV === 'development',
+    enabled: performanceProfilingEnabled,
     threshold: 10 // Higher threshold since this component handles many events
   });
   

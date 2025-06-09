@@ -44,12 +44,12 @@ class ReactProfiler {
 
   enable(): void {
     this.isEnabled = true;
-    Logger.info('PERFORMANCE', 'React profiler enabled');
+    Logger.debug('PERFORMANCE', 'React profiler enabled');
   }
 
   disable(): void {
     this.isEnabled = false;
-    Logger.info('PERFORMANCE', 'React profiler disabled');
+    Logger.debug('PERFORMANCE', 'React profiler disabled');
   }
 
   setThresholds(warning: number, error: number): void {
@@ -138,7 +138,7 @@ class ReactProfiler {
     componentStats: Record<string, { count: number; avgDuration: number; maxDuration: number }>;
   } {
     // Log info using Logger (use INFO so it shows up)
-    Logger.info('PERFORMANCE', 'ReactProfiler report requested', {
+    Logger.debug('PERFORMANCE', 'ReactProfiler report requested', {
       totalEntries: this.entries.length,
       enabled: this.isEnabled,
       sampleEntries: this.entries.slice(0, 5).map(e => ({
@@ -153,7 +153,7 @@ class ReactProfiler {
     const maxDuration = this.entries.length > 0 ? Math.max(...this.entries.map(entry => entry.duration)) : 0;
     
     // Debug the calculation
-    Logger.info('PERFORMANCE', 'Report calculation debug', {
+    Logger.debug('PERFORMANCE', 'Report calculation debug', {
       entriesCount: this.entries.length,
       totalDuration: totalDuration.toFixed(2) + 'ms',
       maxDuration: maxDuration.toFixed(2) + 'ms',
@@ -202,7 +202,7 @@ class ReactProfiler {
    */
   clear(): void {
     this.entries = [];
-    Logger.info('PERFORMANCE', 'React profiler entries cleared');
+    Logger.debug('PERFORMANCE', 'React profiler entries cleared');
   }
 
   /**
@@ -211,7 +211,7 @@ class ReactProfiler {
   logReport(): void {
     const report = this.getReport();
     
-    Logger.info('PERFORMANCE', 'React Performance Report', {
+    Logger.debug('PERFORMANCE', 'React Performance Report', {
       totalEntries: report.totalEntries,
       averageDuration: report.averageDuration.toFixed(2) + 'ms',
       maxDuration: report.maxDuration.toFixed(2) + 'ms',
@@ -234,7 +234,7 @@ class ReactProfiler {
         .sort(([,a], [,b]) => b.maxDuration - a.maxDuration)
         .slice(0, 10);
 
-      Logger.info('PERFORMANCE', 'Component performance stats:', {
+      Logger.debug('PERFORMANCE', 'Component performance stats:', {
         topComponents: sortedComponents.map(([component, stats]) => ({
           component,
           count: stats.count,
@@ -279,9 +279,12 @@ class ReactProfiler {
     try {
       // Observe long tasks specifically
       const longTaskObserver = new PerformanceObserver((list) => {
+        // Only process long tasks if profiling is enabled
+        if (!this.isEnabled) return;
+        
         const entries = list.getEntries();
         entries.forEach((entry) => {
-          // Always record long tasks (even if profiler is "disabled")
+          // Record long tasks only when profiler is enabled
           this.recordEntry({
             name: `LongTask.${entry.name}`,
             startTime: entry.startTime,
@@ -289,14 +292,12 @@ class ReactProfiler {
             component: 'Browser'
           });
           
-          // Also log them immediately (only when profiling is enabled)
-          if (this.isEnabled) {
-            Logger.debug('PERFORMANCE', 'Long task detected by ReactProfiler', {
-              name: entry.name,
-              duration: entry.duration.toFixed(2) + 'ms',
-              startTime: entry.startTime.toFixed(2) + 'ms'
-            });
-          }
+          // Additional explicit logging (redundant with recordEntry, but kept for clarity)
+          Logger.debug('PERFORMANCE', 'Long task detected by ReactProfiler', {
+            name: entry.name,
+            duration: entry.duration.toFixed(2) + 'ms',
+            startTime: entry.startTime.toFixed(2) + 'ms'
+          });
         });
       });
 

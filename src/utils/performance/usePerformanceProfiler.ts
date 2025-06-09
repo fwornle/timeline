@@ -37,7 +37,7 @@ export function usePerformanceProfiler({
         const totalLifeTime = unmountTime - mountTimeRef.current;
         
         if (totalLifeTime > threshold) {
-          Logger.info('PERFORMANCE', `Component ${componentName} total lifetime`, {
+          Logger.debug('PERFORMANCE', `Component ${componentName} total lifetime`, {
             duration: totalLifeTime.toFixed(2) + 'ms',
             renders: renderCountRef.current
           });
@@ -57,7 +57,7 @@ export function usePerformanceProfiler({
       const timeSinceLastRender = currentTime - lastRenderTimeRef.current;
       
       if (timeSinceLastRender > threshold && renderCountRef.current > 1) {
-        Logger.warn('PERFORMANCE', `Slow render in ${componentName}`, {
+        Logger.debug('PERFORMANCE', `Slow render in ${componentName}`, {
           renderNumber: renderCountRef.current,
           timeSinceLastRender: timeSinceLastRender.toFixed(2) + 'ms',
           threshold: threshold + 'ms'
@@ -155,7 +155,7 @@ export function useAnimationProfiler(componentName: string, enabled: boolean = t
     if (frameDuration > 16.67) {
       slowFramesRef.current += 1;
       
-      Logger.warn('PERFORMANCE', `Slow animation frame in ${componentName}`, {
+      Logger.debug('PERFORMANCE', `Slow animation frame in ${componentName}`, {
         frameNumber: frameCountRef.current,
         duration: frameDuration.toFixed(2) + 'ms',
         targetFPS: '60fps (16.67ms)',
