@@ -578,14 +578,19 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                             return null;
                           }
 
+                          // Type guard to ensure metricConfig has the required properties
+                          const hasLineProps = metricConfig && 'line' in metricConfig && 'lineHover' in metricConfig;
+                          const fillColor = isCurrentPoint ? metricsConfig.colors.currentPosition.fill : (hasLineProps ? metricConfig.line : '#3b82f6');
+                          const strokeColor = isCurrentPoint ? metricsConfig.colors.currentPosition.stroke : (hasLineProps ? metricConfig.lineHover : '#2563eb');
+
                           return (
                             <circle
                               key={metric}
                               cx={x}
                               cy={cy}
                               r={radius}
-                              fill={isCurrentPoint ? metricsConfig.colors.currentPosition.fill : metricConfig.line}
-                              stroke={isCurrentPoint ? metricsConfig.colors.currentPosition.stroke : metricConfig.lineHover}
+                              fill={fillColor}
+                              stroke={strokeColor}
                               strokeWidth={isCurrentPoint ? metricsConfig.points.strokeWidth.current : metricsConfig.points.strokeWidth.normal}
                               className="cursor-pointer transition-all duration-200"
                               onClick={() => handlePointClick(i)}

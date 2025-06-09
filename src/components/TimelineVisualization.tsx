@@ -363,18 +363,19 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
   
   // Listen for global reload events
   useEffect(() => {
-    const handleReloadEvent = (event: CustomEvent) => {
-      logger.info('Received reload event', event.detail);
-      if (event.detail.hard) {
+    const handleReloadEvent = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      logger.info('Received reload event', customEvent.detail);
+      if (customEvent.detail.hard) {
         timelineData.hardPurgeAndRefresh();
       } else {
         timelineData.purgeAndRefresh();
       }
     };
     
-    window.addEventListener('timeline-reload', handleReloadEvent);
+    window.addEventListener('timeline-reload', handleReloadEvent as EventListener);
     return () => {
-      window.removeEventListener('timeline-reload', handleReloadEvent);
+      window.removeEventListener('timeline-reload', handleReloadEvent as EventListener);
     };
   }, [timelineData, logger]);
 
