@@ -9,13 +9,19 @@
     "skipLibCheck": true,
     "outDir": "./dist/server",
     "rootDir": "./src",
-    "declaration": true
+    "declaration": true,
+    "types": ["node"]
   },
   "include": [
-    "src/data/services/*.ts",
     "src/data/types/*.ts",
     "src/data/parsers/*.ts",
     "src/utils/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/data/services/GitRepositoryService.ts",
+    "src/data/services/SpecRepositoryService.ts",
+    "src/data/services/GitService.ts",
+    "src/data/services/SpecStoryService.ts"
+  ]
 }
