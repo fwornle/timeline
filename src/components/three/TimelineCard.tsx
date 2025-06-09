@@ -6,6 +6,7 @@ import type { TimelineEvent, GitTimelineEvent, SpecTimelineEvent } from '../../d
 import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, threeColors, threeOpacities } from '../../config';
 import { useDebugLogger } from '../../utils/logging/useDebugLogger';
+import { usePerformanceProfiler, useThreeJsProfiler } from '../../utils/performance/usePerformanceProfiler';
 import {
   globalClickHandlers,
   registerAnimatingCard,
@@ -114,6 +115,18 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 }) => {
   const logger = useDebugLogger('THREE', 'cards');
   
+  // Performance profiling
+  const { trackExpensiveOperation } = usePerformanceProfiler({
+    componentName: `TimelineCard-${event.id.slice(-6)}`,
+    enabled: process.env.NODE_ENV === 'development',
+    threshold: 5
+  });
+  
+  const { profileRender, profileAnimation } = useThreeJsProfiler(
+    `TimelineCard-${event.id.slice(-6)}`,
+    process.env.NODE_ENV === 'development'
+  );
+  
   // Track if component is mounted to avoid state updates after unmount
   const isMountedRef = useRef(true);
   
@@ -158,16 +171,17 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Check for camera movement on each frame
   const lastCameraCheckRef = useRef(0);
   useFrame(() => {
-    const now = performance.now();
+    profileRender(() => {
+      const now = performance.now();
 
-    // Only check camera movement every 100ms (~10fps) to reduce performance impact
-    if (now - lastCameraCheckRef.current < 100) {
-      return;
-    }
-    lastCameraCheckRef.current = now;
+      // Only check camera movement every 100ms (~10fps) to reduce performance impact
+      if (now - lastCameraCheckRef.current < 100) {
+        return;
+      }
+      lastCameraCheckRef.current = now;
 
-    // Calculate distance moved
-    const distanceMoved = camera.position.distanceTo(prevCameraPosition.current);
+      // Calculate distance moved
+      const distanceMoved = camera.position.distanceTo(prevCameraPosition.current);
 
     // If camera moved significantly
     if (distanceMoved > 0.05) {
@@ -195,8 +209,9 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       }
     }
 
-    // Update previous position
-    prevCameraPosition.current.copy(camera.position);
+      // Update previous position
+      prevCameraPosition.current.copy(camera.position);
+    });
   });
 
   // Refs for animation
@@ -377,6 +392,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
   // Calculate optimal card positioning considering camera, viewport, and nearby objects
   const calculateOptimalPosition = useCallback(() => {
+    return trackExpensiveOperation('calculateOptimalPosition', () => {
     if (!groupRef.current) return { 
       angle: 0, 
       distance: 10, 
@@ -501,13 +517,14 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         .add(offsetDirection.multiplyScalar(config.maxOffsetDistance));
     }
 
-    return {
-      angle,
-      distance,
-      zoomFactor,
-      optimalPosition: clampedWorldPosition
-    };
-  }, [position, camera, groupRef]);
+      return {
+        angle,
+        distance,
+        zoomFactor,
+        optimalPosition: clampedWorldPosition
+      };
+    });
+  }, [position, camera, groupRef, trackExpensiveOperation]);
 
   // Update hover state when animation props change
   useEffect(() => {
@@ -619,15 +636,16 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Animation frame (throttled for performance)
   const lastAnimationUpdateRef = useRef(0);
   useFrame(() => {
-    if (!groupRef.current) return;
+    profileAnimation(() => {
+      if (!groupRef.current) return;
 
-    const now = performance.now();
+      const now = performance.now();
 
-    // Only update animation every 16ms (~60fps) to reduce performance impact
-    if (now - lastAnimationUpdateRef.current < 16) {
-      return;
-    }
-    lastAnimationUpdateRef.current = now;
+      // Only update animation every 16ms (~60fps) to reduce performance impact
+      if (now - lastAnimationUpdateRef.current < 16) {
+        return;
+      }
+      lastAnimationUpdateRef.current = now;
 
     // Recalculate optimal position if card is hovered and not animating
     // This ensures the card stays properly positioned even when camera moves
@@ -739,20 +757,21 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       }
     }
 
-    // Check for delayed hover clearing when mouse becomes stable
-    if (pendingHoverClearRef.current && isMouseStable() && isHovered) {
-      // Check mouse distance before clearing
-      const deltaX = Math.abs(mouseState.x - mouseState.openStartX);
-      const deltaY = Math.abs(mouseState.y - mouseState.openStartY);
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      
-      if (distance >= mouseState.closeThreshold) {
-        pendingHoverClearRef.current = false;
-        if (onHover) {
-          if (onHover) onHover(null);
+      // Check for delayed hover clearing when mouse becomes stable
+      if (pendingHoverClearRef.current && isMouseStable() && isHovered) {
+        // Check mouse distance before clearing
+        const deltaX = Math.abs(mouseState.x - mouseState.openStartX);
+        const deltaY = Math.abs(mouseState.y - mouseState.openStartY);
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance >= mouseState.closeThreshold) {
+          pendingHoverClearRef.current = false;
+          if (onHover) {
+            if (onHover) onHover(null);
+          }
         }
       }
-    }
+    });
   });
 
   // Event handlers
@@ -900,6 +919,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
   // Memoize text content to prevent font reprocessing during animations
   const textContent = useMemo(() => {
+    return trackExpensiveOperation('textContent', () => {
     const headerText = event.type === 'git' ? 'GIT COMMIT' : 'SPEC CHANGE';
     const mainText = event.title.length > 80 ? event.title.substring(0, 80) + '...' : event.title;
     const typeText = event.type === 'git' ? 'Commit' : 'Spec';
@@ -918,15 +938,16 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       statsLine2 = `Files: ${specEvent.stats?.filesCreated ?? 0} | Lines: +${specEvent.stats?.linesAdded ?? 0}`;
     }
 
-    return {
-      headerText,
-      mainText,
-      typeText,
-      dateText,
-      statsLine1,
-      statsLine2
-    };
-  }, [event]);
+      return {
+        headerText,
+        mainText,
+        typeText,
+        dateText,
+        statsLine1,
+        statsLine2
+      };
+    });
+  }, [event, trackExpensiveOperation]);
   const cardWidth = dimensions.card.width;
   const cardHeight = dimensions.card.height;
 
