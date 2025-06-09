@@ -18,26 +18,27 @@ interface StoreState {
 }
 
 // Custom logging middleware for debugging hover issues
-const hoverLoggingMiddleware: Middleware = store => next => (action: PayloadAction) => {
+const hoverLoggingMiddleware: Middleware = store => next => (action: unknown) => {
+  const typedAction = action as PayloadAction;
   // Log hover-related actions
-  if (action.type === 'ui/setHoveredCardId' || 
-      action.type === 'ui/hoverCard/pending' ||
-      action.type === 'ui/hoverCard/fulfilled') {
+  if (typedAction.type === 'ui/setHoveredCardId' || 
+      typedAction.type === 'ui/hoverCard/pending' ||
+      typedAction.type === 'ui/hoverCard/fulfilled') {
     try {
       const state = store.getState() as StoreState;
       
       // Safe payload extraction
       let payloadValue = 'null';
-      if (action.payload !== null && action.payload !== undefined) {
-        if (typeof action.payload === 'string' && action.payload.slice) {
-          payloadValue = action.payload.slice(-6);
+      if (typedAction.payload !== null && typedAction.payload !== undefined) {
+        if (typeof typedAction.payload === 'string' && typedAction.payload.slice) {
+          payloadValue = typedAction.payload.slice(-6);
         } else {
-          payloadValue = String(action.payload);
+          payloadValue = String(typedAction.payload);
         }
       }
       
       Logger.debug('REDUX', 'middleware', 'Hover action dispatched', {
-        type: action.type,
+        type: typedAction.type,
         payload: payloadValue,
         currentHoveredCardId: state.ui?.hoveredCardId ? state.ui.hoveredCardId.slice(-6) : 'null',
         timestamp: Date.now()

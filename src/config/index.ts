@@ -71,11 +71,12 @@ export const config = {
   // Get configuration by path (e.g., 'colors.cards.git.background')
   get: (path: string) => {
     const parts = path.split('.');
-    let current: Record<string, unknown> = { colors: colorsConfig, dimensions: dimensionsConfig, animation: animationConfig };
+    let current: unknown = { colors: colorsConfig, dimensions: dimensionsConfig, animation: animationConfig };
 
     for (const part of parts) {
       if (current && typeof current === 'object' && part in current) {
-        current = current[part];
+        const currentRecord = current as Record<string, unknown>;
+        current = currentRecord[part];
       } else {
         return undefined;
       }

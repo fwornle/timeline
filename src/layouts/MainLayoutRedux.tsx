@@ -248,7 +248,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="main-layout d-flex flex-column vh-100">
       <TopBar {...topBarProps} />
       <main className="flex-fill overflow-hidden">
-        {React.cloneElement(children as React.ReactElement, { routeProps: homeProps })}
+        {React.isValidElement(children) ? React.cloneElement(children, homeProps) : children}
       </main>
       <BottomBar {...bottomBarProps} />
     </div>
