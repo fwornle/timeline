@@ -880,19 +880,6 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
     lastHoverEventRef.current = null;
 
-    // If card is currently open or opening, check mouse distance before closing
-    if (isHovered || animationCompletionRef.current.targetState === 'open') {
-      const deltaX = Math.abs(e.nativeEvent.clientX - mouseState.openStartX);
-      const deltaY = Math.abs(e.nativeEvent.clientY - mouseState.openStartY);
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-      // Only close if mouse moved far enough away
-      if (distance < mouseState.closeThreshold) {
-        // Mouse hasn't moved far enough, don't close the card
-        return;
-      }
-    }
-
     // If an animation is in progress that must complete, don't interrupt it
     // The card will complete its opening animation even if mouse moves away
     if (animationCompletionRef.current.mustComplete) {
@@ -906,20 +893,14 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       return;
     }
 
-    // Only clear hover if mouse has been stable (not moving due to card animation)
-    if (isMouseStable()) {
-      // Simply notify parent to clear hover
-      if (onHover) {
-        try {
-          onHover(null);
-        } catch (error) {
-          // Silently ignore errors during component transitions
-          logger.debug('Error clearing hover during transition', { error });
-        }
+    // Simply notify parent to clear hover
+    if (onHover) {
+      try {
+        onHover(null);
+      } catch (error) {
+        // Silently ignore errors during component transitions
+        logger.debug('Error clearing hover during transition', { error });
       }
-    } else {
-      // Mark that we need to check for delayed hover clearing
-      pendingHoverClearRef.current = true;
     }
   };
 
@@ -969,10 +950,18 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       ref={groupRef}
       position={[position[0], position[1], position[2]]}
       rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
-      onClick={handleClick}
-      onPointerOver={handlePointerOver}
-      onPointerOut={handlePointerOut}
     >
+      {/* Invisible interaction mesh for better hover detection */}
+      <mesh
+        position={[0, 0, 0.01]}
+        onClick={handleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+      >
+        <boxGeometry args={[cardWidth * 1.1, cardHeight * 1.1, 0.1]} />
+        <meshBasicMaterial visible={false} />
+      </mesh>
+      
       {/* Card shadow */}
       <mesh position={[
         dimensions.card.shadowOffset.x,
