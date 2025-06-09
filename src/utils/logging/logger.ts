@@ -129,6 +129,7 @@ export class Logger {
   /**
    * Main log method with filtering and styling.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static log(level: string, category: string, ...messages: any[]): void {
     const levelName = level || LogLevels.INFO;
     const categoryName = category || LogCategories.DEFAULT;
@@ -209,22 +210,27 @@ export class Logger {
   }
 
   // --- Convenience methods for each level ---
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static error(category: string, ...messages: any[]): void {
     Logger.log(LogLevels.ERROR, category, ...messages);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static warn(category: string, ...messages: any[]): void {
     Logger.log(LogLevels.WARN, category, ...messages);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static info(category: string, ...messages: any[]): void {
     Logger.log(LogLevels.INFO, category, ...messages);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static debug(category: string, ...messages: any[]): void {
     Logger.log(LogLevels.DEBUG, category, ...messages);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static trace(category: string, ...messages: any[]): void {
     Logger.log(LogLevels.TRACE, category, ...messages);
   }
@@ -320,22 +326,27 @@ export class Logger {
 
 // Create a simple wrapper class for backward compatibility
 class LoggerInstance {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug(topic: string, message: string, data?: Record<string, any>) {
     Logger.debug(Logger.Categories.DEFAULT, `[${topic}] ${message}`, data);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   info(topic: string, message: string, data?: Record<string, any>) {
     Logger.info(Logger.Categories.DEFAULT, `[${topic}] ${message}`, data);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   warn(topic: string, message: string, data?: Record<string, any>) {
     Logger.warn(Logger.Categories.DEFAULT, `[${topic}] ${message}`, data);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error(topic: string, message: string, data?: Record<string, any>) {
     Logger.error(Logger.Categories.DEFAULT, `[${topic}] ${message}`, data);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   log(level: any, component: string, topic: string, message: string, data?: Record<string, any>) {
     // Map old LogLevel enum to new string levels
     let levelStr = Logger.Levels.INFO;

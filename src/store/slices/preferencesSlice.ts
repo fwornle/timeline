@@ -16,12 +16,14 @@ const preferencesSlice = createSlice({
   reducers: {
     updatePreferences: (state, action: PayloadAction<Partial<Preferences>>) => {
       Object.assign(state, action.payload);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { isLoaded: _, ...prefs } = state;
       savePreferences(prefs);
     },
     setPreferences: (state, action: PayloadAction<Preferences>) => {
       const { isLoaded } = state;
       Object.assign(state, action.payload, { isLoaded });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { isLoaded: __, ...prefs } = state;
       savePreferences(prefs);
     },

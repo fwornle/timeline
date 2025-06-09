@@ -60,7 +60,8 @@
       "Bash(git add:*)",
       "Bash(./rewrite-commits.sh:*)",
       "Bash(claude --version)",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   },

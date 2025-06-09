@@ -53,6 +53,7 @@ export const config = {
 
     const missing = requiredConfigs.filter(config => {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         require(`./${config}`);
         return false;
       } catch {
@@ -70,7 +71,7 @@ export const config = {
   // Get configuration by path (e.g., 'colors.cards.git.background')
   get: (path: string) => {
     const parts = path.split('.');
-    let current: any = { colors: colorsConfig, dimensions: dimensionsConfig, animation: animationConfig };
+    let current: Record<string, unknown> = { colors: colorsConfig, dimensions: dimensionsConfig, animation: animationConfig };
 
     for (const part of parts) {
       if (current && typeof current === 'object' && part in current) {

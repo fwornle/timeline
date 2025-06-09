@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { TimelineVisualization, TimelineVisualizationRef } from '../components/TimelineVisualization';
+import React, { useState, useEffect } from 'react';
+import { TimelineVisualization } from '../components/TimelineVisualization';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import type { CameraState } from '../components/three/TimelineCamera';
 import { Vector3 } from 'three';
@@ -38,13 +38,6 @@ const Home: React.FC<HomeProps> = ({
 }) => {
   const logger = useLogger({ component: 'Home', topic: 'ui' });
   const [error, setError] = useState<Error | null>(null);
-  const timelineRef = useRef<TimelineVisualizationRef>(null);
-  
-  // Store reload functions for parent to use
-  const reloadCallbacksRef = useRef<{
-    softReload?: () => Promise<void>;
-    hardReload?: () => Promise<void>;
-  }>({});
 
   // Debug logging for props received only when in debug mode
   useEffect(() => {

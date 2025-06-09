@@ -43,9 +43,8 @@ export const hoverCard = createAsyncThunk<
   'ui/hoverCard',
   async (cardId, { dispatch, getState }) => {
     const state = getState();
-    const logger = new Logger({ component: 'REDUX', topic: 'ui' });
     
-    logger.debug('hoverCard intent called', {
+    Logger.debug('REDUX', 'ui', 'hoverCard intent called', {
       newCardId: cardId ? cardId.slice(-6) : 'null',
       currentHoveredCardId: state.ui.hoveredCardId ? state.ui.hoveredCardId.slice(-6) : 'null',
       timestamp: Date.now()
@@ -221,8 +220,7 @@ export const toggleDebugModeWithLogging = createAsyncThunk<
   { state: RootState }
 >(
   'ui/toggleDebugModeWithLogging',
-  async (enableDebugMode, { dispatch, getState }) => {
-    const currentState = getState();
+  async (enableDebugMode, { dispatch }) => {
     const currentActiveLevels = Logger.getActiveLevels();
     
     if (enableDebugMode) {

@@ -372,9 +372,9 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
       }
     };
     
-    window.addEventListener('timeline-reload' as any, handleReloadEvent);
+    window.addEventListener('timeline-reload', handleReloadEvent);
     return () => {
-      window.removeEventListener('timeline-reload' as any, handleReloadEvent);
+      window.removeEventListener('timeline-reload', handleReloadEvent);
     };
   }, [timelineData, logger]);
 

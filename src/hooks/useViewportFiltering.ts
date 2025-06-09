@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react';
-import { Vector3, PerspectiveCamera, OrthographicCamera, Camera } from 'three';
+import { Vector3, Camera } from 'three';
 import { TimelineEvent } from '../data/types/TimelineEvent';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { calculateEventZPositionWithIndex } from '../utils/timeline/timelineCalculations';
@@ -22,7 +22,7 @@ export const useViewportFiltering = (
 ) => {
   const {
     paddingFactor = 1.0,
-    minEvents = 0,
+    minEvents: _minEvents = 0, // eslint-disable-line @typescript-eslint/no-unused-vars
     maxEvents = 500,
     updateThrottleMs = 100,
     debugMode = false,
@@ -68,8 +68,6 @@ export const useViewportFiltering = (
     const maxZ = Math.max(...eventPositions.map(ep => ep.z));
     
     // Calculate viewport based on camera distance and FOV for responsive filtering
-    let visibleMinZ: number;
-    let visibleMaxZ: number;
     
     // Use a distance-based approach that's more intuitive and accurate
     const distance = camera.position.distanceTo(cameraTarget);
@@ -81,8 +79,8 @@ export const useViewportFiltering = (
     const viewRadius = baseViewportSize * paddingFactor;
     
     // Center viewport on current position
-    visibleMinZ = currentPosition - viewRadius;
-    visibleMaxZ = currentPosition + viewRadius;
+    const visibleMinZ = currentPosition - viewRadius;
+    const visibleMaxZ = currentPosition + viewRadius;
     
     // Filter events within viewport - simple and predictable
     let filtered = eventPositions
@@ -146,5 +144,5 @@ export const useViewportFiltering = (
     }
     
     return filtered;
-  }, [events, camera, cameraTarget, currentPosition, paddingFactor, minEvents, maxEvents, updateThrottleMs, debugMode, windowSize, logger]);
+  }, [events, camera, cameraTarget, currentPosition, paddingFactor, maxEvents, updateThrottleMs, debugMode, windowSize, logger]);
 };

@@ -1,4 +1,4 @@
-import { configureStore, Middleware } from '@reduxjs/toolkit';
+import { configureStore, Middleware, Action } from '@reduxjs/toolkit';
 import { useDispatch, useSelector, TypedUseSelectorHook } from 'react-redux';
 
 import timelineSlice from './slices/timelineSlice';
@@ -7,15 +7,24 @@ import preferencesSlice from './slices/preferencesSlice';
 import repositorySlice from './slices/repositorySlice';
 import { Logger } from '../utils/logging/Logger';
 
+interface PayloadAction extends Action {
+  payload?: unknown;
+}
+
+interface StoreState {
+  ui?: {
+    hoveredCardId?: string | null;
+  };
+}
+
 // Custom logging middleware for debugging hover issues
-const hoverLoggingMiddleware: Middleware = store => next => action => {
+const hoverLoggingMiddleware: Middleware = store => next => (action: PayloadAction) => {
   // Log hover-related actions
   if (action.type === 'ui/setHoveredCardId' || 
       action.type === 'ui/hoverCard/pending' ||
       action.type === 'ui/hoverCard/fulfilled') {
     try {
-      const logger = new Logger({ component: 'REDUX', topic: 'middleware' });
-      const state = store.getState();
+      const state = store.getState() as StoreState;
       
       // Safe payload extraction
       let payloadValue = 'null';
@@ -27,14 +36,14 @@ const hoverLoggingMiddleware: Middleware = store => next => action => {
         }
       }
       
-      logger.debug('Hover action dispatched', {
+      Logger.debug('REDUX', 'middleware', 'Hover action dispatched', {
         type: action.type,
         payload: payloadValue,
         currentHoveredCardId: state.ui?.hoveredCardId ? state.ui.hoveredCardId.slice(-6) : 'null',
         timestamp: Date.now()
       });
-    } catch (e) {
-      // Silently fail if logging doesn't work - don't use console.log
+    } catch {
+      // Silently fail if logging doesn't work
     }
   }
   

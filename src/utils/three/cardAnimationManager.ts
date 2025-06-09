@@ -128,7 +128,7 @@ class CardAnimationManager {
    * Cancel all animations
    */
   cancelAllAnimations(): void {
-    for (const [cardId, job] of this.activeJobs.entries()) {
+    for (const [, job] of this.activeJobs.entries()) {
       if (!job.cancelled) {
         job.cancelled = true;
         if (job.onCancel) {

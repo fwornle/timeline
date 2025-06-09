@@ -12,7 +12,7 @@ export function useDebugLogger(component: string, topic: string) {
         if (logger && logger.debug) {
           logger.debug(message, data);
         }
-      } catch (e) {
+      } catch {
         // Silently fail if logger is not available
         console.log(`[${component}:${topic}] ${message}`, data);
       }
@@ -22,7 +22,7 @@ export function useDebugLogger(component: string, topic: string) {
         if (logger && logger.info) {
           logger.info(message, data);
         }
-      } catch (e) {
+      } catch {
         console.info(`[${component}:${topic}] ${message}`, data);
       }
     },
@@ -31,7 +31,7 @@ export function useDebugLogger(component: string, topic: string) {
         if (logger && logger.warn) {
           logger.warn(message, data);
         }
-      } catch (e) {
+      } catch {
         console.warn(`[${component}:${topic}] ${message}`, data);
       }
     },
@@ -40,7 +40,7 @@ export function useDebugLogger(component: string, topic: string) {
         if (logger && logger.error) {
           logger.error(message, data);
         }
-      } catch (e) {
+      } catch {
         console.error(`[${component}:${topic}] ${message}`, data);
       }
     }
