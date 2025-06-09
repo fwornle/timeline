@@ -64,8 +64,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   
   // Debug state for bounding box visualization
   const [debugInfo, setDebugInfo] = useState<{
-    hoveredBounds?: any;
-    expandedBounds?: any;
+    hoveredBounds?: Record<string, unknown>;
+    expandedBounds?: Record<string, unknown>;
     cardOverlaps?: Map<string, boolean>;
   }>({});
   
@@ -443,7 +443,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     // Debug the final fade map
     if (debugMode && fadeMap.size > 0) {
       const fadeEntries = Array.from(fadeMap.entries());
-      logger.debug(`Final fade map (${fadeEntries.length} cards):`, fadeEntries.map(([id, opacity]) => `${id.slice(-6)}: ${opacity.toFixed(3)}`));
+      logger.debug(`Final fade map (${fadeEntries.length} cards):`, { 
+        cards: fadeEntries.map(([id, opacity]) => `${id.slice(-6)}: ${opacity.toFixed(3)}`)
+      });
     }
     
     return fadeMap;

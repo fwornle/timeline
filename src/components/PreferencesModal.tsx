@@ -57,8 +57,9 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
       username: username || undefined
     }));
     
-    // Update other preferences
-    const { repoUrl: _, username: __, ...otherPrefs } = prefs;
+    // Update other preferences (excluding repoUrl and username)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { repoUrl: _repoUrl, username: _username, ...otherPrefs } = prefs;
     dispatch(updatePreferences(otherPrefs));
 
     // Store credentials if provided for HTTPS URLs

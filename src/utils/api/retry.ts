@@ -33,7 +33,8 @@ export function withRetry<T>(
     ...config,
   };
 
-  return new Promise<T>(async (resolve, reject) => {
+  return new Promise<T>((resolve, reject) => {
+    (async () => {
     let attempt = 0;
     let lastError: Error | null = null;
 
@@ -61,6 +62,7 @@ export function withRetry<T>(
       }
     }
 
-    reject(lastError);
+      reject(lastError);
+    })();
   });
 }

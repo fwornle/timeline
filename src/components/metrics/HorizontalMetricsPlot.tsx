@@ -8,7 +8,7 @@ import {
   findClosestMetricsPoint,
   positionToTimestamp,
 } from '../../utils/metrics/codeMetrics';
-import { metricsConfig, getMetricConfig, metricLabels } from '../../config';
+import { metricsConfig } from '../../config';
 import { getCachedCalendarData, type CalendarData } from '../../services/calendarService';
 import { getCountryForTimezone, DEFAULT_TIMEZONE } from '../../config/timezones';
 import { useAppSelector } from '../../store';
@@ -31,7 +31,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   startDate,
   endDate,
   onPositionChange,
-  height = 150,
+  height: _height = 150, // eslint-disable-line @typescript-eslint/no-unused-vars
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,7 +101,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
     if (!closestPoint) return -1;
 
     return metricsPoints.findIndex(point => point === closestPoint);
-  }, [currentPosition, timelineLength, startDate, endDate, metricsPoints]);
+  }, [currentPosition, timelineLength, startDate, endDate, metricsPoints, events.length]);
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -162,7 +162,22 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   const innerHeight = chartDimensions.height - chart.margin.top - chart.margin.bottom;
 
   // Create path strings for SVG lines
-  const createPath = (data: any[], metric: 'locNormalized' | 'filesNormalized' | 'commitsNormalized') => {
+  interface ChartDataPoint {
+    index: number;
+    timestamp: Date;
+    loc: number;
+    files: number;
+    commits: number;
+    locNormalized: number;
+    filesNormalized: number;
+    commitsNormalized: number;
+    linesAdded: number;
+    linesDeleted: number;
+    filesModified: number;
+    isWeekend: boolean;
+  }
+
+  const createPath = (data: ChartDataPoint[], metric: 'locNormalized' | 'filesNormalized' | 'commitsNormalized') => {
     if (!data || data.length === 0) return '';
     if (data.length === 1) {
       // Single point - draw a small horizontal line
@@ -552,8 +567,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                         {['linesOfCode', 'totalFiles', 'commitCount'].map((metric) => {
                           if (!visibleMetrics.includes(metric)) return null;
 
-                          const metricKey = metric as keyof typeof metricsConfig.colors;
-                          const config = metricsConfig.colors[metricKey];
+                          const metricConfig = metricsConfig.colors[metric as keyof typeof metricsConfig.colors];
                           const yPos = metric === 'linesOfCode' ? d.locNormalized
                                      : metric === 'totalFiles' ? d.filesNormalized
                                      : d.commitsNormalized;
@@ -570,8 +584,8 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                               cx={x}
                               cy={cy}
                               r={radius}
-                              fill={isCurrentPoint ? metricsConfig.colors.currentPosition.fill : config.line}
-                              stroke={isCurrentPoint ? metricsConfig.colors.currentPosition.stroke : config.lineHover}
+                              fill={isCurrentPoint ? metricsConfig.colors.currentPosition.fill : metricConfig.line}
+                              stroke={isCurrentPoint ? metricsConfig.colors.currentPosition.stroke : metricConfig.lineHover}
                               strokeWidth={isCurrentPoint ? metricsConfig.points.strokeWidth.current : metricsConfig.points.strokeWidth.normal}
                               className="cursor-pointer transition-all duration-200"
                               onClick={() => handlePointClick(i)}

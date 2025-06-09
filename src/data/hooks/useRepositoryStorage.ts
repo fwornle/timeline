@@ -9,8 +9,8 @@ const REPO_DATA_PREFIX = 'timeline-repo-data-';
 const CACHE_EXPIRATION = 24 * 60 * 60 * 1000;
 
 interface RepositoryData {
-  gitEvents: any[];
-  specEvents: any[];
+  gitEvents: unknown[];
+  specEvents: unknown[];
   timestamp: number;
   isMocked?: boolean;
 }
@@ -38,12 +38,12 @@ export function useRepositoryStorage() {
   }, []);
 
   // Save repository data to localStorage
-  const saveRepoData = useCallback((url: string, gitEvents: any[], specEvents: any[], isMocked: boolean = false) => {
+  const saveRepoData = useCallback((url: string, gitEvents: unknown[], specEvents: unknown[], isMocked: boolean = false) => {
     if (!url) return;
 
     try {
       // Check if there's existing data to preserve metadata
-      let existingData: Partial<RepositoryData> = {};
+      const existingData: Partial<RepositoryData> = {};
       try {
         const dataStr = localStorage.getItem(`${REPO_DATA_PREFIX}${url}`);
         if (dataStr) {
@@ -53,7 +53,7 @@ export function useRepositoryStorage() {
             existingData.isMocked = parsed.isMocked;
           }
         }
-      } catch (e) {
+      } catch {
         // Ignore errors reading existing data
       }
 
@@ -77,7 +77,7 @@ export function useRepositoryStorage() {
   }, []);
 
   // Load repository data from localStorage
-  const loadRepoData = useCallback((url: string): { gitEvents: any[], specEvents: any[], isMocked?: boolean } | null => {
+  const loadRepoData = useCallback((url: string): { gitEvents: unknown[], specEvents: unknown[], isMocked?: boolean } | null => {
     if (!url) return null;
 
     try {

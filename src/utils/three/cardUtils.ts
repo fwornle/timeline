@@ -26,7 +26,7 @@ export const globalClickHandlers = {
   // Flag if we've added the document click listener
   documentListenerAdded: false,
   // Function to check if a click is outside all cards
-  handleDocumentClick: (_: MouseEvent) => {
+  handleDocumentClick: () => {
     // Close any currently hovered card
     if (globalHoveredCardId.current) {
       for (const callback of globalClickHandlers.clearHoverCallbacks) {

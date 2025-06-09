@@ -8,8 +8,6 @@ import { dimensions, threeColors, threeOpacities } from '../../config';
 import { useDebugLogger } from '../../utils/logging/useDebugLogger';
 import {
   globalClickHandlers,
-  registerOpenCard,
-  unregisterOpenCard,
   registerAnimatingCard,
   unregisterAnimatingCard,
   addForceCloseCallback,
@@ -151,7 +149,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     }
     
     prevPropsRef.current = { event, selected, onSelect, onHover, position, animationProps, wiggle, isMarkerDragging, droneMode, isHovered, fadeOpacity, debugMarker };
-  });
+  }, [event, selected, onSelect, onHover, position, animationProps, wiggle, isMarkerDragging, droneMode, isHovered, fadeOpacity, debugMarker, logger]);
 
   // Get camera for proper rotation calculation and movement tracking
   const { camera } = useThree();
@@ -184,7 +182,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         if (distanceMoved > 0.5) {
           try {
             if (onHover) onHover(null);
-          } catch (e) {
+          } catch {
             // Silently ignore if onHover fails during component transitions
           }
         }
@@ -257,17 +255,6 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
 
   // Fade animation state for occlusion handling
   const [currentOpacity, setCurrentOpacity] = useState(1.0);
-  const fadeAnimationRef = useRef<{
-    startTime: number;
-    startOpacity: number;
-    targetOpacity: number;
-    isAnimating: boolean;
-  }>({
-    startTime: 0,
-    startOpacity: 1.0,
-    targetOpacity: 1.0,
-    isAnimating: false
-  });
 
   // Register/unregister this card with the global click handler
   useEffect(() => {
@@ -275,10 +262,9 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     globalClickHandlers.activeCards.add(event.id);
 
     // Create a clear hover callback specific to this card
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const clearHover = (_: string | null) => {
-      if (onHover) {
-        if (onHover) onHover(null);
+    const clearHover = () => {
+      if (onHover && isMountedRef.current) {
+        onHover(null);
       }
     };
 
@@ -425,7 +411,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       : (45 * Math.PI) / 180;
 
     const visibleHeight = 2 * Math.tan(fovRadians / 2) * distance;
-    const visibleWidth = visibleHeight * (camera.aspect || 1);
+    const aspect = (camera instanceof PerspectiveCamera) ? camera.aspect : 1;
+    // visibleWidth calculation removed as it's not used
 
     // Calculate optimal scale (card should take ~1/3 of visible height)
     const targetCardHeight = visibleHeight / 3;
@@ -440,7 +427,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Calculate the viewport bounds in world space at the new distance
     const newDistance = distance - forwardDistance;
     const newVisibleHeight = 2 * Math.tan(fovRadians / 2) * newDistance;
-    const newVisibleWidth = newVisibleHeight * (camera.aspect || 1);
+    const newVisibleWidth = newVisibleHeight * aspect;
 
     // Calculate viewport margins
     const marginH = newVisibleWidth * config.viewportMargin;
@@ -627,7 +614,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         });
       }
     }
-  }, [isHovered, calculateOptimalPosition, position]);
+  }, [isHovered, calculateOptimalPosition, position, event.id, logger]);
 
   // Animation frame (throttled for performance)
   const lastAnimationUpdateRef = useRef(0);
@@ -939,7 +926,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       statsLine1,
       statsLine2
     };
-  }, [event.type, event.title, event.timestamp, event]);
+  }, [event]);
   const cardWidth = dimensions.card.width;
   const cardHeight = dimensions.card.height;
 
