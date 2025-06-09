@@ -36,6 +36,7 @@ interface TimelineCardProps {
   isHovered?: boolean; // Explicit hover state from parent
   fadeOpacity?: number; // Opacity for occlusion handling
   debugMarker?: boolean; // Debug marker for occlusion detection
+  isThinnedCard?: boolean; // Whether this card is a thinned-out card (shows red frame)
 }
 
 
@@ -113,7 +114,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   droneMode = false,
   isHovered = false,
   fadeOpacity = 1.0,
-  debugMarker = false
+  debugMarker = false,
+  isThinnedCard = false
 }) => {
   const logger = useDebugLogger('THREE', 'cards');
   
@@ -1139,31 +1141,65 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
         </mesh>
       )}
 
+      {/* Thinned card indicator frame */}
+      {isThinnedCard && (
+        <mesh position={[0, 0, dimensions.card.selection.zOffset + 0.01]}>
+          <boxGeometry args={[
+            cardWidth + dimensions.card.selection.padding,
+            cardHeight + dimensions.card.selection.padding,
+            dimensions.card.selection.depth
+          ]} />
+          <meshBasicMaterial color="#ff0000" transparent opacity={0.6} />
+        </mesh>
+      )}
+
 
       </group>
     </ReactProfilerComponent>
   );
 };
 
-// Export memoized version to prevent unnecessary re-renders and reduce font processing
+// Export memoized version with ultra-aggressive comparison to prevent unnecessary re-renders
 export const TimelineCard = memo(TimelineCardComponent, (prevProps, nextProps) => {
-  // Be extremely aggressive about preventing re-renders to stop font processing errors
-  // Only re-render if critical visual props changed
-  return (
-    prevProps.event.id === nextProps.event.id &&
-    prevProps.selected === nextProps.selected &&
-    prevProps.isHovered === nextProps.isHovered &&
-    prevProps.wiggle === nextProps.wiggle &&
-    prevProps.isMarkerDragging === nextProps.isMarkerDragging &&
-    prevProps.debugMarker === nextProps.debugMarker &&
-    // Only re-render for significant fade opacity changes (>0.05)
-    Math.abs((prevProps.fadeOpacity || 1.0) - (nextProps.fadeOpacity || 1.0)) < 0.05 &&
-    // Only re-render for significant position changes (>0.1 units)
-    Math.abs((prevProps.position?.[0] || 0) - (nextProps.position?.[0] || 0)) < 0.1 &&
-    Math.abs((prevProps.position?.[1] || 0) - (nextProps.position?.[1] || 0)) < 0.1 &&
-    Math.abs((prevProps.position?.[2] || 0) - (nextProps.position?.[2] || 0)) < 0.1 &&
-    // Only re-render for significant scale changes (>0.1)
-    Math.abs((prevProps.animationProps?.scale || 1) - (nextProps.animationProps?.scale || 1)) < 0.1
+  // ULTRA-AGGRESSIVE memoization - prevent re-renders at all costs
+  // Skip function prop comparisons entirely (they change frequently but shouldn't trigger re-renders)
+  
+  // Core identity check
+  if (prevProps.event.id !== nextProps.event.id) return false;
+  
+  // Visual state checks with higher thresholds
+  if (prevProps.selected !== nextProps.selected) return false;
+  if (prevProps.isHovered !== nextProps.isHovered) return false;
+  if (prevProps.wiggle !== nextProps.wiggle) return false;
+  if (prevProps.isMarkerDragging !== nextProps.isMarkerDragging) return false;
+  if (prevProps.debugMarker !== nextProps.debugMarker) return false;
+  if (prevProps.droneMode !== nextProps.droneMode) return false;
+  
+  // More lenient opacity threshold (only re-render for very significant changes)
+  const opacityDiff = Math.abs((prevProps.fadeOpacity || 1.0) - (nextProps.fadeOpacity || 1.0));
+  if (opacityDiff > 0.15) return false; // Much higher threshold
+  
+  // More lenient position threshold (only re-render for major position changes)
+  const positionDiff = Math.max(
+    Math.abs((prevProps.position?.[0] || 0) - (nextProps.position?.[0] || 0)),
+    Math.abs((prevProps.position?.[1] || 0) - (nextProps.position?.[1] || 0)),
+    Math.abs((prevProps.position?.[2] || 0) - (nextProps.position?.[2] || 0))
   );
+  if (positionDiff > 0.5) return false; // Much higher threshold
+  
+  // More lenient scale threshold
+  const scaleDiff = Math.abs((prevProps.animationProps?.scale || 1) - (nextProps.animationProps?.scale || 1));
+  if (scaleDiff > 0.3) return false; // Much higher threshold
+  
+  // Ignore rotation changes entirely unless they're massive
+  const rotationDiff = Math.abs(
+    (prevProps.animationProps?.rotation?.[1] || 0) - (nextProps.animationProps?.rotation?.[1] || 0)
+  );
+  if (rotationDiff > 1.0) return false; // Only re-render for very large rotation changes
+  
+  // Skip callback function comparisons - they change frequently but don't need re-renders
+  // (onSelect, onHover callbacks are handled internally)
+  
+  return true; // Props are similar enough - don't re-render
 });
 

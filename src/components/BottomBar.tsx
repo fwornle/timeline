@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { useAppSelector } from '../store';
 import type { CameraState } from '../store/slices/uiSlice';
+import { setShowThinnedCards } from '../store/slices/uiSlice';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { positionToDate } from '../utils/timeline/timelineCalculations';
 import { useAppDispatch } from '../store';
@@ -65,16 +66,28 @@ const BottomBar: React.FC<BottomBarProps> = ({
   const repoUrl = useAppSelector(state => state.preferences.repoUrl);
   const actualEventCount = useAppSelector(state => state.timeline.events.length);
   const performanceProfilingEnabled = useAppSelector(state => state.ui.performanceProfilingEnabled);
+  const showThinnedCards = useAppSelector(state => state.ui.showThinnedCards);
   const showControls = !!repoUrl;
   
   // Get visible events count from session storage (updated by ViewportFilteredEvents)
   const [currentVisibleCount, setCurrentVisibleCount] = React.useState(0);
+  const [isThinning, setIsThinning] = React.useState(false);
+  
+  const handleVisibleCountClick = () => {
+    if (isThinning) {
+      dispatch(setShowThinnedCards(!showThinnedCards));
+      logger.debug('Toggled thinned cards visibility', { showThinnedCards: !showThinnedCards });
+    }
+  };
   React.useEffect(() => {
     const updateVisibleCount = () => {
       const count = sessionStorage.getItem('visibleEventsCount');
       if (count) {
         setCurrentVisibleCount(parseInt(count, 10));
       }
+      
+      const thinning = sessionStorage.getItem('isViewportThinning');
+      setIsThinning(thinning === 'true');
     };
     
     // Update immediately and then every 100ms for real-time updates
@@ -129,6 +142,16 @@ const BottomBar: React.FC<BottomBarProps> = ({
 
   // Helper function to convert position to a date
   const getPositionDate = (): string => {
+    if (debugMode) {
+      logger.debug('Position date calculation', { 
+        startDate, 
+        endDate, 
+        currentPosition, 
+        actualEventCount,
+        timelineLength 
+      });
+    }
+    
     if (!startDate || !endDate) {
       return `Position: ${currentPosition.toFixed(2)}`;
     }
@@ -300,19 +323,27 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 </span>
                 {/* Debug info for troubleshooting */}
                 {debugMode && (
-                  <span
-                    className="badge ms-2"
+                  <button
+                    className="badge ms-2 btn p-0"
+                    onClick={handleVisibleCountClick}
                     style={{
                       backgroundColor: 'var(--color-primary-900)',
                       color: 'white',
                       padding: '0.5rem 0.75rem',
                       fontSize: '0.75rem',
-                      fontWeight: '500'
+                      fontWeight: '500',
+                      border: isThinning ? '2px solid #ff0000' : 'none',
+                      boxShadow: isThinning ? '0 0 4px rgba(255, 0, 0, 0.5)' : 'none',
+                      cursor: isThinning ? 'pointer' : 'default',
+                      opacity: isThinning ? 1 : 0.8
                     }}
+                    disabled={!isThinning}
                   >
                     <i className="bi bi-eye me-1"></i>
                     Visible: {currentVisibleCount}/{gitCount + specCount}
-                  </span>
+                    {isThinning && <i className="bi bi-scissors ms-1" style={{ color: '#ff0000' }}></i>}
+                    {showThinnedCards && isThinning && <i className="bi bi-check-circle ms-1" style={{ color: '#00ff00' }}></i>}
+                  </button>
                 )}
                 <span
                   className="badge"

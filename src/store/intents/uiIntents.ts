@@ -12,7 +12,7 @@ import {
   setDebugMode,
   setPerformanceProfilingEnabled
 } from '../slices/uiSlice';
-import { setMarkerPosition } from '../slices/timelineSlice';
+import { setMarkerPosition, setCurrentPosition } from '../slices/timelineSlice';
 import { updateCameraPreferences, updateMarkerPositionPreferences } from './preferencesIntents';
 import { getFirstEventPosition } from '../../utils/timeline/timelineCalculations';
 import { Logger } from '../../utils/logging/Logger';
@@ -65,6 +65,7 @@ export const updateTimelinePosition = createAsyncThunk<
   'ui/updateTimelinePosition',
   async ({ position, updateCamera = true }, { dispatch, getState }) => {
     dispatch(setMarkerPosition(position));
+    dispatch(setCurrentPosition(position)); // Fix: Also update currentPosition for BottomBar display
 
     if (updateCamera) {
       const state = getState();

@@ -33,15 +33,69 @@ export const useViewportFiltering = (
   const lastUpdateRef = useRef<number>(0);
   const lastResultRef = useRef<TimelineEvent[]>([]);
 
-  // Get event Z position using centralized calculation
-  const getEventZPosition = (event: TimelineEvent, sortedEvents: TimelineEvent[]): number => {
-    if (sortedEvents.length === 0) return 0;
+  // Balanced thinning function that preserves left-right card distribution
+  const balancedThinning = (eventPositions: Array<{event: TimelineEvent, z: number}>, targetCount: number): TimelineEvent[] => {
+    if (eventPositions.length <= targetCount) {
+      return eventPositions.map(ep => ep.event);
+    }
 
-    const minTime = sortedEvents[0].timestamp.getTime();
-    const maxTime = sortedEvents[sortedEvents.length - 1].timestamp.getTime();
-    const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
+    // Since cards alternate left-right based on their index in the sorted array,
+    // we need to ensure we select from both even and odd indices
+    const totalEvents = eventPositions.length;
     
-    return calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, sortedEvents.length);
+    // Calculate how many from each side (left = even indices, right = odd indices)
+    const leftEvents = eventPositions.filter((_, index) => index % 2 === 0);
+    const rightEvents = eventPositions.filter((_, index) => index % 2 === 1);
+    
+    // Allocate target slots proportionally between left and right
+    const leftTarget = Math.round((leftEvents.length / totalEvents) * targetCount);
+    const rightTarget = targetCount - leftTarget;
+    
+    // Thin each side independently
+    const selectedLeft: TimelineEvent[] = [];
+    if (leftEvents.length > 0 && leftTarget > 0) {
+      const leftStride = Math.max(1, Math.ceil(leftEvents.length / leftTarget));
+      for (let i = 0; i < leftEvents.length; i += leftStride) {
+        selectedLeft.push(leftEvents[i].event);
+        if (selectedLeft.length >= leftTarget) break;
+      }
+    }
+    
+    const selectedRight: TimelineEvent[] = [];
+    if (rightEvents.length > 0 && rightTarget > 0) {
+      const rightStride = Math.max(1, Math.ceil(rightEvents.length / rightTarget));
+      for (let i = 0; i < rightEvents.length; i += rightStride) {
+        selectedRight.push(rightEvents[i].event);
+        if (selectedRight.length >= rightTarget) break;
+      }
+    }
+    
+    // Combine and sort by original timeline position using the Z positions we already have
+    const combined = [...selectedLeft, ...selectedRight];
+    
+    // Create a map of event IDs to their Z positions for fast lookup
+    const eventToZMap = new Map();
+    eventPositions.forEach(ep => {
+      eventToZMap.set(ep.event.id, ep.z);
+    });
+    
+    return combined.sort((a, b) => {
+      const aPos = eventToZMap.get(a.id) || 0;
+      const bPos = eventToZMap.get(b.id) || 0;
+      return aPos - bPos;
+    });
+  };
+
+  // Get event Z position using centralized calculation - ALWAYS use full event set for consistency
+  const getEventZPosition = (event: TimelineEvent, allSortedEvents: TimelineEvent[]): number => {
+    if (allSortedEvents.length === 0) return 0;
+
+    const minTime = allSortedEvents[0].timestamp.getTime();
+    const maxTime = allSortedEvents[allSortedEvents.length - 1].timestamp.getTime();
+    const eventIndex = allSortedEvents.findIndex(e => e.id === event.id);
+    
+    // CRITICAL: Always use full event count for consistent positioning
+    return calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, allSortedEvents.length);
   };
 
   return useMemo(() => {
@@ -55,52 +109,139 @@ export const useViewportFiltering = (
       return lastResultRef.current;
     }
     
-    // Sort events by timestamp
-    const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    // Sort events by timestamp - this is the MASTER list for position calculations
+    const allSortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     
-    // Calculate timeline bounds
-    const eventPositions = sortedEvents.map(event => ({
+    // Calculate positions for ALL events using the full sorted list (position invariance)
+    const eventPositions = allSortedEvents.map(event => ({
       event,
-      z: getEventZPosition(event, sortedEvents)
+      z: getEventZPosition(event, allSortedEvents)
     }));
     
     const minZ = Math.min(...eventPositions.map(ep => ep.z));
     const maxZ = Math.max(...eventPositions.map(ep => ep.z));
     
-    // Calculate viewport based on camera distance and FOV for responsive filtering
-    
-    // Use a distance-based approach that's more intuitive and accurate
+    // SIMPLE approach: Calculate visible range, then thin out intelligently if needed
     const distance = camera.position.distanceTo(cameraTarget);
     
-    // Base viewport size on camera distance with reasonable scaling
-    // Closer camera = smaller viewport (more zoomed in)
-    // Further camera = larger viewport (more zoomed out)
-    const baseViewportSize = Math.max(20, Math.min(distance * 0.8, windowSize * 2));
-    const viewRadius = baseViewportSize * paddingFactor;
+    // Calculate a reasonable visible range based on camera distance
+    // Be much more generous with the viewport to ensure we can show up to maxEvents
+    const baseViewRadius = Math.max(50, distance * 1.5); // Increased minimum and scaling factor
+    const maxViewRadius = windowSize * 3 || 500; // Much larger maximum viewport size
+    const viewRadius = Math.min(baseViewRadius * paddingFactor, maxViewRadius);
     
-    // Center viewport on current position
-    const visibleMinZ = currentPosition - viewRadius;
-    const visibleMaxZ = currentPosition + viewRadius;
+    // Center the viewport between camera and target
+    const cameraZ = camera.position.z;
+    const targetZ = cameraTarget.z;
+    const centerZ = (cameraZ + targetZ) / 2;
     
-    // Filter events within viewport - simple and predictable
+    // Calculate viewport bounds (never go beyond timeline bounds)
+    let visibleMinZ = Math.max(minZ, centerZ - viewRadius);
+    let visibleMaxZ = Math.min(maxZ, centerZ + viewRadius);
+    
+    if (debugMode) {
+      logger.debug('Simple viewport calculation', {
+        distance: distance.toFixed(1),
+        viewRadius: viewRadius.toFixed(1),
+        center: centerZ.toFixed(1),
+        bounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`,
+        timelineRange: `[${minZ.toFixed(1)}, ${maxZ.toFixed(1)}]`
+      });
+    }
+    
+    // Filter events within the true visible viewport
     let filtered = eventPositions
       .filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ)
       .map(ep => ep.event);
     
-    // Only apply max limit if we have too many events (performance protection)
-    if (filtered.length > maxEvents) {
-      // Too many events - prioritize by distance to current position
-      const withDistances = filtered.map(event => ({
-        event,
-        distance: Math.abs(getEventZPosition(event, sortedEvents) - currentPosition)
-      }));
+    // If we don't have enough events to utilize maxEvents, expand the viewport
+    if (filtered.length < maxEvents && filtered.length < eventPositions.length) {
+      // Calculate how much we need to expand to get closer to maxEvents
+      const currentRange = visibleMaxZ - visibleMinZ;
+      const totalRange = maxZ - minZ;
+      const expansionFactor = Math.min(3.0, (maxEvents / Math.max(filtered.length, 1)));
       
-      withDistances.sort((a, b) => a.distance - b.distance);
-      filtered = withDistances
-        .slice(0, maxEvents)
-        .map(d => d.event)
-        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      // Expand viewport symmetrically
+      const expandedRadius = Math.min(currentRange * expansionFactor, totalRange / 2);
+      const expandedMinZ = Math.max(minZ, centerZ - expandedRadius);
+      const expandedMaxZ = Math.min(maxZ, centerZ + expandedRadius);
+      
+      // Get events in expanded viewport
+      const expandedFiltered = eventPositions
+        .filter(ep => ep.z >= expandedMinZ && ep.z <= expandedMaxZ)
+        .map(ep => ep.event);
+      
+      if (expandedFiltered.length > filtered.length) {
+        filtered = expandedFiltered;
+        visibleMinZ = expandedMinZ;
+        visibleMaxZ = expandedMaxZ;
+        
+        if (debugMode) {
+          logger.debug('Expanded viewport to get more events', {
+            originalCount: filtered.length,
+            expandedCount: expandedFiltered.length,
+            expansionFactor: expansionFactor.toFixed(2),
+            newBounds: `[${expandedMinZ.toFixed(1)}, ${expandedMaxZ.toFixed(1)}]`
+          });
+        }
+      }
     }
+    
+    // ONLY thin if we actually have too many events
+    if (filtered.length > maxEvents) {
+      if (debugMode) {
+        logger.debug('Thinning triggered', {
+          visibleEvents: filtered.length,
+          maxEvents,
+          exceedsBy: filtered.length - maxEvents
+        });
+      }
+      
+      // Simple approach: Sort events by Z position and prioritize keeping recent (future) events
+      const sortedByZ = eventPositions
+        .filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ)
+        .sort((a, b) => b.z - a.z); // Sort by Z position descending (future first)
+      
+      // Keep the most recent maxEvents, removing from the past first
+      const eventsToKeep = sortedByZ.slice(0, maxEvents);
+      filtered = eventsToKeep.map(ep => ep.event);
+      
+      // Sort back to timeline order for rendering
+      filtered = filtered.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      if (debugMode) {
+        logger.debug('Simple future-biased thinning applied', {
+          totalInViewport: sortedByZ.length,
+          finalCount: filtered.length,
+          removedCount: sortedByZ.length - filtered.length,
+          strategy: 'Keep most recent events, remove from past first'
+        });
+      }
+    } else {
+      if (debugMode) {
+        logger.debug('No thinning needed', {
+          visibleEvents: filtered.length,
+          maxEvents,
+          underBy: maxEvents - filtered.length
+        });
+      }
+    }
+    
+    // Store thinning status and thinned events in sessionStorage for UI indicator
+    // Thinning is active if we had to reduce events due to maxEvents limit
+    const originalViewportEvents = eventPositions.filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ);
+    const isThinning = originalViewportEvents.length > maxEvents;
+    sessionStorage.setItem('isViewportThinning', isThinning.toString());
+    
+    // Calculate thinned-out events (events that were in viewport but got filtered out)
+    const thinnedEvents = isThinning 
+      ? originalViewportEvents
+          .map(ep => ep.event)
+          .filter(event => !filtered.find(fe => fe.id === event.id))
+      : [];
+    
+    // Store thinned events for ViewportFilteredEvents to access
+    sessionStorage.setItem('thinnedEvents', JSON.stringify(thinnedEvents.map(e => e.id)));
     
     // Update cache
     lastUpdateRef.current = now;
@@ -120,17 +261,23 @@ export const useViewportFiltering = (
       );
       
       const cameraDistance = camera.position.distanceTo(cameraTarget);
+      const visibleRange = visibleMaxZ - visibleMinZ;
+      const eventDensity = eventsInViewport.length / visibleRange;
+      
+      const thinningMethod = eventsInViewport.length <= maxEvents ? 'none' : 'balanced-biased-recent';
+
       const debugInfo = {
         totalEvents: events.length,
         visibleEvents: filtered.length,
         actualInViewport: eventsInViewport.length,
         reduction: `${reduction.toFixed(1)}%`,
         viewportBounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`,
-        viewportSize: (visibleMaxZ - visibleMinZ).toFixed(1),
+        viewportSize: visibleRange.toFixed(1),
+        eventDensity: eventDensity.toFixed(2),
+        thinningMethod,
         currentPosition: currentPosition.toFixed(1),
         eventZRange: `[${minZ.toFixed(1)}, ${maxZ.toFixed(1)}]`,
-        viewCenter: currentPosition.toFixed(1),
-        windowSize,
+        viewCenter: ((camera.position.z + cameraTarget.z) / 2).toFixed(1),
         cameraDistance: cameraDistance.toFixed(1),
         cameraPosition: `(${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`,
         cameraTarget: `(${cameraTarget.x.toFixed(1)}, ${cameraTarget.y.toFixed(1)}, ${cameraTarget.z.toFixed(1)})`,
@@ -140,7 +287,7 @@ export const useViewportFiltering = (
         }
       };
       
-      logger.debug('Viewport filtering:', debugInfo);
+      logger.debug('Simple viewport filtering:', debugInfo);
     }
     
     return filtered;

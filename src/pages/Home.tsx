@@ -122,6 +122,8 @@ const Home: React.FC<HomeProps> = ({
               const startDate = sortedEvents[0].timestamp;
               const endDate = sortedEvents[sortedEvents.length - 1].timestamp;
 
+              console.log('Setting timeline dates:', { startDate, endDate, eventCount: allEvents.length });
+
               if (onTimelineDatesChange) {
                 onTimelineDatesChange(startDate, endDate);
               }
