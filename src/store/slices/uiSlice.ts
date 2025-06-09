@@ -29,6 +29,7 @@ interface UIState {
   // Card states
   selectedCardId: string | null;
   hoveredCardId: string | null;
+  showThinnedCards: boolean;
 
   // Occlusion states
   markerFadeOpacity: number;
@@ -65,6 +66,7 @@ const initialState: UIState = {
   },
   selectedCardId: null,
   hoveredCardId: null,
+  showThinnedCards: false,
   markerFadeOpacity: 1.0,
   debugMarkerFade: false,
   fadedCardsTemporalRange: null,
@@ -115,6 +117,9 @@ const uiSlice = createSlice({
     },
     setHoveredCardId: (state, action: PayloadAction<string | null>) => {
       state.hoveredCardId = action.payload;
+    },
+    setShowThinnedCards: (state, action: PayloadAction<boolean>) => {
+      state.showThinnedCards = action.payload;
     },
     setMarkerFadeOpacity: (state, action: PayloadAction<number>) => {
       state.markerFadeOpacity = action.payload;
@@ -172,6 +177,7 @@ export const {
   setCameraState,
   setSelectedCardId,
   setHoveredCardId,
+  setShowThinnedCards,
   setMarkerFadeOpacity,
   setDebugMarkerFade,
   setFadedCardsTemporalRange,

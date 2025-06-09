@@ -18,6 +18,7 @@ interface TimelineEventsProps {
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
   onPositionUpdate: (id: string, position: Vector3) => void;
+  isThinnedCards?: boolean; // Whether these cards should be rendered with red frames
   getAnimationProps: (id: string) => {
     scale: 1 | 1.1 | 1.2;
     rotation: readonly [0, number, 0];
@@ -42,6 +43,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   onSelect,
   onHover,
   onPositionUpdate,
+  isThinnedCards = false,
   getAnimationProps,
   currentPosition = 0,
   isMarkerDragging = false,
@@ -121,7 +123,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     return (event: TimelineEvent): [number, number, number] => {
       return trackExpensiveOperation('eventPositionCalculation', () => {
       // If no events, return default position
-      if (events.length === 0) return [0, 2, 0];
+      if (sortedEvents.length === 0) return [0, 2, 0];
 
       const { minTime, maxTime } = timeRange;
 
@@ -130,10 +132,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
       // If all events have the same timestamp, spread them evenly around center
       if (timeSpan === 0) {
-        const index = events.findIndex((e: TimelineEvent) => e.id === event.id);
+        const index = sortedEvents.findIndex((e: TimelineEvent) => e.id === event.id);
         const spacing = 5;
         // Center events around z=0
-        const zPos = (index - (events.length - 1) / 2) * spacing;
+        const zPos = (index - (sortedEvents.length - 1) / 2) * spacing;
 
         // Alternate x positions for better visibility
         const xOffset = 3; // Reduced offset to save horizontal space
@@ -142,9 +144,9 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
         return [xPos, 2, zPos];
       }
 
-      // Use centralized position calculation
+      // Use centralized position calculation - ALWAYS use full sorted events for consistency
       const eventIndex = sortedEvents.findIndex(e => e.id === event.id);
-      const zPos = calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, events.length);
+      const zPos = calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, sortedEvents.length);
 
       // Alternate x positions for better visibility based on sorted index
       const xOffset = 3; // Reduced offset to save horizontal space
@@ -547,11 +549,12 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           isHovered={hoveredCardId === event.id}
           fadeOpacity={fadeOpacity}
           debugMarker={shouldShowDebugMarker}
+          isThinnedCard={isThinnedCards}
         />
         );
       });
     });
-  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates, debugInfo, debugMode, trackExpensiveOperation]);
+  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates, debugInfo, debugMode, isThinnedCards, trackExpensiveOperation]);
 
   return (
     <group>

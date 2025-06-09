@@ -233,6 +233,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
     initialCameraState: cameraState,
     initialMarkerPosition: currentPosition,
     onTimelineDatesChange: (startDate: Date, endDate: Date) => {
+      console.log('MainLayoutRedux received timeline dates:', { startDate, endDate });
       setTimelineStartDate(startDate);
       setTimelineEndDate(endDate);
     },
