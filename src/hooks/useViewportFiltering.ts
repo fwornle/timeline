@@ -33,7 +33,6 @@ export const useViewportFiltering = (
   const lastUpdateRef = useRef<number>(0);
   const lastResultRef = useRef<TimelineEvent[]>([]);
 
-
   // Get event Z position using centralized calculation - ALWAYS use full event set for consistency
   const getEventZPosition = (event: TimelineEvent, allSortedEvents: TimelineEvent[]): number => {
     if (allSortedEvents.length === 0) return 0;
@@ -165,7 +164,7 @@ export const useViewportFiltering = (
       // Keep the most recent maxEvents, removing from the past first
       const eventsToKeep = sortedByZ.slice(0, maxEvents);
       filtered = eventsToKeep.map(ep => ep.event);
-      
+
       // Sort back to timeline order for rendering
       filtered = filtered.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       

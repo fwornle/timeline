@@ -1,0 +1,118 @@
+@startuml viewport-culling-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequenceStyle strictuml
+
+title Balanced Viewport Culling System Flow
+
+actor User
+participant "ViewportFilteredEvents" as VFE
+participant "useViewportFiltering Hook" as VFH
+participant "Camera/Target Updates" as Camera
+participant "TimelineEvents" as Events
+participant "BottomBar Debug UI" as Debug
+participant "SessionStorage" as Storage
+
+User -> Camera : Move camera or timeline marker
+activate Camera
+
+Camera -> VFE : Updated camera/cameraTarget/currentPosition
+activate VFE
+
+VFE -> VFH : Call hook with updated parameters
+activate VFH
+
+note over VFH
+**Viewport Calculation:**
+1. Calculate viewport bounds from camera
+2. Filter events within visible range
+3. Check if thinning needed (> maxEvents)
+end note
+
+VFH -> VFH : calculateViewportBounds()
+VFH -> VFH : filterEventsInViewport()
+
+alt Events > maxEvents (Thinning Required)
+    note over VFH
+    **Balanced Marker-Centric Algorithm:**
+    1. Find marker position in sorted events
+    2. Create protected zone (maxEvents/4)
+    3. Split into left/right sides
+    4. Calculate proportional removal targets
+    5. Remove cards with even distribution
+    end note
+    
+    VFH -> VFH : findMarkerIndex(currentPosition)
+    VFH -> VFH : createProtectedZone(maxEvents/4)
+    VFH -> VFH : splitLeftRight(markerIndex, protectedZone)
+    
+    note over VFH
+    **Left Side Removal:**
+    - Target: targetRemoveLeft cards
+    - Strategy: Every nth card (stride pattern)
+    - Backup: Fill remaining slots if needed
+    end note
+    
+    VFH -> VFH : removeFromLeftSide(targetRemoveLeft)
+    
+    note over VFH
+    **Right Side Removal:**
+    - Target: targetRemoveRight cards
+    - Strategy: Every nth card (stride pattern)
+    - Backup: Fill remaining slots if needed
+    end note
+    
+    VFH -> VFH : removeFromRightSide(targetRemoveRight)
+    
+    VFH -> Storage : Store thinned event IDs
+    VFH -> Storage : Set isViewportThinning = true
+    
+else No Thinning Required
+    VFH -> Storage : Clear thinned events
+    VFH -> Storage : Set isViewportThinning = false
+end
+
+VFH -> Storage : Store visible events count
+VFH -> VFE : Return filtered events
+deactivate VFH
+
+VFE -> Events : Render visible events (normal)
+activate Events
+
+alt Debug Mode Active
+    VFE -> Storage : Retrieve thinned event IDs
+    VFE -> Events : Render thinned events with red frames
+    Events -> Events : Show red indicator frames
+end
+
+VFE -> Storage : Update visibleEventsCount
+deactivate VFE
+
+Storage -> Debug : Poll for count updates (100ms)
+activate Debug
+
+alt Thinning Active & Debug Mode
+    Debug -> Debug : Show clickable count badge with red border
+    Debug -> Debug : Display scissors icon
+    
+    User -> Debug : Click count badge
+    Debug -> Events : Toggle showThinnedCards state
+    Events -> Events : Show/hide red frame overlays
+end
+
+deactivate Events
+deactivate Camera
+deactivate Debug
+
+note over User, Storage
+**Key Features:**
+✅ Balanced left/right removal prevents jumping
+✅ Protected zone around marker preserves context
+✅ Proportional removal maintains visual distribution
+✅ Debug visualization with red frames
+✅ Interactive debug controls in BottomBar
+✅ Real-time count updates via SessionStorage
+✅ Exactly maxEvents cards when thinning active
+end note
+
+@enduml

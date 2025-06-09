@@ -165,6 +165,18 @@ When you hover over timeline cards, the application automatically enhances visua
 
 This intelligent system uses bounding box detection and temporal proximity (+1 day future) to determine which elements should fade, creating a cleaner focus on the card you're examining.
 
+#### Balanced Viewport Culling System
+
+For large datasets (800+ events), the application implements an advanced **Balanced Viewport Culling System** that maintains smooth 60fps performance:
+
+- **Anti-Jump Algorithm**: Prevents visual jumping by maintaining balanced left-right distribution
+- **Protected Zone**: Always preserves cards around the timeline marker for context
+- **Debug Visualization**: Red frame overlays show which cards are thinned (debug mode only)
+- **Interactive Controls**: Click the count badge in debug mode to toggle red frame visibility
+- **Performance**: 75-90% reduction in rendered objects while maintaining visual quality
+
+![Timeline Culling Debug](docs/images/timeline-culling.png)
+
 ### Configuration
 
 Key configuration options can be customized in `src/config/`:
@@ -245,6 +257,7 @@ WebGL 2.0 support is required for 3D visualization.
 - **[MVI Architecture](docs/mvi-architecture.md)**: Complete MVI pattern implementation with Redux Toolkit and automatic state persistence
 - **[State Management](docs/state-management.md)**: Redux Toolkit guide with async thunks, persistence, and best practices
 - **[Architecture Overview](docs/architecture.md)**: Complete system architecture and design decisions
+- **[Viewport Culling System](docs/viewport-culling.md)**: Balanced viewport culling for large datasets with anti-jump algorithm
 
 ### **Development Resources**
 
@@ -265,6 +278,7 @@ All architecture diagrams are available as PNG files in `docs/images/`:
 #### **Sequence Diagrams**
 - **[Marker Persistence Flow](docs/images/marker-persistence-sequence.png)**: Timeline marker position persistence
 - **[Occlusion System Flow](docs/images/occlusion-system-flow.png)**: Timeline occlusion system workflow and state management
+- **[Viewport Culling Flow](docs/images/viewport-culling-flow.png)**: Balanced viewport culling system with anti-jump algorithm
 - **[MVI Sequence Diagram](docs/images/mvi-sequence-diagram.png)**: Detailed interaction flows
 - **[Metrics Visualization Flow](docs/images/metrics-visualization-sequence.png)**: Horizontal metrics plot data flow
 

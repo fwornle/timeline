@@ -60,17 +60,27 @@
 - **Error handling**: Eliminated linter warnings for unused variables
 - **Code organization**: Better separation of concerns between components
 
-### 6. Implemented Viewport-Based Dynamic Loading
+### 6. Implemented Balanced Viewport Culling System
 - **Problem**: With 800+ spec items, Three.js struggled to render all events simultaneously
 - **Solution**:
-  - Created `useViewportFiltering` hook for frustum-based event filtering
-  - Only renders events within and near the visible viewport
-  - Optimized parameters:
-    - Padding factor: 1.2x (reduced from 2.0x)
-    - Min events: 30 (reduced from 50)
-    - Max events: 150 (reduced from 200)
-    - Update throttle: 200ms (increased from 100ms)
-- **Impact**: 75-90% reduction in rendered objects, maintaining smooth 60fps
+  - Created `useViewportFiltering` hook with advanced balanced culling algorithm
+  - Renders only events within visible viewport with intelligent thinning
+  - **Balanced Marker-Centric Algorithm**:
+    - **Protected Zone**: Never removes cards within `maxEvents/4` of timeline marker
+    - **Proportional Removal**: Calculates removal targets for left/right sides based on event distribution
+    - **Even Distribution**: Uses stride patterns to remove cards evenly from both timeline sides
+    - **Anti-Jump Logic**: Prevents visual jumping by maintaining left-right balance
+  - **Optimized Parameters**:
+    - Max events: 300 (increased from 150 for better context)
+    - Padding factor: 1.0x (optimized for viewport centering)
+    - Update throttle: 150ms (balanced performance/responsiveness)
+    - Window size: 110 world units (±110 from camera center)
+  - **Debug Visualization**:
+    - Red frame overlays for thinned cards (debug mode only)
+    - Interactive count badge in BottomBar with click-to-toggle
+    - Real-time thinning status via SessionStorage
+    - Comprehensive logging for algorithm debugging
+- **Impact**: 75-90% reduction in rendered objects while maintaining visual context and smooth 60fps
 
 ## Performance Metrics Improved
 - **Render frequency**: Reduced from ~60fps to ~20fps for state updates
