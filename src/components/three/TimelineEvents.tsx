@@ -6,6 +6,7 @@ import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { calculateEventZPositionWithIndex } from '../../utils/timeline/timelineCalculations';
 import { dimensions } from '../../config';
 import { useDebugLogger } from '../../utils/logging/useDebugLogger';
+import { usePerformanceProfiler } from '../../utils/performance/usePerformanceProfiler';
 import { useAppSelector, useAppDispatch } from '../../store';
 import { hoverCard } from '../../store/intents/uiIntents';
 import { setMarkerFadeOpacity, setDebugMarkerFade, setFadedCardsTemporalRange } from '../../store/slices/uiSlice';
@@ -49,6 +50,13 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   debugMode = false
 }) => {
   const logger = useDebugLogger('THREE', 'rendering');
+  
+  // Performance profiling
+  const { trackExpensiveOperation } = usePerformanceProfiler({
+    componentName: 'TimelineEvents',
+    enabled: process.env.NODE_ENV === 'development',
+    threshold: 10 // Higher threshold since this component handles many events
+  });
   
   // Use visibleEvents for rendering if provided, otherwise render all events
   const eventsToRender = visibleEvents || events;
@@ -108,6 +116,7 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
   const getEventPosition = useMemo(() => {
     // Create a stable function that doesn't change unless events or timeRange change
     return (event: TimelineEvent): [number, number, number] => {
+      return trackExpensiveOperation('eventPositionCalculation', () => {
       // If no events, return default position
       if (events.length === 0) return [0, 2, 0];
 
@@ -141,9 +150,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
       // Y position is raised to move everything up
       const yPos = 2;
 
-      return [xPos, yPos, zPos];
+        return [xPos, yPos, zPos];
+      });
     };
-  }, [events, timeRange, sortedEvents]);
+  }, [events, timeRange, sortedEvents, trackExpensiveOperation]);
 
   // Track previous 'now' position
   const prevNowRef = useRef(currentPosition);
@@ -508,7 +518,8 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
 
   // Memoize the cards to prevent unnecessary re-renders
   const renderedCards = useMemo(() => {
-    return eventsToRender.map((event) => {
+    return trackExpensiveOperation('renderTimelineCards', () => {
+      return eventsToRender.map((event) => {
       const position = getEventPosition(event);
       const shouldShowDebugMarker = debugMode && 
         debugInfo.cardOverlaps?.get(event.id) === true;
@@ -534,9 +545,10 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
           fadeOpacity={fadeOpacity}
           debugMarker={shouldShowDebugMarker}
         />
-      );
+        );
+      });
     });
-  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates, debugInfo, debugMode]);
+  }, [eventsToRender, getEventPosition, selectedCardId, onSelect, handleCardHover, getAnimationProps, wiggleMap, isMarkerDragging, isTimelineHovering, droneMode, hoveredCardId, cardFadeStates, debugInfo, debugMode, trackExpensiveOperation]);
 
   return (
     <group>

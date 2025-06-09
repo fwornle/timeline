@@ -8,6 +8,10 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { ThemeProvider } from './context/ThemeProvider';
+import { initializePerformanceMonitoring } from './utils/performance';
+
+// Initialize performance monitoring
+initializePerformanceMonitoring();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
