@@ -508,9 +508,33 @@ occlusion: {
 
 #### **Three.js Performance**
 - **Object Reuse**: Timeline cards reuse geometries and materials
-- **Frustum Culling**: Off-screen objects automatically culled by Three.js
+- **Viewport Culling**: Advanced balanced culling system for large datasets
 - **Animation Optimization**: Smooth animations with requestAnimationFrame
 - **Memory Management**: Proper disposal of Three.js objects to prevent memory leaks
+
+#### **Balanced Viewport Culling System**
+![Viewport Culling Flow](images/viewport-culling-flow.png)
+
+The application implements a sophisticated viewport culling system to handle large datasets (800+ events) efficiently:
+
+**Core Algorithm Features:**
+- **Marker-Centric Protection**: Never removes cards within `maxEvents/4` of the timeline marker
+- **Balanced Left-Right Removal**: Prevents visual jumping by maintaining proportional distribution
+- **Stride-Based Thinning**: Uses calculated stride patterns for even card removal
+- **Real-Time Adaptation**: Responds to camera movements and timeline position changes
+
+**Implementation Details:**
+- **Hook**: `useViewportFiltering` in `src/hooks/useViewportFiltering.ts`
+- **Max Events**: 300 visible cards maximum (configurable)
+- **Update Throttle**: 150ms for balanced performance/responsiveness
+- **Protected Zone**: `maxEvents/4` cards around timeline marker remain visible
+- **Debug Mode**: Red frame overlays show which cards would be thinned
+
+**Debug Visualization** (see `docs/images/timeline-culling.png`):
+- Thinned cards show red frame overlays in debug mode
+- Interactive count badge in BottomBar shows "Visible: X/Y" with scissors icon
+- Click count badge to toggle red frame visibility
+- Real-time updates via SessionStorage polling
 
 #### **Data Management**
 - **Caching Strategy**: Multi-level caching (localStorage + backend file cache)
