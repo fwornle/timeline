@@ -103,20 +103,9 @@ export function usePerformanceProfiler({
       return operation();
     }
 
-    const startTime = performance.now();
-    const result = operation();
-    const duration = performance.now() - startTime;
-
-    if (duration > threshold) {
-      Logger.warn('PERFORMANCE', `Expensive operation in ${componentName}`, {
-        operation: operationName,
-        duration: duration.toFixed(2) + 'ms',
-        threshold: threshold + 'ms'
-      });
-    }
-
-    return result;
-  }, [componentName, enabled, threshold]);
+    // Use ReactProfiler to track this operation
+    return reactProfiler.profile(`${componentName}.${operationName}`, operation, componentName);
+  }, [componentName, enabled]);
 
   // Get component stats
   const getStats = useCallback(() => {

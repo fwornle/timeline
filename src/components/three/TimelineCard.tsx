@@ -7,6 +7,7 @@ import type { SpringConfig } from '../../animation/transitions';
 import { dimensions, threeColors, threeOpacities } from '../../config';
 import { useDebugLogger } from '../../utils/logging/useDebugLogger';
 import { usePerformanceProfiler, useThreeJsProfiler } from '../../utils/performance/usePerformanceProfiler';
+import { ReactProfilerComponent } from '../../utils/performance/ReactProfiler';
 import {
   globalClickHandlers,
   registerAnimatingCard,
@@ -954,11 +955,12 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // We don't need this function anymore as we're rendering stats directly in the JSX
 
   return (
-    <group
-      ref={groupRef}
-      position={[position[0], position[1], position[2]]}
-      rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
-    >
+    <ReactProfilerComponent name={`TimelineCard-${event.id.slice(-6)}`}>
+      <group
+        ref={groupRef}
+        position={[position[0], position[1], position[2]]}
+        rotation={[animationProps.rotation[0], (animationProps.rotation[1] || 0) + (wiggleState.wiggleAngle || 0), animationProps.rotation[2] || 0]}
+      >
       {/* Invisible interaction mesh for better hover detection */}
       <mesh
         position={[0, 0, 0.01]}
@@ -1134,7 +1136,8 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       )}
 
 
-    </group>
+      </group>
+    </ReactProfilerComponent>
   );
 };
 

@@ -9,7 +9,8 @@ import {
   setIsAutoScrolling,
   setDroneMode,
   setFocusCurrentMode,
-  setDebugMode
+  setDebugMode,
+  setPerformanceProfilingEnabled
 } from '../slices/uiSlice';
 import { setMarkerPosition } from '../slices/timelineSlice';
 import { updateCameraPreferences, updateMarkerPositionPreferences } from './preferencesIntents';
@@ -265,5 +266,32 @@ export const toggleDebugModeWithLogging = createAsyncThunk<
     
     // Update debug mode state
     dispatch(setDebugMode(enableDebugMode));
+  }
+);
+
+// Intent to toggle performance profiling
+export const togglePerformanceProfiling = createAsyncThunk<
+  void,
+  void,
+  { state: RootState }
+>(
+  'ui/togglePerformanceProfiling',
+  async (_, { dispatch, getState }) => {
+    const currentState = getState().ui.performanceProfilingEnabled;
+    const newState = !currentState;
+    
+    // Import perfDebug dynamically to avoid circular dependencies
+    const { perfDebug } = await import('../../utils/performance');
+    
+    if (newState) {
+      await perfDebug.enable();
+      Logger.info('PERFORMANCE', 'Performance profiling enabled via UI toggle');
+    } else {
+      await perfDebug.disable();
+      Logger.info('PERFORMANCE', 'Performance profiling disabled via UI toggle');
+    }
+    
+    // Update Redux state
+    dispatch(setPerformanceProfilingEnabled(newState));
   }
 );
