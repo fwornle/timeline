@@ -62,7 +62,8 @@
       "Bash(claude --version)",
       "Bash(jq:*)",
       "Bash(npx eslint:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(ukb)"
     ],
     "deny": []
   },

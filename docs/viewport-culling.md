@@ -74,14 +74,16 @@ When the selected cards still exceed `maxEvents`:
 
 **Location**: `src/hooks/useViewportFiltering.ts`
 
-**Parameters**:
+**Actual Configuration Used**:
 ```typescript
-interface ViewportFilteringConfig {
-  paddingFactor: 1.0;        // Viewport padding multiplier
-  maxEvents: 300;            // Maximum visible events
-  updateThrottleMs: 150;     // Update frequency throttling
-  debugMode: boolean;        // Enable debug logging and visualization
-  windowSize: 110;           // Viewport window size (±110 world units)
+// In ViewportFilteredEvents.tsx
+{
+  paddingFactor: 1.2,        // Small padding to avoid pop-in/out at edges
+  minEvents: 0,              // Don't force minimum events
+  maxEvents: 300,            // Maximum events to display (overrides hook default of 500)
+  updateThrottleMs: 150,     // Update frequency (overrides hook default of 100ms)
+  debugMode: props.debugMode,// Enable debug logging and visualization
+  windowSize: 110            // Fixed viewport window size (±110 world units)
 }
 ```
 
@@ -206,7 +208,7 @@ logger.debug('Smart thinning applied', {
 - **Ideal Distribution**: 60 cards before, 60 cards after "now" (20% each)
 - **Remaining Quota**: 180 cards (60% of maxEvents=300)
 - **Thinning Threshold**: Triggered when > 300 events in viewport
-- **Real-time Updates**: SessionStorage polling every 100ms
+- **Real-time Updates**: SessionStorage polling every 150ms (matches filtering throttle)
 
 ## State Management
 
@@ -242,15 +244,15 @@ const handleVisibleCountClick = () => {
 
 ### Tunable Parameters
 
-| Parameter | Default | Purpose | Impact |
-|-----------|---------|---------|---------|
+| Parameter | Actual Value | Purpose | Impact |
+|-----------|--------------|---------|---------|
 | `maxEvents` | 300 | Maximum visible cards | Higher = more context, lower performance |
-| `paddingFactor` | 1.0 | Viewport padding multiplier | Higher = smoother transitions, more culling |
+| `paddingFactor` | 1.2 | Viewport padding multiplier | Higher = smoother transitions, more culling |
 | `updateThrottleMs` | 150 | Update frequency | Lower = more responsive, higher CPU usage |
 | `windowSize` | 110 | Viewport size (world units) | Fixed optimal size for timeline scale |
-| Context Window | 40% of `maxEvents` | Cards preserved around "now" | Higher = more temporal context |
-| Ideal Before/After | 20% each | Distribution around "now" | Ensures balanced context |
-| Remaining Quota | 60% of `maxEvents` | Cards for rest of timeline | Prioritizes future over past |
+| Context Window | 40% of maxEvents (120) | Cards preserved around "now" | Higher = more temporal context |
+| Ideal Before/After | 20% each (60 each) | Distribution around "now" | Ensures balanced context |
+| Remaining Quota | 60% of maxEvents (180) | Cards for rest of timeline | Prioritizes future over past |
 
 ### Environment Considerations
 

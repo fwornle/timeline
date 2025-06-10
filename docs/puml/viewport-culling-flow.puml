@@ -46,7 +46,7 @@ alt numThinning > 0 (Too many events)
     VFH -> VFH : calculate40PercentWindow()
     
     note over VFH
-    **40% Context Window (120 cards):**
+    **40% Context Window (120 cards for maxEvents=300):**
     - Ideal: 60 before "now", 60 after "now"
     - If < 60 before: shift window toward future
     - These cards have highest visual importance
@@ -55,7 +55,7 @@ alt numThinning > 0 (Too many events)
     VFH -> VFH : reserveContextWindow()
     
     note over VFH
-    **60% Remaining Quota (180 cards):**
+    **60% Remaining Quota (180 cards for maxEvents=300):**
     - Priority 1: Future events (after window)
     - Priority 2: Past events (newest first)
     - Fill up to remainingQuota capacity
@@ -99,7 +99,7 @@ end
 VFE -> Storage : Update visibleEventsCount
 deactivate VFE
 
-Storage -> Debug : Poll for count updates (100ms)
+Storage -> Debug : Poll for count updates (150ms)
 activate Debug
 
 alt Thinning Active & Debug Mode
@@ -116,14 +116,14 @@ deactivate Camera
 deactivate Debug
 
 note over User, Storage
-**Visual Importance Hierarchy:**
-✅ Highest: 40% window around "now" marker
+**Visual Importance Hierarchy (maxEvents=300):**
+✅ Highest: 40% window around "now" marker (120 cards)
 ✅ Medium: Future events (upcoming)
 ✅ Lowest: Past events (historical)
 ✅ Adaptive window positioning near timeline start
 ✅ "Every other card" for overflow handling
 ✅ Debug visualization with red frames
-✅ Always maintains exactly maxEvents cards
+✅ Always maintains exactly 300 cards maximum
 end note
 
 @enduml
