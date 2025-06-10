@@ -17,6 +17,7 @@ import timelineSlice from './slices/timelineSlice';
 import uiSlice from './slices/uiSlice';
 import preferencesSlice from './slices/preferencesSlice';
 import repositorySlice from './slices/repositorySlice';
+import loggingSlice from './slices/loggingSlice';
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +25,7 @@ export const store = configureStore({
     ui: uiSlice,
     preferences: preferencesSlice,
     repository: repositorySlice,
+    logging: loggingSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -74,6 +76,7 @@ interface TimelineState {
   sourceType: 'git' | 'spec' | 'both';
   isUsingMockData: boolean;
   lastFetchTime: number | null;
+  thinnedEvents: TimelineEvent[]; // ⭐ NEW: Events filtered out by viewport culling
   cache: { [key: string]: CacheData };
 }
 
@@ -129,30 +132,60 @@ const timelineSlice = createSlice({
 
 ```typescript
 interface UIState {
+  // Animation settings
   animationSpeed: number;
   autoDrift: boolean;
   droneMode: boolean;
   isAutoScrolling: boolean;
+
+  // View modes
   viewAll: boolean;
   focusCurrentMode: boolean;
   debugMode: boolean;
+  cameraCyclingMode: boolean;
+  performanceProfilingEnabled: boolean;
+
+  // Camera state
   cameraState: CameraState; // ⭐ Synced with Three.js camera and persisted
+
+  // Card states
   selectedCardId: string | null;
   hoveredCardId: string | null;
-  
-  // ⭐ Occlusion system state for visual clarity
-  markerFadeOpacity: number;                    // Current opacity for faded markers
-  debugMarkerFade: boolean;                     // Debug visualization toggle
-  fadedCardsTemporalRange: {                    // Timestamp range of faded cards
+  showThinnedCards: boolean;
+
+  // ⭐ NEW: Viewport filtering states (centralized from sessionStorage)
+  visibleEventsCount: number;
+  isViewportThinning: boolean;
+
+  // ⭐ NEW: Timeline interaction states (centralized from local state)
+  isMarkerDragging: boolean;
+  isTimelineHovering: boolean;
+
+  // ⭐ NEW: Global loading/error states
+  globalError: string | null;
+  globalLoading: boolean;
+
+  // Occlusion states
+  markerFadeOpacity: number;
+  debugMarkerFade: boolean;
+  fadedCardsTemporalRange: {
     minTimestamp: number;
     maxTimestamp: number;
   } | null;
-  
+
+  // Modal states
   showPreferences: boolean;
   showLoggingControl: boolean;
+
+  // Layout states
   sidebarOpen: boolean;
+
+  // Loading states
   isInitializing: boolean;
+  isReloadingSoft: boolean;
+  isReloadingHard: boolean;
 }
+```
 
 interface CameraState {
   position: { x: number; y: number; z: number }; // ⭐ Persisted across reloads
@@ -334,6 +367,125 @@ function loadPreferences(): Preferences {
 - **Obfuscated Storage**: Preferences are encoded before storage
 - **Type Safety**: Full TypeScript interfaces for all stored data
 - **Migration Support**: Graceful handling of missing or invalid preferences
+
+### Logging Slice
+
+**File**: `src/store/slices/loggingSlice.ts`
+
+**Purpose**: Centralized logging configuration management that was previously scattered across components.
+
+```typescript
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
+export type LogCategory = 'timeline' | 'performance' | 'rendering' | 'data' | 'user-interaction';
+
+interface LoggingState {
+  activeLevels: LogLevel[];
+  activeCategories: LogCategory[];
+  isLoggingEnabled: boolean;
+}
+
+const loggingSlice = createSlice({
+  name: 'logging',
+  initialState: {
+    activeLevels: ['error', 'warn', 'info'],
+    activeCategories: ['timeline', 'performance', 'rendering', 'data', 'user-interaction'],
+    isLoggingEnabled: true,
+  },
+  reducers: {
+    toggleLogLevel: (state, action: PayloadAction<LogLevel>) => {
+      const level = action.payload;
+      if (state.activeLevels.includes(level)) {
+        state.activeLevels = state.activeLevels.filter(l => l !== level);
+      } else {
+        state.activeLevels.push(level);
+      }
+    },
+    toggleLogCategory: (state, action: PayloadAction<LogCategory>) => {
+      const category = action.payload;
+      if (state.activeCategories.includes(category)) {
+        state.activeCategories = state.activeCategories.filter(c => c !== category);
+      } else {
+        state.activeCategories.push(category);
+      }
+    },
+    // ... other reducers
+  },
+});
+```
+
+**Key Features**:
+
+- **Centralized Control**: Replaces component-level local state for logging configuration
+- **Real-time Updates**: Changes propagate immediately to all logging components
+- **Granular Control**: Per-level and per-category logging control
+- **Performance Impact**: Reduces component re-renders for logging state changes
+
+## State Centralization Migration
+
+### Migration from Local State to Redux
+
+Recent optimizations moved several pieces of local component state into Redux for better performance and consistency:
+
+#### Viewport Filtering State Migration
+
+**Before**: Used sessionStorage polling between components
+```typescript
+// ❌ OLD: Polling sessionStorage every 100ms
+useEffect(() => {
+  const interval = setInterval(() => {
+    const count = sessionStorage.getItem('visibleEventsCount');
+    setCurrentVisibleCount(parseInt(count, 10));
+  }, 100);
+  return () => clearInterval(interval);
+}, []);
+```
+
+**After**: Direct Redux state with throttled updates
+```typescript
+// ✅ NEW: Direct Redux state subscription
+const currentVisibleCount = useAppSelector(state => state.ui.visibleEventsCount);
+const isThinning = useAppSelector(state => state.ui.isViewportThinning);
+
+// ✅ NEW: Throttled Redux dispatches in viewport filtering
+useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    dispatch(setVisibleEventsCount(visibleEvents.length));
+  }, 100); // 100ms throttle to batch rapid changes
+  return () => clearTimeout(timeoutId);
+}, [dispatch, visibleEvents.length]);
+```
+
+**Benefits**:
+- Eliminated polling intervals (reduced CPU usage)
+- Real-time state updates through Redux subscriptions
+- Better performance through throttled dispatches
+- Centralized state management
+
+#### Timeline Interaction State Migration
+
+**Before**: Local useState in TimelineScene
+```typescript
+// ❌ OLD: Local component state
+const [isMarkerDragging, setIsMarkerDragging] = useState(false);
+const [isTimelineHovering, setIsTimelineHovering] = useState(false);
+```
+
+**After**: Centralized Redux state
+```typescript
+// ✅ NEW: Redux state subscription
+const isMarkerDragging = useAppSelector(state => state.ui.isMarkerDragging);
+const isTimelineHovering = useAppSelector(state => state.ui.isTimelineHovering);
+
+// ✅ NEW: Redux dispatch for state updates
+const handleTimelineHoverChange = useCallback((isHovering: boolean) => {
+  dispatch(setIsTimelineHovering(isHovering));
+}, [dispatch]);
+```
+
+**Benefits**:
+- Shared state across components without prop drilling
+- Better performance monitoring and debugging
+- Consistent state management patterns
 
 ## Intent Layer (Async Thunks)
 

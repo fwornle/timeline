@@ -58,7 +58,7 @@ The application follows the **MVI architectural pattern** with **Redux Toolkit**
 
 ![MVI Architecture](docs/images/updated-mvi-architecture.png)
 
-- **Model**: Redux store with organized state slices (timeline, ui, repository, preferences)
+- **Model**: Redux store with organized state slices (timeline, ui, repository, preferences, logging)
 - **View**: Pure React components that render based on state
 - **Intent**: Action creators and async thunks that handle user interactions and side effects
 - **⭐ Persistence**: Automatic state persistence ensures seamless app reload experience
