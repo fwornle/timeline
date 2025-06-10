@@ -396,3 +396,187 @@ The system is designed around these principles:
 5. **Integration**: Works seamlessly with existing logging and debugging systems
 
 This profiling system enables data-driven performance optimization, helping maintain smooth 60fps performance in the complex 3D timeline visualization.
+
+## React Rendering Optimizations (2024)
+
+Based on performance profiling data showing long tasks (84ms+) in React rendering pipeline, comprehensive optimizations were implemented to address drift mode performance issues.
+
+### Performance Issue Analysis
+
+**Problem Identified**:
+- Drift mode was slow and jerky
+- Performance profiler detected long browser tasks (84ms+) not captured in function-level profiling
+- Root cause: React processing too many components simultaneously
+- Individual TimelineCard operations were fast (0-0.1ms each), but collective rendering was expensive
+
+**Profiler Findings**:
+```
+💡 Key Findings
+❌ Issue: Long tasks (84ms+) detected by browser but NOT in our profiling
+🎯 Reason: Expensive work is in React rendering pipeline, not individual functions
+✅ TimelineCard performance: Individual operations are fast (0-0.1ms each)
+🔴 Real culprit: React processing too many components simultaneously
+```
+
+### Optimization Strategy Implementation
+
+#### 1. Component Count Reduction
+
+**Viewport Culling Optimization**:
+```typescript
+// Before: Fixed 300 max events
+maxEvents: 300
+
+// After: Dynamic reduction based on mode
+const maxEventsForMode = props.droneMode ? 200 : 250;
+maxEvents: maxEventsForMode // 20-33% fewer rendered components
+```
+
+**Impact**:
+- 20% reduction in normal mode (300 → 250 components)
+- 33% reduction in drone mode (300 → 200 components)
+- Significantly reduced React reconciliation overhead
+
+#### 2. Enhanced React.memo Usage
+
+**Component Memoization Improvements**:
+
+```typescript
+// ViewportFilteredEvents: Fixed memo comparison logic
+export const ViewportFilteredEvents = React.memo((props) => {
+  // ... component logic
+}, (prevProps, nextProps) => {
+  const propsEqual = (
+    prevProps.events === nextProps.events &&
+    prevProps.selectedCardId === nextProps.selectedCardId &&
+    // Only re-render for significant position changes (>= 1.0 world units)
+    Math.abs(prevProps.currentPosition - nextProps.currentPosition) < 1.0 &&
+    // Only re-render for significant camera target changes (>= 2.0 world units)
+    prevProps.cameraTarget.distanceTo(nextProps.cameraTarget) < 2.0
+  );
+  
+  return propsEqual; // Return true to skip re-render when props are equal
+});
+
+// TimelineEvents: Added memoization to heavy component
+export const TimelineEvents = memo(TimelineEventsComponent);
+```
+
+**TimelineCard Already Optimized**:
+- Component already had "ultra-aggressive memoization"
+- Used sophisticated custom comparison function
+- Higher thresholds for position, opacity, scale, and rotation changes
+
+#### 3. State Update Batching and Throttling
+
+**Redux Dispatch Optimization**:
+
+```typescript
+// Before: Direct dispatches causing frequent re-renders
+dispatch(setIsViewportThinning(isThinning));
+dispatch(setThinnedEvents(thinnedEventsArray));
+
+// After: Throttled dispatches to batch rapid changes
+useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    dispatch(setIsViewportThinning(isThinning));
+    dispatch(setThinnedEvents(thinnedEvents));
+  }, 50); // 50ms throttle to batch rapid changes
+
+  return () => clearTimeout(timeoutId);
+}, [dispatch, isThinning, thinnedEvents.length]);
+```
+
+**Viewport Filtering Update Frequency**:
+- Increased throttle from 150ms to 200ms
+- Reduced calculation frequency during rapid camera movements
+- Better balance between responsiveness and performance
+
+#### 4. State Centralization Migration
+
+**Eliminated sessionStorage Polling**:
+
+```typescript
+// Before: Expensive polling intervals
+useEffect(() => {
+  const interval = setInterval(() => {
+    const count = sessionStorage.getItem('visibleEventsCount');
+    setCurrentVisibleCount(parseInt(count, 10));
+  }, 100); // Constant CPU usage
+  return () => clearInterval(interval);
+}, []);
+
+// After: Direct Redux state subscription
+const currentVisibleCount = useAppSelector(state => state.ui.visibleEventsCount);
+const isThinning = useAppSelector(state => state.ui.isViewportThinning);
+```
+
+**Local State Migration to Redux**:
+- Moved `isMarkerDragging` and `isTimelineHovering` from local state to Redux
+- Eliminated component state management overhead
+- Better debugging and performance monitoring
+
+### Performance Improvements Achieved
+
+#### Quantitative Results
+
+**Component Rendering**:
+- 20-33% fewer rendered components during drift operations
+- Reduced React reconciliation cycles
+- Lower memory pressure from fewer active components
+
+**State Management**:
+- Eliminated 100ms polling intervals (constant CPU reduction)
+- Throttled Redux dispatches (50-100ms delays)
+- Reduced re-render frequency through better memoization
+
+**Update Frequency**:
+- Viewport filtering: 150ms → 200ms throttle
+- State updates: Batched via setTimeout delays
+- Better performance during rapid camera movements
+
+#### Qualitative Improvements
+
+**User Experience**:
+- Smoother drift mode operation
+- Reduced jerkiness during camera movements
+- Maintained visual quality with fewer rendered components
+
+**Development Experience**:
+- Centralized state management for better debugging
+- Performance bottlenecks more easily identifiable
+- Consistent state patterns across components
+
+### Performance Monitoring Integration
+
+**Profiler Configuration Updates**:
+
+```typescript
+// Enhanced performance profiling for state management
+const performanceProfilingEnabled = useAppSelector(state => state.ui.performanceProfilingEnabled);
+
+// Dynamic profiling based on Redux state
+useEffect(() => {
+  if (performanceProfilingEnabled) {
+    enableAdvancedProfiling();
+  } else {
+    disableAdvancedProfiling();
+  }
+}, [performanceProfilingEnabled]);
+```
+
+**Real-time Performance Metrics**:
+- Component render frequency tracking
+- State update frequency monitoring
+- Redux dispatch timing analysis
+- Memory usage patterns for rendered components
+
+### Best Practices Established
+
+1. **Component Count Management**: Dynamic `maxEvents` based on interaction mode
+2. **Memoization Strategy**: Aggressive React.memo with threshold-based comparisons
+3. **State Update Batching**: Throttled dispatches to prevent render cascades
+4. **Centralized State**: Migrate shared state from local component state to Redux
+5. **Performance-First Design**: Consider rendering cost when adding new features
+
+These optimizations directly address the performance profiler findings and provide a foundation for maintaining 60fps performance in complex 3D visualizations.

@@ -10,6 +10,7 @@ class RootState {
   +ui: UIState
   +preferences: PreferencesState
   +repository: RepositoryState
+  +logging: LoggingState ⭐
 }
 
 class TimelineState {
@@ -23,6 +24,7 @@ class TimelineState {
   +sourceType: 'git' | 'spec' | 'both'
   +isUsingMockData: boolean
   +lastFetchTime: number | null
+  +thinnedEvents: TimelineEvent[] ⭐
   +cache: { [key: string]: CacheData }
   --
   Actions:
@@ -32,6 +34,7 @@ class TimelineState {
   +setMarkerPosition(position) ⭐
   +setCurrentPosition(position)
   +setSourceType(type)
+  +setThinnedEvents(events) ⭐
   +resetTimeline()
 }
 
@@ -43,9 +46,18 @@ class UIState {
   +viewAll: boolean
   +focusCurrentMode: boolean
   +debugMode: boolean
+  +cameraCyclingMode: boolean
+  +performanceProfilingEnabled: boolean
   +cameraState: CameraState ⭐
   +selectedCardId: string | null
   +hoveredCardId: string | null
+  +showThinnedCards: boolean
+  +visibleEventsCount: number ⭐
+  +isViewportThinning: boolean ⭐
+  +isMarkerDragging: boolean ⭐
+  +isTimelineHovering: boolean ⭐
+  +globalError: string | null ⭐
+  +globalLoading: boolean ⭐
   +markerFadeOpacity: number ⭐
   +debugMarkerFade: boolean ⭐
   +fadedCardsTemporalRange: FadedCardsRange | null ⭐
@@ -53,11 +65,20 @@ class UIState {
   +showLoggingControl: boolean
   +sidebarOpen: boolean
   +isInitializing: boolean
+  +isReloadingSoft: boolean
+  +isReloadingHard: boolean
   --
   Actions:
   +updateCameraState(state) ⭐
   +setSelectedCardId(id)
   +setHoveredCardId(id) ⭐
+  +setShowThinnedCards(show)
+  +setVisibleEventsCount(count) ⭐
+  +setIsViewportThinning(thinning) ⭐
+  +setIsMarkerDragging(dragging) ⭐
+  +setIsTimelineHovering(hovering) ⭐
+  +setGlobalError(error) ⭐
+  +setGlobalLoading(loading) ⭐
   +setMarkerFadeOpacity(opacity) ⭐
   +setDebugMarkerFade(enabled) ⭐
   +setFadedCardsTemporalRange(range) ⭐
@@ -98,6 +119,20 @@ class PreferencesState {
   +setPreferences(prefs)
   +refreshPreferences()
   +clearPreferences()
+}
+
+class LoggingState {
+  +activeLevels: LogLevel[] ⭐
+  +activeCategories: LogCategory[] ⭐
+  +isLoggingEnabled: boolean ⭐
+  --
+  Actions:
+  +setActiveLevels(levels) ⭐
+  +setActiveCategories(categories) ⭐
+  +toggleLogLevel(level) ⭐
+  +toggleLogCategory(category) ⭐
+  +setIsLoggingEnabled(enabled) ⭐
+  +resetLogging() ⭐
 }
 
 class CameraState {
@@ -154,6 +189,7 @@ RootState --> TimelineState
 RootState --> UIState
 RootState --> RepositoryState
 RootState --> PreferencesState
+RootState --> LoggingState
 
 UIState --> CameraState
 UIState --> FadedCardsRange
@@ -171,14 +207,24 @@ end note
 
 note bottom of TimelineState
   ⭐ markerPosition: Updated through updateTimelinePosition() intent
+  ⭐ thinnedEvents: Events filtered out by viewport culling (NEW)
   Automatically saves to preferences via intents
 end note
 
 note bottom of UIState
   ⭐ cameraState: Synced with Three.js camera objects
-  Updated through updateCameraWithSync() intent
+  ⭐ NEW CENTRALIZED STATES: visibleEventsCount, isViewportThinning,
+    isMarkerDragging, isTimelineHovering, globalError, globalLoading
+  ⭐ Migrated from component local state and sessionStorage
   ⭐ Occlusion system: markerFadeOpacity, debugMarkerFade, fadedCardsTemporalRange
   Controls visual clarity through intelligent marker and card fading
+end note
+
+note right of LoggingState
+  ⭐ NEW SLICE: Centralized logging configuration
+  Replaces component-level local state
+  Supports granular level and category control
+  Real-time updates across all logging components
 end note
 
 @enduml
