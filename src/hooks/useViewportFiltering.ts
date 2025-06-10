@@ -85,33 +85,30 @@ export const useViewportFiltering = (
     let visibleMinZ = Math.max(minZ, centerZ - viewRadius);
     let visibleMaxZ = Math.min(maxZ, centerZ + viewRadius);
     
-    if (debugMode) {
-      logger.debug('Simple viewport calculation', {
-        distance: distance.toFixed(1),
-        viewRadius: viewRadius.toFixed(1),
-        center: centerZ.toFixed(1),
-        bounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`,
-        timelineRange: `[${minZ.toFixed(1)}, ${maxZ.toFixed(1)}]`,
-        currentPosition: currentPosition.toFixed(1),
-        cameraZ: camera.position.z.toFixed(1),
-        targetZ: cameraTarget.z.toFixed(1),
-        totalEvents: events.length,
-        eventPositionsCount: eventPositions.length
-      });
-    }
+    // Always log but let the logger's own configuration handle whether to output
+    logger.debug('Simple viewport calculation', {
+      distance: distance.toFixed(1),
+      viewRadius: viewRadius.toFixed(1),
+      center: centerZ.toFixed(1),
+      bounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`,
+      timelineRange: `[${minZ.toFixed(1)}, ${maxZ.toFixed(1)}]`,
+      currentPosition: currentPosition.toFixed(1),
+      cameraZ: camera.position.z.toFixed(1),
+      targetZ: cameraTarget.z.toFixed(1),
+      totalEvents: events.length,
+      eventPositionsCount: eventPositions.length
+    });
     
     // Filter events within the true visible viewport
     let filtered = eventPositions
       .filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ)
       .map(ep => ep.event);
       
-    if (debugMode) {
-      logger.debug('Initial viewport filtering result', {
-        originalCount: eventPositions.length,
-        filteredCount: filtered.length,
-        samplePositions: eventPositions.slice(0, 5).map(ep => ({ id: ep.event.id.slice(0, 8), z: ep.z.toFixed(1) }))
-      });
-    }
+    logger.debug('Initial viewport filtering result', {
+      originalCount: eventPositions.length,
+      filteredCount: filtered.length,
+      samplePositions: eventPositions.slice(0, 5).map(ep => ({ id: ep.event.id.slice(0, 8), z: ep.z.toFixed(1) }))
+    });
     
     // If we don't have enough events to utilize maxEvents, expand the viewport
     if (filtered.length < maxEvents && filtered.length < eventPositions.length) {
@@ -135,26 +132,22 @@ export const useViewportFiltering = (
         visibleMinZ = expandedMinZ;
         visibleMaxZ = expandedMaxZ;
         
-        if (debugMode) {
-          logger.debug('Expanded viewport to get more events', {
-            originalCount: filtered.length,
-            expandedCount: expandedFiltered.length,
-            expansionFactor: expansionFactor.toFixed(2),
-            newBounds: `[${expandedMinZ.toFixed(1)}, ${expandedMaxZ.toFixed(1)}]`
-          });
-        }
+        logger.debug('Expanded viewport to get more events', {
+          originalCount: filtered.length,
+          expandedCount: expandedFiltered.length,
+          expansionFactor: expansionFactor.toFixed(2),
+          newBounds: `[${expandedMinZ.toFixed(1)}, ${expandedMaxZ.toFixed(1)}]`
+        });
       }
     }
     
     // ONLY thin if we actually have too many events
     if (filtered.length > maxEvents) {
-      if (debugMode) {
-        logger.debug('Thinning triggered', {
-          visibleEvents: filtered.length,
-          maxEvents,
-          exceedsBy: filtered.length - maxEvents
-        });
-      }
+      logger.debug('Thinning triggered', {
+        visibleEvents: filtered.length,
+        maxEvents,
+        exceedsBy: filtered.length - maxEvents
+      });
       
       // Simple approach: Sort events by Z position and prioritize keeping recent (future) events
       const sortedByZ = eventPositions
@@ -168,22 +161,18 @@ export const useViewportFiltering = (
       // Sort back to timeline order for rendering
       filtered = filtered.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       
-      if (debugMode) {
-        logger.debug('Simple future-biased thinning applied', {
-          totalInViewport: sortedByZ.length,
-          finalCount: filtered.length,
-          removedCount: sortedByZ.length - filtered.length,
-          strategy: 'Keep most recent events, remove from past first'
-        });
-      }
+      logger.debug('Simple future-biased thinning applied', {
+        totalInViewport: sortedByZ.length,
+        finalCount: filtered.length,
+        removedCount: sortedByZ.length - filtered.length,
+        strategy: 'Keep most recent events, remove from past first'
+      });
     } else {
-      if (debugMode) {
-        logger.debug('No thinning needed', {
-          visibleEvents: filtered.length,
-          maxEvents,
-          underBy: maxEvents - filtered.length
-        });
-      }
+      logger.debug('No thinning needed', {
+        visibleEvents: filtered.length,
+        maxEvents,
+        underBy: maxEvents - filtered.length
+      });
     }
     
     // Store thinning status and thinned events in sessionStorage for UI indicator
@@ -207,16 +196,14 @@ export const useViewportFiltering = (
     lastResultRef.current = filtered;
     
     // Final debug before return
-    if (debugMode) {
-      logger.debug('Final viewport filtering result', {
-        finalCount: filtered.length,
-        sampleEvents: filtered.slice(0, 3).map(e => ({ id: e.id.slice(0, 8), timestamp: e.timestamp.toISOString().slice(0, 10) })),
-        visibleBounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`
-      });
-    }
+    logger.debug('Final viewport filtering result', {
+      finalCount: filtered.length,
+      sampleEvents: filtered.slice(0, 3).map(e => ({ id: e.id.slice(0, 8), timestamp: e.timestamp.toISOString().slice(0, 10) })),
+      visibleBounds: `[${visibleMinZ.toFixed(1)}, ${visibleMaxZ.toFixed(1)}]`
+    });
     
     // Log performance metrics with detailed event positions
-    if (debugMode && events.length > 0) {
+    if (events.length > 0) {
       const reduction = ((events.length - filtered.length) / events.length * 100);
       
       // Get Z positions of first few events to debug

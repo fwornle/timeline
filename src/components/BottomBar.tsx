@@ -72,6 +72,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
   // Get visible events count from session storage (updated by ViewportFilteredEvents)
   const [currentVisibleCount, setCurrentVisibleCount] = React.useState(0);
   const [isThinning, setIsThinning] = React.useState(false);
+  const [showCameraDetails, setShowCameraDetails] = React.useState(false);
   
   const handleVisibleCountClick = () => {
     if (isThinning) {
@@ -97,12 +98,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Force re-render on debug mode changes
-  const [lastDebugModeChange, setLastDebugModeChange] = React.useState(Date.now());
-
   // Log when camera state changes (for debugging)
   React.useEffect(() => {
-    if (cameraState && debugMode) {
+    if (cameraState) {
       logger.debug('Camera state received:', {
         id: Date.now(),
         position: {
@@ -122,23 +120,12 @@ const BottomBar: React.FC<BottomBarProps> = ({
         hasTarget: !!cameraState.target
       });
     }
-  }, [cameraState, debugMode, logger]);
+  }, [cameraState]);
 
-  // Log when debug mode changes
+  // Log debug mode and render info
   React.useEffect(() => {
-    if (debugMode) {
-      logger.debug('Debug mode changed to:', { debugMode });
-    }
-    // Force component re-render when debug mode changes
-    setLastDebugModeChange(Date.now());
-  }, [debugMode, logger]);
-
-  // Conditional logging inside the component
-  React.useEffect(() => {
-    if (debugMode) {
-      logger.debug('BottomBar rendering with debugMode:', { debugMode, lastChange: lastDebugModeChange });
-    }
-  }, [debugMode, lastDebugModeChange, logger]);
+    logger.debug('BottomBar rendering with debugMode:', { debugMode });
+  }, [debugMode]);
 
   // Helper function to convert position to a date
   const getPositionDate = (): string => {
@@ -147,8 +134,7 @@ const BottomBar: React.FC<BottomBarProps> = ({
       endDate, 
       currentPosition, 
       actualEventCount,
-      timelineLength,
-      debugMode
+      timelineLength
     });
     
     if (!startDate || !endDate) {
@@ -200,14 +186,10 @@ const BottomBar: React.FC<BottomBarProps> = ({
   };
 
   const handleDebugModeChange = () => {
-    if (debugMode) {
-      logger.debug('Debug mode change requested, current value:', { debugMode });
-    }
+    logger.debug('Debug mode change requested, current value:', { debugMode });
     if (onDebugModeChange) {
       const newValue = !debugMode;
-      if (debugMode) {
-        logger.debug('Calling onDebugModeChange with new value:', { newValue });
-      }
+      logger.debug('Calling onDebugModeChange with new value:', { newValue });
       onDebugModeChange(newValue);
     }
   };
@@ -255,8 +237,6 @@ const BottomBar: React.FC<BottomBarProps> = ({
       return `Z: ${targetZ.toFixed(2)}`;
     }
   };
-
-  const [showCameraDetails, setShowCameraDetails] = useState(false);
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -324,15 +304,16 @@ const BottomBar: React.FC<BottomBarProps> = ({
                 {/* Debug info for troubleshooting */}
                 {debugMode && (
                   <button
-                    className="badge ms-2 btn p-0"
+                    className={`badge ${isThinning ? 'border' : ''}`}
                     onClick={handleVisibleCountClick}
                     style={{
                       backgroundColor: 'var(--color-primary-900)',
                       color: 'white',
+                      borderColor: isThinning ? '#ff0000' : 'transparent',
+                      borderWidth: isThinning ? '2px' : '0',
                       padding: '0.5rem 0.75rem',
                       fontSize: '0.75rem',
                       fontWeight: '500',
-                      border: isThinning ? '2px solid #ff0000' : 'none',
                       boxShadow: isThinning ? '0 0 4px rgba(255, 0, 0, 0.5)' : 'none',
                       cursor: isThinning ? 'pointer' : 'default',
                       opacity: isThinning ? 1 : 0.8
