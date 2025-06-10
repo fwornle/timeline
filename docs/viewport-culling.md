@@ -6,34 +6,67 @@ The Timeline Visualization application implements a sophisticated **Balanced Vie
 
 ![Viewport Culling Flow](images/viewport-culling-flow.png)
 
-## Core Algorithm: Balanced Marker-Centric Thinning
+## Core Algorithm: Intelligent Visual Importance Thinning
 
 ### Problem Statement
 
 When displaying large numbers of timeline events (git commits + spec changes), Three.js performance degrades significantly. Simply removing random cards creates visual discontinuity and poor user experience, especially when the timeline marker moves.
 
-### Solution: Balanced Left-Right Distribution
+### Solution: Visual Importance-Based Thinning
 
-The algorithm splits the timeline into left and right sides relative to the current marker position, then removes cards proportionally from each side using stride patterns.
+The algorithm implements a sophisticated thinning strategy that preserves visual importance based on temporal relevance to the "now" marker position, ensuring the most contextually important cards remain visible.
 
 ### Key Features
 
-#### 1. Protected Zone
-- **Size**: `maxEvents / 4` cards around the timeline marker
-- **Purpose**: Ensures context around the current position is always visible
-- **Behavior**: Cards within this zone are never removed, regardless of culling pressure
+#### 1. 40% Context Window Around "Now"
 
-#### 2. Proportional Removal
+- **Size**: 40% of `maxEvents` (120 cards for maxEvents=300)
+- **Ideal Distribution**: 20% before "now", 20% after "now" (60 cards each side)
+- **Adaptive Behavior**: If fewer than 60 cards exist before "now", the window shifts toward the future while maintaining as close to 20% before as possible
+- **Purpose**: Ensures maximum context around the current timeline position
+
+#### 2. Visual Importance Hierarchy
+
+Cards are prioritized based on their temporal relationship to the "now" marker:
+
+1. **Highest Priority**: Cards within the 40% window around "now"
+2. **Medium Priority**: Future cards (after the window) - representing upcoming events
+3. **Lowest Priority**: Past cards (before the window) - representing historical events
+
+#### 3. Intelligent Distribution Algorithm
+
 ```typescript
-const leftProportion = leftSideEvents.length / totalRemovableEvents;
-const targetRemoveLeft = Math.round(targetToRemove * leftProportion);
-const targetRemoveRight = targetToRemove - targetRemoveLeft;
+// Calculate the 40% window
+const windowSize = Math.floor(0.4 * maxEvents); // 120 cards
+const idealBeforeNow = Math.floor(0.2 * maxEvents); // 60 cards
+const idealAfterNow = windowSize - idealBeforeNow; // 60 cards
+
+// Adaptive window positioning
+if (cardsBeforeNow >= idealBeforeNow) {
+  windowStart = actualNowIndex - idealBeforeNow;
+  windowEnd = actualNowIndex + idealAfterNow;
+} else {
+  // Shift window toward future when near timeline start
+  windowStart = actualNowIndex - cardsBeforeNow;
+  windowEnd = actualNowIndex + (windowSize - cardsBeforeNow);
+}
 ```
 
-#### 3. Stride-Based Distribution
-- **Left Side**: Removes every `nth` card where `n = floor(leftEvents.length / targetRemoveLeft)`
-- **Right Side**: Removes every `nth` card where `n = floor(rightEvents.length / targetRemoveRight)`
-- **Fallback**: Additional passes ensure exact target counts are met
+#### 4. 60% Remaining Quota Distribution
+
+After reserving the 40% window, the remaining 60% of cards (180 for maxEvents=300) are filled:
+
+1. **First Priority**: Future events (after the window) - fill as many as possible
+2. **Second Priority**: Past events (before the window) - fill with newest past events first
+
+#### 5. "Every Other Card" Overflow Thinning
+
+When the selected cards still exceed `maxEvents`:
+
+- Removes every 2nd card using independent patterns for each side
+- **Past Side**: Starts with oldest cards, works toward the window
+- **Future Side**: Starts with newest cards, works toward the window
+- Ensures balanced visual distribution without clustering
 
 ## Implementation Details
 
@@ -60,33 +93,58 @@ interface ViewportFilteringConfig {
    - Expand viewport if insufficient events are found
 
 2. **Thinning Decision**
+
    ```typescript
-   if (filteredEvents.length > maxEvents) {
-     // Trigger balanced thinning algorithm
+   const numThinning = eventsInViewport.length - maxEvents;
+   if (numThinning > 0) {
+     // Trigger intelligent thinning algorithm
    }
    ```
 
-3. **Marker Position Detection**
+3. **"Now" Marker Position Detection**
+
    ```typescript
-   const markerIndex = eventsWithZ.findIndex(ep => ep.z >= currentPosition);
-   const actualMarkerIndex = markerIndex === -1 ? eventsWithZ.length : markerIndex;
+   const nowIndex = sortedByZ.findIndex(ep => ep.z >= nowZ);
+   const actualNowIndex = nowIndex === -1 ? sortedByZ.length : nowIndex;
    ```
 
-4. **Side Splitting**
+4. **40% Context Window Calculation**
+
    ```typescript
-   const leftSideEvents = eventsWithZ.slice(0, actualMarkerIndex - protectedZoneSize);
-   const rightSideEvents = eventsWithZ.slice(actualMarkerIndex + protectedZoneSize);
+   const windowSize = Math.floor(0.4 * maxEvents); // 120 cards
+   const idealBeforeNow = Math.floor(0.2 * maxEvents); // 60 cards
+   
+   // Adaptive window positioning based on available cards
+   if (cardsBeforeNow >= idealBeforeNow) {
+     windowStart = actualNowIndex - idealBeforeNow;
+     windowEnd = actualNowIndex + idealAfterNow;
+   } else {
+     // Shift window toward future
+     windowStart = Math.max(0, actualNowIndex - cardsBeforeNow);
+     windowEnd = actualNowIndex + (windowSize - cardsBeforeNow);
+   }
    ```
 
-5. **Proportional Removal Calculation**
-   - Calculate proportion of removable events on each side
-   - Distribute removal targets proportionally
-   - Ensure both sides contribute to thinning
+5. **60% Remaining Quota Distribution**
 
-6. **Stride-Based Removal**
-   - Calculate optimal stride for each side
-   - Remove cards at regular intervals
-   - Apply backup removal if stride doesn't hit target
+   ```typescript
+   const remainingQuota = maxEvents - reservedEvents.length;
+   
+   // Prioritize future events
+   const futureQuota = Math.min(remainingQuota, afterWindow.length);
+   selectedAfterWindow = afterWindow.slice(0, futureQuota);
+   
+   // Fill remaining with newest past events
+   const pastQuota = remainingQuota - selectedAfterWindow.length;
+   selectedBeforeWindow = beforeWindow.slice(-pastQuota);
+   ```
+
+6. **"Every Other Card" Overflow Thinning**
+
+   - Apply when total selected events still exceed `maxEvents`
+   - Remove every 2nd card from past (oldest first)
+   - Then remove every 2nd card from future (newest first)
+   - Independent patterns for each side
 
 ## Debug Visualization
 
@@ -112,36 +170,41 @@ When debug mode is active and thinning occurs:
 The system provides comprehensive debug logging when `debugMode: true`:
 
 ```typescript
-logger.debug('Starting balanced thinning', {
-  totalEvents: eventsWithZ.length,
-  targetToRemove,
-  markerIndex: actualMarkerIndex,
-  protectedZoneSize,
-  leftSideEvents: leftSideEvents.length,
-  rightSideEvents: rightSideEvents.length,
-  targetRemoveLeft,
-  targetRemoveRight,
-  markerPosition: currentPosition.toFixed(1)
+logger.debug('Smart thinning applied', {
+  originalCount: eventsInViewport.length,
+  finalCount: filtered.length,
+  windowSize,
+  windowStart,
+  windowEnd,
+  reservedCount: reservedEvents.length,
+  beforeWindowSelected: selectedBeforeWindow.length,
+  afterWindowSelected: selectedAfterWindow.length,
+  strategy: 'Smart importance-based with now-marker awareness'
 });
 ```
 
 ## Performance Impact
 
 ### Before Implementation
+
 - **Rendered Objects**: 800+ timeline cards
 - **Frame Rate**: 15-30 FPS with stuttering
 - **Memory Usage**: Continuously increasing
 - **User Experience**: Laggy interactions, poor responsiveness
 
 ### After Implementation
+
 - **Rendered Objects**: 300 maximum (75-90% reduction)
 - **Frame Rate**: Consistent 60 FPS
 - **Memory Usage**: Stable, no leaks
 - **User Experience**: Smooth interactions, responsive camera controls
 
 ### Key Metrics
+
 - **Viewport Filtering**: 150ms update throttle
-- **Protected Zone**: 75 cards around marker (for maxEvents=300)
+- **Context Window**: 120 cards around "now" marker (40% of maxEvents=300)
+- **Ideal Distribution**: 60 cards before, 60 cards after "now" (20% each)
+- **Remaining Quota**: 180 cards (60% of maxEvents=300)
 - **Thinning Threshold**: Triggered when > 300 events in viewport
 - **Real-time Updates**: SessionStorage polling every 100ms
 
@@ -185,7 +248,9 @@ const handleVisibleCountClick = () => {
 | `paddingFactor` | 1.0 | Viewport padding multiplier | Higher = smoother transitions, more culling |
 | `updateThrottleMs` | 150 | Update frequency | Lower = more responsive, higher CPU usage |
 | `windowSize` | 110 | Viewport size (world units) | Fixed optimal size for timeline scale |
-| `protectedZoneSize` | `maxEvents/4` | Cards protected around marker | Higher = more context, less culling effectiveness |
+| Context Window | 40% of `maxEvents` | Cards preserved around "now" | Higher = more temporal context |
+| Ideal Before/After | 20% each | Distribution around "now" | Ensures balanced context |
+| Remaining Quota | 60% of `maxEvents` | Cards for rest of timeline | Prioritizes future over past |
 
 ### Environment Considerations
 
@@ -199,14 +264,16 @@ const handleVisibleCountClick = () => {
 ### Potential Improvements
 
 1. **Adaptive Culling**: Adjust `maxEvents` based on device performance
-2. **Temporal Weighting**: Prefer recent commits over older ones
-3. **User Preference**: Allow users to configure culling aggressiveness
+2. **Configurable Context Window**: Allow users to adjust the 40/60 split
+3. **Milestone Preservation**: Never cull major releases or tagged commits
 4. **LOD System**: Different detail levels for distant cards
 5. **Predictive Loading**: Pre-load cards in camera movement direction
+6. **Importance Scoring**: Weight cards by commit size, author, or impact
 
 ### Performance Monitoring
 
 Monitor these metrics to assess culling effectiveness:
+
 - Frame rate during camera movements
 - Memory usage over time
 - User-reported visual quality

@@ -3,7 +3,7 @@
 skinparam backgroundColor #FFFFFF
 skinparam sequenceStyle strictuml
 
-title Balanced Viewport Culling System Flow
+title Intelligent Visual Importance Thinning System Flow
 
 actor User
 participant "ViewportFilteredEvents" as VFE
@@ -32,37 +32,48 @@ end note
 VFH -> VFH : calculateViewportBounds()
 VFH -> VFH : filterEventsInViewport()
 
-alt Events > maxEvents (Thinning Required)
+alt numThinning > 0 (Too many events)
     note over VFH
-    **Balanced Marker-Centric Algorithm:**
-    1. Find marker position in sorted events
-    2. Create protected zone (maxEvents/4)
-    3. Split into left/right sides
-    4. Calculate proportional removal targets
-    5. Remove cards with even distribution
+    **Intelligent Visual Importance Algorithm:**
+    1. Sort events by Z position (oldest to newest)
+    2. Find "now" marker position in timeline
+    3. Calculate 40% context window (120 cards)
+    4. Adapt window if near timeline start
+    5. Distribute 60% remaining quota
     end note
     
-    VFH -> VFH : findMarkerIndex(currentPosition)
-    VFH -> VFH : createProtectedZone(maxEvents/4)
-    VFH -> VFH : splitLeftRight(markerIndex, protectedZone)
+    VFH -> VFH : findNowIndex(currentPosition)
+    VFH -> VFH : calculate40PercentWindow()
     
     note over VFH
-    **Left Side Removal:**
-    - Target: targetRemoveLeft cards
-    - Strategy: Every nth card (stride pattern)
-    - Backup: Fill remaining slots if needed
+    **40% Context Window (120 cards):**
+    - Ideal: 60 before "now", 60 after "now"
+    - If < 60 before: shift window toward future
+    - These cards have highest visual importance
     end note
     
-    VFH -> VFH : removeFromLeftSide(targetRemoveLeft)
+    VFH -> VFH : reserveContextWindow()
     
     note over VFH
-    **Right Side Removal:**
-    - Target: targetRemoveRight cards
-    - Strategy: Every nth card (stride pattern)
-    - Backup: Fill remaining slots if needed
+    **60% Remaining Quota (180 cards):**
+    - Priority 1: Future events (after window)
+    - Priority 2: Past events (newest first)
+    - Fill up to remainingQuota capacity
     end note
     
-    VFH -> VFH : removeFromRightSide(targetRemoveRight)
+    VFH -> VFH : selectFutureEvents(afterWindow)
+    VFH -> VFH : selectPastEvents(beforeWindow)
+    
+    alt Still exceeds maxEvents
+        note over VFH
+        **"Every Other Card" Thinning:**
+        - Past: Remove every 2nd (oldest first)
+        - Future: Remove every 2nd (newest first)
+        - Independent patterns each side
+        end note
+        
+        VFH -> VFH : applyEveryOtherThinning()
+    end
     
     VFH -> Storage : Store thinned event IDs
     VFH -> Storage : Set isViewportThinning = true
@@ -105,14 +116,14 @@ deactivate Camera
 deactivate Debug
 
 note over User, Storage
-**Key Features:**
-✅ Balanced left/right removal prevents jumping
-✅ Protected zone around marker preserves context
-✅ Proportional removal maintains visual distribution
+**Visual Importance Hierarchy:**
+✅ Highest: 40% window around "now" marker
+✅ Medium: Future events (upcoming)
+✅ Lowest: Past events (historical)
+✅ Adaptive window positioning near timeline start
+✅ "Every other card" for overflow handling
 ✅ Debug visualization with red frames
-✅ Interactive debug controls in BottomBar
-✅ Real-time count updates via SessionStorage
-✅ Exactly maxEvents cards when thinning active
+✅ Always maintains exactly maxEvents cards
 end note
 
 @enduml
