@@ -141,38 +141,128 @@ export const useViewportFiltering = (
       }
     }
     
-    // ONLY thin if we actually have too many events
-    if (filtered.length > maxEvents) {
+    // Apply intelligent thinning if we have too many events
+    const eventsInViewport = eventPositions.filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ);
+    const numThinning = eventsInViewport.length - maxEvents;
+    
+    if (numThinning > 0) {
       logger.debug('Thinning triggered', {
-        visibleEvents: filtered.length,
+        totalInViewport: eventsInViewport.length,
         maxEvents,
-        exceedsBy: filtered.length - maxEvents
+        numThinning
       });
       
-      // Simple approach: Sort events by Z position and prioritize keeping recent (future) events
-      const sortedByZ = eventPositions
-        .filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ)
-        .sort((a, b) => b.z - a.z); // Sort by Z position descending (future first)
+      // Sort events by Z position (oldest to newest)
+      const sortedByZ = eventsInViewport.sort((a, b) => a.z - b.z);
       
-      // Keep the most recent maxEvents, removing from the past first
-      const eventsToKeep = sortedByZ.slice(0, maxEvents);
-      filtered = eventsToKeep.map(ep => ep.event);
-
+      // Find the "now" marker position in the sorted events
+      const nowZ = currentPosition;
+      const nowIndex = sortedByZ.findIndex(ep => ep.z >= nowZ);
+      const actualNowIndex = nowIndex === -1 ? sortedByZ.length : nowIndex;
+      
+      // Calculate the 40% window around "now" (120 events for maxEvents=300)
+      const windowSize = Math.floor(0.4 * maxEvents); // 120 cards
+      const idealBeforeNow = Math.floor(0.2 * maxEvents); // 60 cards
+      const idealAfterNow = windowSize - idealBeforeNow; // 60 cards
+      
+      // Calculate actual before/after counts
+      const cardsBeforeNow = actualNowIndex;
+      const cardsAfterNow = sortedByZ.length - actualNowIndex;
+      
+      let windowStart, windowEnd;
+      
+      if (cardsBeforeNow >= idealBeforeNow) {
+        // Enough cards before "now", use ideal window
+        windowStart = actualNowIndex - idealBeforeNow;
+        windowEnd = Math.min(sortedByZ.length, actualNowIndex + idealAfterNow);
+      } else {
+        // Not enough cards before "now", shift window towards future
+        windowStart = Math.max(0, actualNowIndex - cardsBeforeNow);
+        const remainingWindowSize = windowSize - cardsBeforeNow;
+        windowEnd = Math.min(sortedByZ.length, actualNowIndex + remainingWindowSize);
+      }
+      
+      // Reserve the 40% window around "now"
+      const reservedEvents = sortedByZ.slice(windowStart, windowEnd);
+      
+      // Remaining events to choose from (60% of maxEvents = 180 for maxEvents=300)
+      const remainingQuota = maxEvents - reservedEvents.length;
+      
+      // Split remaining events into before and after window
+      const beforeWindow = sortedByZ.slice(0, windowStart);
+      const afterWindow = sortedByZ.slice(windowEnd);
+      
+      // Prioritize future events (after window) first
+      let selectedBeforeWindow: typeof beforeWindow = [];
+      let selectedAfterWindow: typeof afterWindow = [];
+      
+      if (remainingQuota > 0) {
+        // First, take as many future events as possible
+        const futureQuota = Math.min(remainingQuota, afterWindow.length);
+        selectedAfterWindow = afterWindow.slice(0, futureQuota);
+        
+        // Then fill remaining quota with past events (newest first from before window)
+        const pastQuota = remainingQuota - selectedAfterWindow.length;
+        if (pastQuota > 0 && beforeWindow.length > 0) {
+          // Take newest events from before window (reverse order, closest to window first)
+          selectedBeforeWindow = beforeWindow.slice(-pastQuota);
+        }
+      }
+      
+      // If we still have too many events, apply "every other card" thinning
+      let finalEvents = [...selectedBeforeWindow, ...reservedEvents, ...selectedAfterWindow];
+      
+      if (finalEvents.length > maxEvents) {
+        const excessCount = finalEvents.length - maxEvents;
+        logger.debug('Applying every-other-card thinning', {
+          beforeExcess: finalEvents.length,
+          excessCount,
+          targetCount: maxEvents
+        });
+        
+        // Apply thinning starting from oldest in before window, then newest in after window
+        const toRemove = new Set<string>();
+        let removedCount = 0;
+        
+        // Remove every other card from before window (oldest first)
+        for (let i = 0; i < selectedBeforeWindow.length && removedCount < excessCount; i += 2) {
+          toRemove.add(selectedBeforeWindow[i].event.id);
+          removedCount++;
+        }
+        
+        // If still need to remove more, remove from after window (newest first)
+        for (let i = selectedAfterWindow.length - 1; i >= 0 && removedCount < excessCount; i -= 2) {
+          toRemove.add(selectedAfterWindow[i].event.id);
+          removedCount++;
+        }
+        
+        finalEvents = finalEvents.filter(ep => !toRemove.has(ep.event.id));
+      }
+      
+      filtered = finalEvents.map(ep => ep.event);
+      
       // Sort back to timeline order for rendering
       filtered = filtered.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       
-      logger.debug('Simple future-biased thinning applied', {
-        totalInViewport: sortedByZ.length,
+      logger.debug('Smart thinning applied', {
+        originalCount: eventsInViewport.length,
         finalCount: filtered.length,
-        removedCount: sortedByZ.length - filtered.length,
-        strategy: 'Keep most recent events, remove from past first'
+        windowSize,
+        windowStart,
+        windowEnd,
+        reservedCount: reservedEvents.length,
+        beforeWindowSelected: selectedBeforeWindow.length,
+        afterWindowSelected: selectedAfterWindow.length,
+        strategy: 'Smart importance-based with now-marker awareness'
       });
     } else {
       logger.debug('No thinning needed', {
-        visibleEvents: filtered.length,
+        visibleEvents: eventsInViewport.length,
         maxEvents,
-        underBy: maxEvents - filtered.length
+        underBy: maxEvents - eventsInViewport.length
       });
+      
+      filtered = eventsInViewport.map(ep => ep.event);
     }
     
     // Store thinning status and thinned events in sessionStorage for UI indicator
