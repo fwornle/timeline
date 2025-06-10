@@ -34,6 +34,7 @@ interface ViewportFilteredEventsProps {
 export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = React.memo((props) => {
   const { camera } = useThree();
   const showThinnedCards = useAppSelector(state => state.ui.showThinnedCards);
+  const logger = useLogger({ component: 'ViewportFilteredEvents', topic: 'rendering' });
   
   // Use viewport filtering with better configuration
   const visibleEvents = useViewportFiltering(
@@ -44,7 +45,7 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
     {
       paddingFactor: 1.2,    // Small padding to avoid pop-in/out at viewport edges
       minEvents: 0,          // Don't force minimum events - show only what's visible
-      maxEvents: 200,        // Reduced as requested by user
+      maxEvents: 300,        // Maximum events to display
       updateThrottleMs: 150, // Less aggressive updates to reduce re-renders
       debugMode: props.debugMode,
       windowSize: 110        // Fixed viewport window size (220 total, ±110)
@@ -80,13 +81,8 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
     return () => clearInterval(interval);
   }, [props.events]);
   
-  // Debug logging handled by useViewportFiltering hook
-  
-
-  // Debug logging for visible events using useLogger
-  const logger = useLogger({ component: 'ViewportFilteredEvents', topic: 'rendering' });
-  
-  if (props.debugMode) {
+  // Debug logging for visible events
+  React.useEffect(() => {
     logger.debug('ViewportFilteredEvents rendering:', {
       visibleEventsCount: visibleEvents.length,
       totalEventsCount: props.events.length,
@@ -94,7 +90,7 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
       showThinnedCards,
       thinnedEventsCount: thinnedEvents.length
     });
-  }
+  }, [visibleEvents, props.events, showThinnedCards, thinnedEvents, logger]);
 
   return (
     <>

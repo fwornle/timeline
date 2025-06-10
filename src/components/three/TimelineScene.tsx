@@ -257,7 +257,6 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           position={[0, -0.01, 0]}
           infiniteGrid={true}
           followCamera={false}
-          onUpdate={() => {}}
         />
         <Environment preset="city" />
       </Canvas>

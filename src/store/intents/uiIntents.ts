@@ -10,7 +10,8 @@ import {
   setDroneMode,
   setFocusCurrentMode,
   setDebugMode,
-  setPerformanceProfilingEnabled
+  setPerformanceProfilingEnabled,
+  setShowThinnedCards
 } from '../slices/uiSlice';
 import { setMarkerPosition, setCurrentPosition } from '../slices/timelineSlice';
 import { updateCameraPreferences, updateMarkerPositionPreferences } from './preferencesIntents';
@@ -267,6 +268,11 @@ export const toggleDebugModeWithLogging = createAsyncThunk<
     
     // Update debug mode state
     dispatch(setDebugMode(enableDebugMode));
+    
+    // Reset showThinnedCards when exiting debug mode
+    if (!enableDebugMode) {
+      dispatch(setShowThinnedCards(false));
+    }
   }
 );
 
