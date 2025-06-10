@@ -5,6 +5,7 @@ import timelineSlice from './slices/timelineSlice';
 import uiSlice from './slices/uiSlice';
 import preferencesSlice from './slices/preferencesSlice';
 import repositorySlice from './slices/repositorySlice';
+import loggingSlice from './slices/loggingSlice';
 import { Logger } from '../utils/logging/Logger';
 
 interface PayloadAction extends Action {
@@ -57,6 +58,7 @@ export const store = configureStore({
     ui: uiSlice,
     preferences: preferencesSlice,
     repository: repositorySlice,
+    logging: loggingSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

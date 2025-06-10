@@ -4,7 +4,8 @@ import { Vector3 } from 'three';
 import { TimelineEvents } from './TimelineEvents';
 import { TimelineEvent } from '../../data/types/TimelineEvent';
 import { useViewportFiltering } from '../../hooks/useViewportFiltering';
-import { useAppSelector } from '../../store';
+import { useAppSelector, useAppDispatch } from '../../store';
+import { setVisibleEventsCount } from '../../store/slices/uiSlice';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 
 interface ViewportFilteredEventsProps {
@@ -33,10 +34,15 @@ interface ViewportFilteredEventsProps {
 
 export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = React.memo((props) => {
   const { camera } = useThree();
+  const dispatch = useAppDispatch();
   const showThinnedCards = useAppSelector(state => state.ui.showThinnedCards);
+  const thinnedEvents = useAppSelector(state => state.timeline.thinnedEvents);
   const logger = useLogger({ component: 'ViewportFilteredEvents', topic: 'rendering' });
   
-  // Use viewport filtering with better configuration
+  // Use viewport filtering with performance-optimized configuration
+  // Reduce maxEvents during drift mode for better performance
+  const maxEventsForMode = props.droneMode ? 200 : 250;
+  
   const visibleEvents = useViewportFiltering(
     props.events,
     camera,
@@ -45,41 +51,21 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
     {
       paddingFactor: 1.2,    // Small padding to avoid pop-in/out at viewport edges
       minEvents: 0,          // Don't force minimum events - show only what's visible
-      maxEvents: 300,        // Maximum events to display
-      updateThrottleMs: 150, // Less aggressive updates to reduce re-renders
+      maxEvents: maxEventsForMode, // Dynamic based on mode for better performance
+      updateThrottleMs: 200, // Increased throttle for better performance during drift
       debugMode: props.debugMode,
       windowSize: 110        // Fixed viewport window size (220 total, ±110)
     }
   );
   
-  // Store visible count for BottomBar display and add debugging info
+  // Update Redux state with visible count (throttled to reduce re-renders)
   React.useEffect(() => {
-    sessionStorage.setItem('visibleEventsCount', visibleEvents.length.toString());
-  }, [visibleEvents.length]);
-
-  // Get thinned events from sessionStorage and resolve them
-  const [thinnedEvents, setThinnedEvents] = React.useState<TimelineEvent[]>([]);
-  React.useEffect(() => {
-    const updateThinnedEvents = () => {
-      const thinnedEventIds = sessionStorage.getItem('thinnedEvents');
-      if (thinnedEventIds) {
-        try {
-          const ids: string[] = JSON.parse(thinnedEventIds);
-          const resolved = ids.map(id => props.events.find(e => e.id === id)).filter(Boolean) as TimelineEvent[];
-          setThinnedEvents(resolved);
-        } catch (e) {
-          console.warn('Failed to parse thinned events:', e);
-          setThinnedEvents([]);
-        }
-      } else {
-        setThinnedEvents([]);
-      }
-    };
-
-    updateThinnedEvents();
-    const interval = setInterval(updateThinnedEvents, 150); // Match viewport filtering throttle
-    return () => clearInterval(interval);
-  }, [props.events]);
+    const timeoutId = setTimeout(() => {
+      dispatch(setVisibleEventsCount(visibleEvents.length));
+    }, 100); // 100ms throttle to batch rapid changes
+    
+    return () => clearTimeout(timeoutId);
+  }, [dispatch, visibleEvents.length]);
   
   // Debug logging for visible events
   React.useEffect(() => {
@@ -132,17 +118,19 @@ export const ViewportFilteredEvents: React.FC<ViewportFilteredEventsProps> = Rea
     </>
   );
 }, (prevProps, nextProps) => {
-  // Aggressive memoization for ViewportFilteredEvents
-  return (
+  // Aggressive memoization for ViewportFilteredEvents - return true if props are EQUAL (skip re-render)
+  const propsEqual = (
     prevProps.events === nextProps.events && // Reference equality for events array
     prevProps.selectedCardId === nextProps.selectedCardId &&
     prevProps.isMarkerDragging === nextProps.isMarkerDragging &&
     prevProps.isTimelineHovering === nextProps.isTimelineHovering &&
     prevProps.droneMode === nextProps.droneMode &&
     prevProps.debugMode === nextProps.debugMode &&
-    // Only re-render for significant position changes
+    // Only re-render for significant position changes (>= 1.0 world units)
     Math.abs(prevProps.currentPosition - nextProps.currentPosition) < 1.0 &&
-    // Only re-render for significant camera target changes
+    // Only re-render for significant camera target changes (>= 2.0 world units)
     prevProps.cameraTarget.distanceTo(nextProps.cameraTarget) < 2.0
   );
+  
+  return propsEqual; // Return true to skip re-render when props are equal
 });

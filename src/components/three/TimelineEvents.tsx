@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { TimelineCard } from './TimelineCard';
 import { Vector3 } from 'three';
 import { useThree } from '@react-three/fiber';
@@ -36,7 +36,7 @@ interface TimelineEventsProps {
   debugMode?: boolean;
 }
 
-export const TimelineEvents: React.FC<TimelineEventsProps> = ({
+const TimelineEventsComponent: React.FC<TimelineEventsProps> = ({
   events,
   visibleEvents,
   selectedCardId,
@@ -564,3 +564,5 @@ export const TimelineEvents: React.FC<TimelineEventsProps> = ({
     </group>
   );
 };
+
+export const TimelineEvents = memo(TimelineEventsComponent);

@@ -1,8 +1,11 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { Vector3, Camera } from 'three';
 import { TimelineEvent } from '../data/types/TimelineEvent';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { calculateEventZPositionWithIndex } from '../utils/timeline/timelineCalculations';
+import { useAppDispatch } from '../store';
+import { setThinnedEvents } from '../store/slices/timelineSlice';
+import { setIsViewportThinning } from '../store/slices/uiSlice';
 
 interface ViewportFilteringConfig {
   paddingFactor?: number;
@@ -30,8 +33,13 @@ export const useViewportFiltering = (
   } = config;
 
   const logger = useLogger({ component: 'useViewportFiltering', topic: 'performance' });
+  const dispatch = useAppDispatch();
   const lastUpdateRef = useRef<number>(0);
   const lastResultRef = useRef<TimelineEvent[]>([]);
+  const lastThinningStateRef = useRef<{ isThinning: boolean; thinnedEvents: TimelineEvent[] }>({
+    isThinning: false,
+    thinnedEvents: []
+  });
 
   // Get event Z position using centralized calculation - ALWAYS use full event set for consistency
   const getEventZPosition = (event: TimelineEvent, allSortedEvents: TimelineEvent[]): number => {
@@ -45,7 +53,7 @@ export const useViewportFiltering = (
     return calculateEventZPositionWithIndex(event, eventIndex, minTime, maxTime, allSortedEvents.length);
   };
 
-  return useMemo(() => {
+  const filteredEvents = useMemo(() => {
     const now = performance.now();
     
     // Return empty if no events
@@ -165,9 +173,8 @@ export const useViewportFiltering = (
       const idealBeforeNow = Math.floor(0.2 * maxEvents); // 60 cards
       const idealAfterNow = windowSize - idealBeforeNow; // 60 cards
       
-      // Calculate actual before/after counts
+      // Calculate actual before count
       const cardsBeforeNow = actualNowIndex;
-      const cardsAfterNow = sortedByZ.length - actualNowIndex;
       
       let windowStart, windowEnd;
       
@@ -265,21 +272,20 @@ export const useViewportFiltering = (
       filtered = eventsInViewport.map(ep => ep.event);
     }
     
-    // Store thinning status and thinned events in sessionStorage for UI indicator
+    // Calculate thinning state (but don't dispatch here - we'll do it in useEffect)
     // Thinning is active if we had to reduce events due to maxEvents limit
     const originalViewportEvents = eventPositions.filter(ep => ep.z >= visibleMinZ && ep.z <= visibleMaxZ);
     const isThinning = originalViewportEvents.length > maxEvents;
-    sessionStorage.setItem('isViewportThinning', isThinning.toString());
     
     // Calculate thinned-out events (events that were in viewport but got filtered out)
-    const thinnedEvents = isThinning 
+    const thinnedEventsArray = isThinning 
       ? originalViewportEvents
           .map(ep => ep.event)
           .filter(event => !filtered.find(fe => fe.id === event.id))
       : [];
     
-    // Store thinned events for ViewportFilteredEvents to access
-    sessionStorage.setItem('thinnedEvents', JSON.stringify(thinnedEvents.map(e => e.id)));
+    // Store thinning state in ref for useEffect to dispatch
+    lastThinningStateRef.current = { isThinning, thinnedEvents: thinnedEventsArray };
     
     // Update cache
     lastUpdateRef.current = now;
@@ -337,4 +343,18 @@ export const useViewportFiltering = (
     
     return filtered;
   }, [events, camera, cameraTarget, currentPosition, paddingFactor, maxEvents, updateThrottleMs, debugMode, windowSize, logger]);
+
+  // Use effect to dispatch Redux actions outside of render with throttling
+  useEffect(() => {
+    // Throttle Redux dispatches to reduce re-renders during rapid changes
+    const timeoutId = setTimeout(() => {
+      const { isThinning, thinnedEvents } = lastThinningStateRef.current;
+      dispatch(setIsViewportThinning(isThinning));
+      dispatch(setThinnedEvents(thinnedEvents));
+    }, 50); // 50ms throttle to batch rapid changes
+
+    return () => clearTimeout(timeoutId);
+  }, [dispatch, lastThinningStateRef.current.isThinning, lastThinningStateRef.current.thinnedEvents.length]);
+
+  return filteredEvents;
 };

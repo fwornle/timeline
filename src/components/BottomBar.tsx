@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import { useAppSelector } from '../store';
 import type { CameraState } from '../store/slices/uiSlice';
@@ -69,9 +69,9 @@ const BottomBar: React.FC<BottomBarProps> = ({
   const showThinnedCards = useAppSelector(state => state.ui.showThinnedCards);
   const showControls = !!repoUrl;
   
-  // Get visible events count from session storage (updated by ViewportFilteredEvents)
-  const [currentVisibleCount, setCurrentVisibleCount] = React.useState(0);
-  const [isThinning, setIsThinning] = React.useState(false);
+  // Get visible events count from Redux state (updated by viewport filtering)
+  const currentVisibleCount = useAppSelector(state => state.ui.visibleEventsCount);
+  const isThinning = useAppSelector(state => state.ui.isViewportThinning);
   const [showCameraDetails, setShowCameraDetails] = React.useState(false);
   
   const handleVisibleCountClick = () => {
@@ -80,23 +80,6 @@ const BottomBar: React.FC<BottomBarProps> = ({
       logger.debug('Toggled thinned cards visibility', { showThinnedCards: !showThinnedCards });
     }
   };
-  React.useEffect(() => {
-    const updateVisibleCount = () => {
-      const count = sessionStorage.getItem('visibleEventsCount');
-      if (count) {
-        setCurrentVisibleCount(parseInt(count, 10));
-      }
-      
-      const thinning = sessionStorage.getItem('isViewportThinning');
-      setIsThinning(thinning === 'true');
-    };
-    
-    // Update immediately and then every 100ms for real-time updates
-    updateVisibleCount();
-    const interval = setInterval(updateVisibleCount, 100);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   // Log when camera state changes (for debugging)
   React.useEffect(() => {
