@@ -13,6 +13,7 @@ interface TimelineState {
   sourceType: 'git' | 'spec' | 'both';
   isUsingMockData: boolean;
   lastFetchTime: number | null;
+  thinnedEvents: TimelineEvent[]; // Events that were filtered out by viewport culling
   cache: {
     [key: string]: {
       data: TimelineEvent[];
@@ -35,6 +36,7 @@ const initialState: TimelineState = {
   sourceType: 'both',
   isUsingMockData: false,
   lastFetchTime: null,
+  thinnedEvents: [],
   cache: {},
 };
 
@@ -76,6 +78,9 @@ const timelineSlice = createSlice({
     setIsUsingMockData: (state, action: PayloadAction<boolean>) => {
       state.isUsingMockData = action.payload;
     },
+    setThinnedEvents: (state, action: PayloadAction<TimelineEvent[]>) => {
+      state.thinnedEvents = action.payload;
+    },
     setCacheData: (state, action: PayloadAction<{ key: string; data: TimelineEvent[] }>) => {
       state.cache[action.payload.key] = {
         data: action.payload.data,
@@ -92,6 +97,7 @@ const timelineSlice = createSlice({
       state.error = null;
       state.loading = false;
       state.lastFetchTime = null;
+      state.thinnedEvents = [];
     },
   },
 });
@@ -105,6 +111,7 @@ export const {
   setMarkerPosition,
   setSourceType,
   setIsUsingMockData,
+  setThinnedEvents,
   setCacheData,
   clearCache,
   resetTimeline,

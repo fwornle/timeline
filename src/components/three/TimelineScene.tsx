@@ -6,13 +6,14 @@ import { ViewportFilteredEvents } from './ViewportFilteredEvents';
 import { TimelineDriftController } from './TimelineDriftController';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import { Vector3 } from 'three';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { clearAllCardHovers } from '../../utils/three/cardUtils';
 import type { CameraState } from './TimelineCamera';
 import { useLogger } from '../../utils/logging/hooks/useLogger';
 import { threeColors } from '../../config';
 import { calculateTimelineLength } from '../../utils/timeline/timelineCalculations';
-import { useAppSelector } from '../../store';
+import { useAppSelector, useAppDispatch } from '../../store';
+import { setIsMarkerDragging, setIsTimelineHovering } from '../../store/slices/uiSlice';
 
 
 export interface TimelineSceneProps {
@@ -62,22 +63,23 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   disableCameraControls = false
 }) => {
   const logger = useLogger({ component: 'TimelineScene', topic: 'ui' });
-  const [isMarkerDragging, setIsMarkerDragging] = useState(false);
-  const [isTimelineHovering, setIsTimelineHovering] = useState(false);
+  const dispatch = useAppDispatch();
   
-  // Get calendar preferences
+  // Get states from Redux
+  const isMarkerDragging = useAppSelector(state => state.ui.isMarkerDragging);
+  const isTimelineHovering = useAppSelector(state => state.ui.isTimelineHovering);
   const showHolidays = useAppSelector(state => state.preferences.showHolidays) ?? true;
   const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? false;
 
   // Handle timeline hover state changes
   const handleTimelineHoverChange = useCallback((isHovering: boolean) => {
-    setIsTimelineHovering(isHovering);
+    dispatch(setIsTimelineHovering(isHovering));
 
     // When timeline hover starts, close all cards
     if (isHovering) {
       onCardHover(null); // Close all cards
     }
-  }, [onCardHover]);
+  }, [dispatch, onCardHover]);
 
   // Log camera callback props
   useEffect(() => {
@@ -223,7 +225,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
           currentPosition={currentPosition}
           onPositionChange={onMarkerPositionChange}
           onMarkerDragStateChange={(isDragging) => {
-            setIsMarkerDragging(isDragging);
+            dispatch(setIsMarkerDragging(isDragging));
           }}
           onTimelineHoverChange={handleTimelineHoverChange}
           droneMode={droneMode}

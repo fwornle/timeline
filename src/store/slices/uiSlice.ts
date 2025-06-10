@@ -31,6 +31,18 @@ interface UIState {
   hoveredCardId: string | null;
   showThinnedCards: boolean;
 
+  // Viewport filtering states
+  visibleEventsCount: number;
+  isViewportThinning: boolean;
+
+  // Timeline interaction states
+  isMarkerDragging: boolean;
+  isTimelineHovering: boolean;
+
+  // Global loading/error states
+  globalError: string | null;
+  globalLoading: boolean;
+
   // Occlusion states
   markerFadeOpacity: number;
   debugMarkerFade: boolean;
@@ -67,6 +79,12 @@ const initialState: UIState = {
   selectedCardId: null,
   hoveredCardId: null,
   showThinnedCards: false,
+  visibleEventsCount: 0,
+  isViewportThinning: false,
+  isMarkerDragging: false,
+  isTimelineHovering: false,
+  globalError: null,
+  globalLoading: false,
   markerFadeOpacity: 1.0,
   debugMarkerFade: false,
   fadedCardsTemporalRange: null,
@@ -151,6 +169,24 @@ const uiSlice = createSlice({
     setPerformanceProfilingEnabled: (state, action: PayloadAction<boolean>) => {
       state.performanceProfilingEnabled = action.payload;
     },
+    setVisibleEventsCount: (state, action: PayloadAction<number>) => {
+      state.visibleEventsCount = action.payload;
+    },
+    setIsViewportThinning: (state, action: PayloadAction<boolean>) => {
+      state.isViewportThinning = action.payload;
+    },
+    setIsMarkerDragging: (state, action: PayloadAction<boolean>) => {
+      state.isMarkerDragging = action.payload;
+    },
+    setIsTimelineHovering: (state, action: PayloadAction<boolean>) => {
+      state.isTimelineHovering = action.payload;
+    },
+    setGlobalError: (state, action: PayloadAction<string | null>) => {
+      state.globalError = action.payload;
+    },
+    setGlobalLoading: (state, action: PayloadAction<boolean>) => {
+      state.globalLoading = action.payload;
+    },
     resetUI: (state) => {
       state.selectedCardId = null;
       state.hoveredCardId = null;
@@ -159,6 +195,10 @@ const uiSlice = createSlice({
       state.viewAll = false;
       state.focusCurrentMode = false;
       state.isAutoScrolling = false;
+      state.isMarkerDragging = false;
+      state.isTimelineHovering = false;
+      state.globalError = null;
+      state.globalLoading = false;
     },
   },
 });
@@ -187,6 +227,12 @@ export const {
   setIsInitializing,
   setIsReloadingSoft,
   setIsReloadingHard,
+  setVisibleEventsCount,
+  setIsViewportThinning,
+  setIsMarkerDragging,
+  setIsTimelineHovering,
+  setGlobalError,
+  setGlobalLoading,
   resetUI,
 } = uiSlice.actions;
 
