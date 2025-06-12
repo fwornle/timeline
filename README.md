@@ -264,6 +264,8 @@ WebGL 2.0 support is required for 3D visualization.
 
 - **[Development Guide](docs/development-guide.md)**: Setup, workflows, and MVI development patterns
 - **[Performance Profiling](docs/performance-profiling.md)**: Comprehensive React performance monitoring and optimization guide
+- **[Performance Debugging](docs/performance-debugging.md)**: Guide to using performance profiling tools and debugging performance issues
+- **[Performance Fixes](docs/performance-fixes.md)**: Documentation of performance optimizations applied to the timeline application
 - **[API Reference](docs/api-reference.md)**: Redux store APIs, backend endpoints, and component interfaces
 - **[Product Requirements](docs/product-requirements.md)**: Original product specifications and features
 
