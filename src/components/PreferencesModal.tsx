@@ -117,6 +117,12 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
               placeholder="https://github.com/username/repo.git or git@github.com:username/repo.git"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSave();
+                }
+              }}
               isInvalid={!!errors.repoUrl}
             />
             <Form.Control.Feedback type="invalid">{errors.repoUrl}</Form.Control.Feedback>
