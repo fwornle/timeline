@@ -680,16 +680,40 @@ async function processSpecsWithPromptLevel(repository) {
       for (const prompt of specFile.prompts) {
         const promptId = `${specFile.filename}-prompt-${prompt.index}`;
         
+        // Determine the best timestamp to use
+        let eventTimestamp = prompt.estimatedTimestamp || specFile.fileDate;
+        
+        // Add tags to indicate timing precision
+        const tags = ['prompt', 'ai-assisted'];
+        if (prompt.hasDetailedTiming) {
+          tags.push('precise-timing');
+        } else {
+          tags.push('estimated-timing');
+        }
+        
+        // Add format indicator
+        if (specFile.hasDetailedTiming) {
+          tags.push('claude-code-format');
+        } else {
+          tags.push('specstory-format');
+        }
+
         promptLevelEvents.push({
           id: promptId,
           type: 'spec',
-          timestamp: prompt.estimatedTimestamp || specFile.fileDate,
+          timestamp: eventTimestamp,
           title: `Prompt ${prompt.index + 1}: ${prompt.promptText.substring(0, 100)}...`,
           description: prompt.promptText,
           specId: promptId,
           version: '1.0.0',
           status: 'implemented',
-          tags: ['prompt', 'ai-assisted'],
+          tags: tags,
+          metadata: {
+            hasDetailedTiming: prompt.hasDetailedTiming || false,
+            userTimestamp: prompt.userTimestamp,
+            assistantTimestamp: prompt.assistantTimestamp,
+            fileFormat: specFile.hasDetailedTiming ? 'claude-code' : 'specstory'
+          },
           stats: {
             promptCount: 1,
             filesCreated: prompt.filesCreated,
