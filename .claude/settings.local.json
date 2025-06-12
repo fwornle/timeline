@@ -67,7 +67,9 @@
       "mcp__claude-logger__enable_auto_logging",
       "mcp__claude-logger__log_message",
       "Bash(/Users/q284340/Agentic/coding/knowledge-management/ukb --add \"CrossProjectLoggingPattern\" \"TransferablePattern\" \"MCP logging server automatically detects and logs coding project work from other project contexts. Implements dual logging (current project + coding project), smart keyword detection, consistent filename convention (YYYY-MM-DD_HH-MM-lowercase-no-spaces), and automatic filename normalization. Key files: claude-logger-mcp/src/index-auto.ts, claude-logger-mcp/src/logger.ts, knowledge-management/normalize-specstory-filenames.sh. Benefits: No manual log cleanup, automatic cross-project knowledge capture, supports coding project as central knowledge hub.\" --significance 8)",
-      "Bash(/Users/q284340/Agentic/coding/knowledge-management/ukb --interactive)"
+      "Bash(/Users/q284340/Agentic/coding/knowledge-management/ukb --interactive)",
+      "Bash(claude-mcp)",
+      "Bash(node:*)"
     ],
     "deny": []
   },
