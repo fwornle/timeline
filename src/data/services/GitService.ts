@@ -137,7 +137,7 @@ export class GitService {
   private parseGitCommit(data: GitCommitResponse): GitTimelineEvent {
     try {
       // Debug: Log the incoming data
-      Logger.debug(Logger.Categories.DATA, 'parseGitCommit input data', { id: data.id, incomingStats: data.stats });
+      Logger.trace(Logger.Categories.DATA, 'parseGitCommit input data', { id: data.id, incomingStats: data.stats });
 
       // Initialize stats - use server stats if available, otherwise calculate
       let stats: {
@@ -151,7 +151,7 @@ export class GitService {
 
       if (data.stats) {
         // Use server-provided stats
-        Logger.debug(Logger.Categories.DATA, 'Using server-provided stats for commit', { id: data.id });
+        Logger.trace(Logger.Categories.DATA, 'Using server-provided stats for commit', { id: data.id });
         stats = {
           filesAdded: data.stats.filesCreated || 0,
           filesModified: data.stats.filesModified || 0,
@@ -162,7 +162,7 @@ export class GitService {
         };
       } else {
         // Calculate stats from files
-        Logger.debug(Logger.Categories.DATA, 'Calculating stats for commit', { id: data.id });
+        Logger.trace(Logger.Categories.DATA, 'Calculating stats for commit', { id: data.id });
         stats = {
           filesAdded: 0,
           filesModified: 0,
@@ -198,7 +198,7 @@ export class GitService {
       }
 
       // Debug: Log the final stats
-      Logger.debug(Logger.Categories.DATA, 'Final stats for commit', { id: data.id, stats });
+      Logger.trace(Logger.Categories.DATA, 'Final stats for commit', { id: data.id, stats });
 
       const event: GitTimelineEvent = {
         id: data.id,
@@ -257,10 +257,10 @@ export class GitService {
 
       const events = response.data.map(commit => {
         // Debug: Log each raw commit before parsing
-        Logger.debug(Logger.Categories.DATA, 'Raw git commit', { id: commit.id, stats: commit.stats });
+        Logger.trace(Logger.Categories.DATA, 'Raw git commit', { id: commit.id, stats: commit.stats });
         const parsedCommit = this.parseGitCommit(commit);
         // Debug: Log each parsed commit
-        Logger.debug(Logger.Categories.DATA, 'Parsed git commit', { id: parsedCommit.id, stats: parsedCommit.stats });
+        Logger.trace(Logger.Categories.DATA, 'Parsed git commit', { id: parsedCommit.id, stats: parsedCommit.stats });
         return parsedCommit;
       });
 

@@ -40,10 +40,18 @@ export function useLogger(context: LoggerContext) {
     [component, topic]
   );
 
+  const trace = useCallback(
+    (message: string, data?: Record<string, unknown>) => {
+      logger.log(LogLevel.TRACE, component, topic, message, data);
+    },
+    [component, topic]
+  );
+
   return {
     debug,
     info,
     warn,
     error,
+    trace,
   };
 }
