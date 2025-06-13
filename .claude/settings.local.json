@@ -71,7 +71,8 @@
       "Bash(claude-mcp)",
       "Bash(node:*)",
       "Bash(/Users/q284340/Agentic/coding/ukb add-entity:*)",
-      "Bash(/Users/q284340/Agentic/coding/knowledge-management/ukb add-entity ClaudeCodeStartupPattern WorkflowPattern \"Mandatory startup checklist for Claude Code sessions to ensure knowledge base patterns are applied\" --significance 10)"
+      "Bash(/Users/q284340/Agentic/coding/knowledge-management/ukb add-entity ClaudeCodeStartupPattern WorkflowPattern \"Mandatory startup checklist for Claude Code sessions to ensure knowledge base patterns are applied\" --significance 10)",
+      "Bash(ukb log-session:*)"
     ],
     "deny": []
   },
