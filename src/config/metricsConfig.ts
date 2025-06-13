@@ -9,8 +9,8 @@ export const metricsConfig = {
     height: 120,
     margin: {
       top: 10,
-      right: 140, // Extra space for metrics display and buttons
-      bottom: 25,
+      right: 40, // Reduced for full width usage
+      bottom: 35, // Increased for weekday labels
       left: 40,
     },
   },

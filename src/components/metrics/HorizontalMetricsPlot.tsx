@@ -11,7 +11,13 @@ import {
 import { metricsConfig } from '../../config';
 import { getCachedCalendarData, type CalendarData } from '../../services/calendarService';
 import { getCountryForTimezone, DEFAULT_TIMEZONE } from '../../config/timezones';
-import { useAppSelector } from '../../store';
+import { useAppSelector, useAppDispatch } from '../../store';
+import { 
+  setMetricsPlotExpanded, 
+  setMetricsPlotHoveredPoint, 
+  toggleMetricsPlotMetric 
+} from '../../store/slices/uiSlice';
+import { Logger } from '../../utils/logging/Logger';
 
 interface HorizontalMetricsPlotProps {
   events: TimelineEvent[];
@@ -35,9 +41,14 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [visibleMetrics, setVisibleMetrics] = useState<string[]>(['linesOfCode', 'totalFiles', 'commitCount']);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [hoveredPoint, setHoveredPoint] = useState<number>(-1);
+  const svgContainerRef = useRef<HTMLDivElement>(null);
+  const dispatch = useAppDispatch();
+  
+  // Get state from Redux
+  const visibleMetrics = useAppSelector(state => state.ui.metricsPlotVisibleMetrics);
+  const isExpanded = useAppSelector(state => state.ui.metricsPlotExpanded);
+  const hoveredPoint = useAppSelector(state => state.ui.metricsPlotHoveredPoint);
+  
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
 
   // Get timezone and calendar preferences
@@ -76,9 +87,24 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
           country: country
         };
 
+        // Debug logging
+        Logger.info(Logger.Categories.DATA, '🎯 CALENDAR DATA CHECK:', {
+          holidays: combinedCalendarData.holidays.length,
+          bridgeDays: combinedCalendarData.bridgeDays.length,
+          holidayDates: combinedCalendarData.holidays.map(h => ({
+            date: h.date,
+            name: h.name,
+            dayOfWeek: new Date(h.date + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short' })
+          })),
+          bridgeDayDates: combinedCalendarData.bridgeDays.map(b => ({
+            date: b.date,
+            dayOfWeek: new Date(b.date + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short' })
+          }))
+        });
+
         setCalendarData(combinedCalendarData);
       } catch (error) {
-        console.warn('Failed to fetch calendar data:', error);
+        Logger.warn(Logger.Categories.DATA, 'Failed to fetch calendar data:', error);
         setCalendarData(null);
       }
     };
@@ -88,7 +114,14 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
 
   // Calculate metrics from events
   const metricsPoints = useMemo(() => {
-    return calculateCodeMetrics(events);
+    const points = calculateCodeMetrics(events);
+    Logger.info(Logger.Categories.DATA, '📈 METRICS POINTS CALCULATED:', {
+      totalPoints: points.length,
+      firstPoint: points.length > 0 ? points[0].timestamp.toISOString() : null,
+      lastPoint: points.length > 0 ? points[points.length - 1].timestamp.toISOString() : null,
+      sampleDates: points.slice(0, 10).map(p => p.timestamp.toLocaleDateString())
+    });
+    return points;
   }, [events]);
 
   // Find current position marker index
@@ -111,7 +144,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
     const maxFiles = Math.max(...metricsPoints.map(p => p.totalFiles || 0), 1);
     const maxCommits = Math.max(...metricsPoints.map(p => p.commitCount || 0), 1);
 
-    return metricsPoints.map((point, index) => {
+    const data = metricsPoints.map((point, index) => {
       const loc = point.cumulativeLinesOfCode || 0;
       const files = point.totalFiles || 0;
       const commits = point.commitCount || 0;
@@ -131,32 +164,170 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
         isWeekend: point.timestamp.getDay() === 0 || point.timestamp.getDay() === 6, // Sunday = 0, Saturday = 6
       };
     });
+
+    return data;
   }, [metricsPoints]);
 
   // SVG chart dimensions - use full available width
   const { chart } = metricsConfig;
   const [chartDimensions, setChartDimensions] = useState({
     width: chart.width,
-    height: chart.height
+    height: chart.height,
+    visibleWidth: chart.width,
+    needsScrolling: false,
+    dayWidth: 0,
+    visibleDays: 0
   });
+
+  // Constants for scrolling behavior
+  const MIN_DAY_WIDTH = 16; // Minimum width per day for readability
+  const SCROLL_EDGE_THRESHOLD = 0.25; // Scroll when marker is 25% from edge
 
   // Update chart dimensions based on container size
   useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
+      if (containerRef.current && chartData && chartData.length > 0) {
         const containerWidth = containerRef.current.offsetWidth;
-        const availableWidth = containerWidth - 32; // Account for padding
-        setChartDimensions({
-          width: Math.max(availableWidth, 400), // Minimum width
-          height: chart.height
-        });
+        const availableWidth = containerWidth - 16; // Minimal padding
+        const marginWidth = chart.margin.left + chart.margin.right;
+        const innerAvailableWidth = availableWidth - marginWidth;
+        
+        // Calculate actual day width if we show all days
+        const actualDayWidth = innerAvailableWidth / chartData.length;
+        
+        // Check if we need scrolling
+        const needsScrolling = actualDayWidth < MIN_DAY_WIDTH;
+        
+        if (needsScrolling) {
+          // Calculate how many days we can show with minimum width
+          const visibleDays = Math.floor(innerAvailableWidth / MIN_DAY_WIDTH);
+          const totalWidth = chartData.length * MIN_DAY_WIDTH + marginWidth;
+          
+          setChartDimensions({
+            width: totalWidth,
+            height: chart.height,
+            visibleWidth: availableWidth,
+            needsScrolling: true,
+            dayWidth: MIN_DAY_WIDTH,
+            visibleDays: visibleDays
+          });
+        } else {
+          // Show all days without scrolling
+          setChartDimensions({
+            width: availableWidth,
+            height: chart.height,
+            visibleWidth: availableWidth,
+            needsScrolling: false,
+            dayWidth: actualDayWidth,
+            visibleDays: chartData.length
+          });
+        }
       }
     };
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, [chart.height]);
+  }, [chart.height, chart.margin, chartData]);
+
+  // Debug logging after dimensions are calculated
+  useEffect(() => {
+    if (chartData && chartData.length > 0 && chartDimensions.width > 0) {
+      Logger.info(Logger.Categories.DATA, '📊 METRICS PLOT DEBUG:', {
+        totalPoints: chartData.length,
+        showingWeekdayLabels: chartData.length <= 90,
+        firstDate: chartData[0].timestamp.toISOString(),
+        lastDate: chartData[chartData.length - 1].timestamp.toISOString(),
+        chartDimensions: {
+          width: chartDimensions.width,
+          visibleWidth: chartDimensions.visibleWidth,
+          needsScrolling: chartDimensions.needsScrolling,
+          dayWidth: chartDimensions.dayWidth,
+          visibleDays: chartDimensions.visibleDays
+        },
+        containerWidth: containerRef.current?.offsetWidth || 0,
+        calculatedDayWidth: chartDimensions.width > 0 ? (chartDimensions.width - chart.margin.left - chart.margin.right) / Math.max(chartData.length - 1, 1) : 0,
+        firstTwoWeeks: chartData.slice(0, 14).map(d => ({
+          date: d.timestamp.toLocaleDateString(),
+          day: d.timestamp.toLocaleDateString('en-US', { weekday: 'short' }),
+          isWeekend: d.isWeekend
+        })),
+        missingDays: (() => {
+          const missing = [];
+          for (let i = 1; i < Math.min(chartData.length, 14); i++) {
+            const prevDate = chartData[i-1].timestamp;
+            const currDate = chartData[i].timestamp;
+            const dayDiff = (currDate.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000);
+            if (dayDiff > 1.5) {
+              missing.push({
+                after: prevDate.toLocaleDateString(),
+                before: currDate.toLocaleDateString(),
+                gapDays: Math.round(dayDiff)
+              });
+            }
+          }
+          return missing;
+        })()
+      });
+    }
+  }, [chartData, chartDimensions, chart.margin]);
+
+  // Handle initial scroll position and auto-scrolling
+  useEffect(() => {
+    if (chartDimensions.needsScrolling && chartData && currentMarkerIndex >= 0 && svgContainerRef.current) {
+      const markerX = (currentMarkerIndex / (chartData.length - 1)) * (chartDimensions.width - chart.margin.left - chart.margin.right);
+      const containerWidth = chartDimensions.visibleWidth;
+      const scrollContainer = svgContainerRef.current;
+      
+      // Calculate visible range
+      const currentScroll = scrollContainer.scrollLeft;
+      const visibleStart = currentScroll;
+      const visibleEnd = currentScroll + containerWidth;
+      
+      // Check if marker is near edges (25% from either side)
+      const edgeThreshold = containerWidth * SCROLL_EDGE_THRESHOLD;
+      const markerAbsoluteX = markerX + chart.margin.left;
+      
+      if (markerAbsoluteX < visibleStart + edgeThreshold) {
+        // Marker is near left edge, scroll left
+        const newScroll = Math.max(0, markerAbsoluteX - edgeThreshold);
+        scrollContainer.scrollTo({ left: newScroll, behavior: 'smooth' });
+      } else if (markerAbsoluteX > visibleEnd - edgeThreshold) {
+        // Marker is near right edge, scroll right
+        const newScroll = Math.min(
+          scrollContainer.scrollWidth - containerWidth,
+          markerAbsoluteX - containerWidth + edgeThreshold
+        );
+        scrollContainer.scrollTo({ left: newScroll, behavior: 'smooth' });
+      }
+    }
+  }, [currentMarkerIndex, chartData, chartDimensions, chart.margin, SCROLL_EDGE_THRESHOLD]);
+
+  // Set initial scroll position based on marker position
+  useEffect(() => {
+    if (chartDimensions.needsScrolling && chartData && svgContainerRef.current) {
+      const markerRelativePosition = currentPosition / timelineLength + 0.5; // Convert to 0-1 range
+      const markerIndex = Math.floor(markerRelativePosition * chartData.length);
+      const markerX = (markerIndex / chartData.length) * chartDimensions.width;
+      
+      // Try to center the marker in view initially, but ensure we start from the beginning if possible
+      const containerWidth = chartDimensions.visibleWidth;
+      let initialScroll = markerX - containerWidth / 2;
+      
+      // If the marker is in the first half of visible area, start from beginning
+      if (initialScroll < 0) {
+        initialScroll = 0;
+      }
+      
+      // Ensure we don't scroll past the end
+      const maxScroll = chartDimensions.width - containerWidth;
+      if (initialScroll > maxScroll) {
+        initialScroll = maxScroll;
+      }
+      
+      svgContainerRef.current.scrollLeft = initialScroll;
+    }
+  }, [chartDimensions.needsScrolling]); // Only run when scrolling state changes
 
   const innerWidth = chartDimensions.width - chart.margin.left - chart.margin.right;
   const innerHeight = chartDimensions.height - chart.margin.top - chart.margin.bottom;
@@ -188,7 +359,9 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
     }
 
     const points = data.map((d, i) => {
-      const x = (i / (data.length - 1)) * innerWidth;
+      const x = chartDimensions.needsScrolling ? 
+        i * chartDimensions.dayWidth :
+        (i / (data.length - 1)) * innerWidth;
       const y = innerHeight - ((d[metric] || 0) / 100) * innerHeight;
       
       // Validate coordinates
@@ -216,11 +389,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
 
   // Toggle metric visibility
   const toggleMetric = (metricKey: string) => {
-    setVisibleMetrics(prev =>
-      prev.includes(metricKey)
-        ? prev.filter(m => m !== metricKey)
-        : [...prev, metricKey]
-    );
+    dispatch(toggleMetricsPlotMetric(metricKey));
   };
 
   // Mouse hover detection for slide-down behavior
@@ -238,13 +407,13 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
       const shouldExpand = isNearTop || isOverContainer;
 
       if (shouldExpand !== isExpanded) {
-        setIsExpanded(shouldExpand);
+        dispatch(setMetricsPlotExpanded(shouldExpand));
       }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [isExpanded]);
+  }, [isExpanded, dispatch]);
 
   const actualHeight = isExpanded ? metricsConfig.layout.expandedHeight : metricsConfig.layout.compactHeight;
 
@@ -306,15 +475,24 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
         }}
       >
         {/* SVG Chart */}
-        <div className="w-full h-full rounded overflow-hidden bg-slate-900/20 border border-slate-700/30 relative">
+        <div 
+          ref={svgContainerRef}
+          className="w-full h-full rounded overflow-x-auto overflow-y-hidden bg-slate-900/20 border border-slate-700/30 relative"
+          style={{ 
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(71, 85, 105, 0.5) transparent'
+          }}
+        >
           {chartData && chartData.length > 0 ? (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="h-full flex items-center" style={{ 
+              minWidth: chartDimensions.needsScrolling ? `${chartDimensions.width}px` : 'auto',
+              width: chartDimensions.needsScrolling ? `${chartDimensions.width}px` : '100%'
+            }}>
               <svg
                 width={chartDimensions.width}
                 height={chartDimensions.height}
                 viewBox={`0 0 ${chartDimensions.width} ${chartDimensions.height}`}
-                className="max-w-full max-h-full"
-                style={{ background: 'transparent' }}
+                style={{ background: 'transparent', display: 'block' }}
               >
                 {/* Grid lines */}
                 <g transform={`translate(${chart.margin.left}, ${chart.margin.top})`}>
@@ -334,7 +512,9 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                   {/* Vertical grid lines */}
                   {chartData.filter((_, i) => i % Math.max(1, Math.floor(chartData.length / 5)) === 0).map((_, i) => {
                     const index = i * Math.max(1, Math.floor(chartData.length / 5));
-                    const x = (index / (chartData.length - 1)) * innerWidth;
+                    const x = chartDimensions.needsScrolling ? 
+                      index * chartDimensions.dayWidth :
+                      (index / (chartData.length - 1)) * innerWidth;
                     return (
                       <line
                         key={`v-grid-${i}`}
@@ -366,13 +546,19 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                       // End of weekend period (or end of data)
                       if (weekendStart !== -1 && (!isNextWeekend || i === chartData.length - 1)) {
                         // Calculate positions with half-day offsets
-                        const dayWidth = innerWidth / (chartData.length - 1);
+                        const dayWidth = chartDimensions.needsScrolling ? 
+                          chartDimensions.dayWidth :
+                          innerWidth / (chartData.length - 1);
 
                         // Start bar half a day before the first weekend day (Friday evening)
-                        const startX = (weekendStart / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
+                        const startX = chartDimensions.needsScrolling ?
+                          weekendStart * chartDimensions.dayWidth - (dayWidth * 0.5) :
+                          (weekendStart / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
 
                         // End bar half a day after the last weekend day (Monday morning)
-                        const endX = (i / (chartData.length - 1)) * innerWidth + (dayWidth * 0.5);
+                        const endX = chartDimensions.needsScrolling ?
+                          i * chartDimensions.dayWidth + (dayWidth * 0.5) :
+                          (i / (chartData.length - 1)) * innerWidth + (dayWidth * 0.5);
 
                         const width = Math.max(endX - startX, dayWidth); // Ensure minimum weekend width
 
@@ -424,8 +610,12 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                       });
 
                       if (closestIndex !== -1 && minDiff < 24 * 60 * 60 * 1000) { // Within 1 day
-                        const dayWidth = innerWidth / (chartData.length - 1);
-                        const startX = (closestIndex / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
+                        const dayWidth = chartDimensions.needsScrolling ? 
+                          chartDimensions.dayWidth :
+                          innerWidth / (chartData.length - 1);
+                        const startX = chartDimensions.needsScrolling ?
+                          closestIndex * chartDimensions.dayWidth - (dayWidth * 0.5) :
+                          (closestIndex / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
                         const width = dayWidth;
 
                         holidayBars.push(
@@ -476,8 +666,12 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                       });
 
                       if (closestIndex !== -1 && minDiff < 24 * 60 * 60 * 1000) { // Within 1 day
-                        const dayWidth = innerWidth / (chartData.length - 1);
-                        const startX = (closestIndex / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
+                        const dayWidth = chartDimensions.needsScrolling ? 
+                          chartDimensions.dayWidth :
+                          innerWidth / (chartData.length - 1);
+                        const startX = chartDimensions.needsScrolling ?
+                          closestIndex * chartDimensions.dayWidth - (dayWidth * 0.5) :
+                          (closestIndex / (chartData.length - 1)) * innerWidth - (dayWidth * 0.5);
                         const width = dayWidth;
                         const patternId = `bridge-pattern-${index}`;
 
@@ -552,7 +746,9 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                     // Handle single point case
                     const x = chartData.length === 1 
                       ? innerWidth / 2 
-                      : (i / (chartData.length - 1)) * innerWidth;
+                      : chartDimensions.needsScrolling ?
+                        i * chartDimensions.dayWidth :
+                        (i / (chartData.length - 1)) * innerWidth;
                     const isCurrentPoint = i === currentMarkerIndex;
                     const isHovered = i === hoveredPoint;
                     const radius = isCurrentPoint
@@ -594,8 +790,8 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                               strokeWidth={isCurrentPoint ? metricsConfig.points.strokeWidth.current : metricsConfig.points.strokeWidth.normal}
                               className="cursor-pointer transition-all duration-200"
                               onClick={() => handlePointClick(i)}
-                              onMouseEnter={() => setHoveredPoint(i)}
-                              onMouseLeave={() => setHoveredPoint(-1)}
+                              onMouseEnter={() => dispatch(setMetricsPlotHoveredPoint(i))}
+                              onMouseLeave={() => dispatch(setMetricsPlotHoveredPoint(-1))}
                             />
                           );
                         })}
@@ -688,25 +884,71 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
                     </text>
                   ))}
 
-                  {/* X-axis labels */}
-                  {chartData.filter((_, i) => i % Math.max(1, Math.floor(chartData.length / 4)) === 0).map((d, i) => {
-                    const index = i * Math.max(1, Math.floor(chartData.length / 4));
-                    const x = (index / (chartData.length - 1)) * innerWidth;
-                    return (
-                      <text
-                        key={`x-label-${i}`}
-                        x={x}
-                        y={innerHeight + 18}
-                        textAnchor="middle"
-                        fill={metricsConfig.typography.axis.fill}
-                        fontSize={metricsConfig.typography.axis.fontSize}
-                        fontFamily={metricsConfig.typography.axis.fontFamily}
-                        fontWeight={metricsConfig.typography.axis.fontWeight}
-                      >
-                        {d.timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </text>
-                    );
-                  })}
+                  {/* X-axis labels - Show dates for sparse data, weekdays for dense data */}
+                  {chartData.length <= 90 ? (
+                    // For 90 days or less, show weekday labels for each day
+                    chartData.map((d, i) => {
+                      const x = chartData.length === 1 
+                        ? innerWidth / 2 
+                        : chartDimensions.needsScrolling ?
+                          i * chartDimensions.dayWidth :
+                          (i / (chartData.length - 1)) * innerWidth;
+                      const weekday = d.timestamp.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
+                      const isWeekend = d.isWeekend;
+                      
+                      return (
+                        <g key={`x-label-${i}`}>
+                          <text
+                            x={x}
+                            y={innerHeight + 14}
+                            textAnchor="middle"
+                            fill={isWeekend ? 'rgba(59, 130, 246, 0.8)' : metricsConfig.typography.axis.fill}
+                            fontSize={10}
+                            fontFamily={metricsConfig.typography.axis.fontFamily}
+                            fontWeight={isWeekend ? '600' : metricsConfig.typography.axis.fontWeight}
+                          >
+                            {weekday}
+                          </text>
+                          {/* Show month/date below weekday for every 7th day or first/last */}
+                          {(i === 0 || i === chartData.length - 1 || i % 7 === 0) && (
+                            <text
+                              x={x}
+                              y={innerHeight + 26}
+                              textAnchor="middle"
+                              fill={metricsConfig.typography.axis.fill}
+                              fontSize={8}
+                              fontFamily={metricsConfig.typography.axis.fontFamily}
+                              fontWeight={metricsConfig.typography.axis.fontWeight}
+                            >
+                              {d.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })
+                  ) : (
+                    // For longer periods, show dates at intervals
+                    chartData.filter((_, i) => i % Math.max(1, Math.floor(chartData.length / 4)) === 0).map((d, i) => {
+                      const index = i * Math.max(1, Math.floor(chartData.length / 4));
+                      const x = chartDimensions.needsScrolling ?
+                        index * chartDimensions.dayWidth :
+                        (index / (chartData.length - 1)) * innerWidth;
+                      return (
+                        <text
+                          key={`x-label-${i}`}
+                          x={x}
+                          y={innerHeight + 18}
+                          textAnchor="middle"
+                          fill={metricsConfig.typography.axis.fill}
+                          fontSize={metricsConfig.typography.axis.fontSize}
+                          fontFamily={metricsConfig.typography.axis.fontFamily}
+                          fontWeight={metricsConfig.typography.axis.fontWeight}
+                        >
+                          {d.timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </text>
+                      );
+                    })
+                  )}
                 </g>
               </svg>
             </div>
@@ -722,39 +964,42 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
         </div>
 
         {/* Filter buttons positioned in bottom right of expanded content area */}
-        <div className="absolute bottom-2 right-2 flex gap-1 z-10">
+        <div className="absolute bottom-1 right-1 flex gap-0.5 z-10">
           <button
             onClick={() => toggleMetric('linesOfCode')}
-            className="px-2 py-0 text-xs rounded transition-all duration-200 font-medium text-white"
+            className="px-1 py-0 rounded transition-all duration-200 font-normal text-white opacity-60 hover:opacity-90"
             style={{
               backgroundColor: visibleMetrics.includes('linesOfCode')
                 ? metricsConfig.colors.linesOfCode.line
-                : 'rgba(71, 85, 105, 0.8)',
-              boxShadow: visibleMetrics.includes('linesOfCode') ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
+                : 'rgba(71, 85, 105, 0.5)',
+              fontSize: '8px',
+              height: '16px'
             }}
           >
             LOC
           </button>
           <button
             onClick={() => toggleMetric('totalFiles')}
-            className="px-2 py-0 text-xs rounded transition-all duration-200 font-medium text-white"
+            className="px-1 py-0 rounded transition-all duration-200 font-normal text-white opacity-60 hover:opacity-90"
             style={{
               backgroundColor: visibleMetrics.includes('totalFiles')
                 ? metricsConfig.colors.totalFiles.line
-                : 'rgba(71, 85, 105, 0.8)',
-              boxShadow: visibleMetrics.includes('totalFiles') ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
+                : 'rgba(71, 85, 105, 0.5)',
+              fontSize: '8px',
+              height: '16px'
             }}
           >
             Files
           </button>
           <button
             onClick={() => toggleMetric('commitCount')}
-            className="px-2 py-0 text-xs rounded transition-all duration-200 font-medium text-white"
+            className="px-1 py-0 rounded transition-all duration-200 font-normal text-white opacity-60 hover:opacity-90"
             style={{
               backgroundColor: visibleMetrics.includes('commitCount')
                 ? metricsConfig.colors.commitCount.line
-                : 'rgba(71, 85, 105, 0.8)',
-              boxShadow: visibleMetrics.includes('commitCount') ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
+                : 'rgba(71, 85, 105, 0.5)',
+              fontSize: '8px',
+              height: '16px'
             }}
           >
             Commits
