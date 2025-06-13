@@ -160,7 +160,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
       if (prevPropsRef.current.isMarkerDragging !== isMarkerDragging) changes.push(`isMarkerDragging: ${prevPropsRef.current.isMarkerDragging} -> ${isMarkerDragging}`);
       
       if (changes.length > 0) {
-        logger.debug('TimelineCard re-rendered due to prop changes', {
+        logger.trace('TimelineCard re-rendered due to prop changes', {
           cardId: event.id.slice(-6),
           renderCount: renderCountRef.current,
           changes
@@ -329,7 +329,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   // Direct opacity update when fadeOpacity changes (no animation)
   useEffect(() => {
     if (Math.abs(lastAppliedFadeOpacityRef.current - fadeOpacity) > 0.01) {
-      logger.debug('Direct opacity update:', {
+      logger.trace('Direct opacity update:', {
         cardId: event.id.slice(-6),
         fromOpacity: lastAppliedFadeOpacityRef.current,
         toOpacity: fadeOpacity
