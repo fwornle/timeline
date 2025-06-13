@@ -69,7 +69,7 @@ export const TimelineScene: React.FC<TimelineSceneProps> = ({
   const isMarkerDragging = useAppSelector(state => state.ui.isMarkerDragging);
   const isTimelineHovering = useAppSelector(state => state.ui.isTimelineHovering);
   const showHolidays = useAppSelector(state => state.preferences.showHolidays) ?? true;
-  const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? false;
+  const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? true;
 
   // Handle timeline hover state changes
   const handleTimelineHoverChange = useCallback((isHovering: boolean) => {

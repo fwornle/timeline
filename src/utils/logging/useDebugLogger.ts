@@ -43,6 +43,16 @@ export function useDebugLogger(component: string, topic: string) {
       } catch {
         console.error(`[${component}:${topic}] ${message}`, data);
       }
+    },
+    trace: (message: string, data?: Record<string, unknown>) => {
+      try {
+        if (logger && logger.trace) {
+          logger.trace(message, data);
+        }
+      } catch {
+        // Silently fail if logger is not available - trace is lowest priority
+        // Don't even log to console to avoid noise
+      }
     }
   };
 }

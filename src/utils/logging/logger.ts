@@ -347,11 +347,17 @@ class LoggerInstance {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trace(topic: string, message: string, data?: Record<string, any>) {
+    Logger.trace(Logger.Categories.DEFAULT, `[${topic}] ${message}`, data);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   log(level: any, component: string, topic: string, message: string, data?: Record<string, any>) {
     // Map old LogLevel enum to new string levels
     let levelStr = Logger.Levels.INFO;
     if (typeof level === 'number') {
       switch (level) {
+        case -1: levelStr = Logger.Levels.TRACE; break;
         case 0: levelStr = Logger.Levels.DEBUG; break;
         case 1: levelStr = Logger.Levels.INFO; break;
         case 2: levelStr = Logger.Levels.WARN; break;
@@ -371,6 +377,7 @@ export const logger = new LoggerInstance();
 
 // Export old LogLevel enum for backward compatibility
 export enum LogLevel {
+  TRACE = -1,
   DEBUG = 0,
   INFO = 1,
   WARN = 2,

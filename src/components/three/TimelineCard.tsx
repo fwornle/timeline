@@ -538,7 +538,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
     // Use explicit hover state from parent instead of inferring from scale
     const newIsHovered = isHovered;
     
-    logger.debug('TimelineCard useEffect triggered', {
+    logger.trace('TimelineCard useEffect triggered', {
       cardId: event.id.slice(-6),
       newIsHovered,
       prevIsHovered: prevHoveredRef.current,

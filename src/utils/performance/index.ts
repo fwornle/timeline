@@ -55,13 +55,16 @@ export function initializePerformanceMonitoring(): void {
       performanceConfig.thresholds.error
     );
     
-    console.log('🚀 Performance monitoring initialized (disabled by default - use UI toggle in DEBUG mode)');
-    console.log('💡 Use window.perfDebug to control profiling:');
-    console.log('   - window.perfDebug.enable() - Enable profiling');
-    console.log('   - window.perfDebug.disable() - Disable profiling');
-    console.log('   - window.perfDebug.report() - Show current performance report');
-    console.log('   - window.perfDebug.analyze() - Show performance analysis');
-    console.log('   - window.perfDebug.clear() - Clear performance data');
+    import('../logging/Logger').then(({ Logger }) => {
+      Logger.info(Logger.Categories.PERFORMANCE, '🚀 Performance monitoring initialized (disabled by default - use UI toggle in DEBUG mode)');
+      Logger.info(Logger.Categories.PERFORMANCE, '💡 Use window.perfDebug to control profiling:', {
+        enable: 'window.perfDebug.enable() - Enable profiling',
+        disable: 'window.perfDebug.disable() - Disable profiling',
+        report: 'window.perfDebug.report() - Show current performance report',
+        analyze: 'window.perfDebug.analyze() - Show performance analysis',
+        clear: 'window.perfDebug.clear() - Clear performance data'
+      });
+    });
   });
 
   // Add global performance monitoring
@@ -87,7 +90,9 @@ export function initializePerformanceMonitoring(): void {
       try {
         observer.observe({ entryTypes: ['longtask'] });
       } catch (e) {
-        console.warn('Long task observer not supported');
+        import('../logging/Logger').then(({ Logger }) => {
+          Logger.warn(Logger.Categories.PERFORMANCE, 'Long task observer not supported');
+        });
       }
     }
 
@@ -113,7 +118,9 @@ export function initializePerformanceMonitoring(): void {
       try {
         observer.observe({ entryTypes: ['layout-shift'] });
       } catch (e) {
-        console.warn('Layout shift observer not supported');
+        import('../logging/Logger').then(({ Logger }) => {
+          Logger.warn(Logger.Categories.PERFORMANCE, 'Layout shift observer not supported');
+        });
       }
     }
   }
@@ -336,14 +343,16 @@ export const perfDebug: {
   async disable() {
     const { reactProfiler } = await import('./ReactProfiler');
     reactProfiler.disable();
-    console.log('❌ Performance profiling disabled');
+    const { Logger } = await import('../logging/Logger');
+    Logger.info(Logger.Categories.PERFORMANCE, '❌ Performance profiling disabled');
     return true;
   },
   
   async rawEntries() {
     const { reactProfiler } = await import('./ReactProfiler');
     const entries = (reactProfiler as any).entries || [];
-    console.log('📊 Raw performance entries:', entries);
+    const { Logger } = await import('../logging/Logger');
+    Logger.info(Logger.Categories.PERFORMANCE, '📊 Raw performance entries', { count: entries.length, entries });
     return entries;
   },
   
@@ -366,29 +375,23 @@ export const perfDebug: {
         : '0ms'
     };
     
-    console.group('🔍 Performance Analysis');
-    console.log('📈 Total entries tracked:', analysis.totalEntriesTracked);
-    console.log('🐌 Long tasks detected:', analysis.longTasksDetected);
-    console.log('🎴 TimelineCard operations:', analysis.timelineCardOperations);
-    console.log('⚡ Non-zero operations:', analysis.nonZeroOperations);
-    console.log('📊 Average TimelineCard duration:', analysis.averageTimelineCardDuration);
+    const { Logger } = await import('../logging/Logger');
+    Logger.info(Logger.Categories.PERFORMANCE, '🔍 Performance Analysis', analysis);
     
-    console.group('💡 Key Findings');
-    console.log('❌ Issue: Long tasks (84ms+) detected by browser but NOT in our profiling');
-    console.log('🎯 Reason: Expensive work is in React rendering pipeline, not individual functions');
-    console.log('✅ TimelineCard performance: Individual operations are fast (0-0.1ms each)');
-    console.log('🔴 Real culprit: React processing too many components simultaneously');
-    console.groupEnd();
+    Logger.info(Logger.Categories.PERFORMANCE, '💡 Key Findings', {
+      issue: 'Long tasks (84ms+) detected by browser but NOT in our profiling',
+      reason: 'Expensive work is in React rendering pipeline, not individual functions',
+      timelineCardPerformance: 'Individual operations are fast (0-0.1ms each)',
+      realCulprit: 'React processing too many components simultaneously'
+    });
     
-    console.group('🚀 Recommendations');
-    console.log('1. Reduce rendered components (implement better viewport culling)');
-    console.log('2. Use React.memo more aggressively to prevent unnecessary re-renders');
-    console.log('3. Batch state updates to reduce render frequency');
-    console.log('4. Consider virtual scrolling for large lists');
-    console.log('5. Individual TimelineCard operations are already optimized');
-    console.groupEnd();
-    
-    console.groupEnd();
+    Logger.info(Logger.Categories.PERFORMANCE, '🚀 Recommendations', [
+      '1. Reduce rendered components (implement better viewport culling)',
+      '2. Use React.memo more aggressively to prevent unnecessary re-renders',
+      '3. Batch state updates to reduce render frequency',
+      '4. Consider virtual scrolling for large lists',
+      '5. Individual TimelineCard operations are already optimized'
+    ]);
     
     return analysis;
   }
