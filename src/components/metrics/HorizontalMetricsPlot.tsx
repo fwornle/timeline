@@ -54,7 +54,7 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   // Get timezone and calendar preferences
   const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
   const showHolidays = useAppSelector(state => state.preferences.showHolidays) ?? true;
-  const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? false; // Default to false to reduce clutter
+  const showBridgeDays = useAppSelector(state => state.preferences.showBridgeDays) ?? true; // Default to true to match preferences modal
 
   // Fetch calendar data when timezone, preferences, or date range changes
   useEffect(() => {
