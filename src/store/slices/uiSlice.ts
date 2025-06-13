@@ -59,6 +59,11 @@ interface UIState {
   isInitializing: boolean;
   isReloadingSoft: boolean;
   isReloadingHard: boolean;
+
+  // Metrics plot states
+  metricsPlotExpanded: boolean;
+  metricsPlotHoveredPoint: number;
+  metricsPlotVisibleMetrics: string[];
 }
 
 const initialState: UIState = {
@@ -94,6 +99,9 @@ const initialState: UIState = {
   isInitializing: true,
   isReloadingSoft: false,
   isReloadingHard: false,
+  metricsPlotExpanded: false,
+  metricsPlotHoveredPoint: -1,
+  metricsPlotVisibleMetrics: ['linesOfCode', 'totalFiles', 'commitCount'],
 };
 
 const uiSlice = createSlice({
@@ -200,6 +208,24 @@ const uiSlice = createSlice({
       state.globalError = null;
       state.globalLoading = false;
     },
+    setMetricsPlotExpanded: (state, action: PayloadAction<boolean>) => {
+      state.metricsPlotExpanded = action.payload;
+    },
+    setMetricsPlotHoveredPoint: (state, action: PayloadAction<number>) => {
+      state.metricsPlotHoveredPoint = action.payload;
+    },
+    setMetricsPlotVisibleMetrics: (state, action: PayloadAction<string[]>) => {
+      state.metricsPlotVisibleMetrics = action.payload;
+    },
+    toggleMetricsPlotMetric: (state, action: PayloadAction<string>) => {
+      const metric = action.payload;
+      const currentMetrics = state.metricsPlotVisibleMetrics;
+      if (currentMetrics.includes(metric)) {
+        state.metricsPlotVisibleMetrics = currentMetrics.filter(m => m !== metric);
+      } else {
+        state.metricsPlotVisibleMetrics = [...currentMetrics, metric];
+      }
+    },
   },
 });
 
@@ -234,6 +260,10 @@ export const {
   setGlobalError,
   setGlobalLoading,
   resetUI,
+  setMetricsPlotExpanded,
+  setMetricsPlotHoveredPoint,
+  setMetricsPlotVisibleMetrics,
+  toggleMetricsPlotMetric,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

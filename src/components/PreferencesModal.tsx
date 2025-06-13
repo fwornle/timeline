@@ -252,6 +252,26 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
               onChange={(e) => setPrefs(prev => ({ ...prev, autoDrift: e.target.checked }))}
             />
           </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Calendar Display Options</Form.Label>
+            <Form.Check
+              type="checkbox"
+              id="showHolidays"
+              name="showHolidays"
+              label="Show public holidays"
+              checked={prefs.showHolidays ?? true}
+              onChange={(e) => setPrefs(prev => ({ ...prev, showHolidays: e.target.checked }))}
+            />
+            <Form.Check
+              type="checkbox"
+              id="showBridgeDays"
+              name="showBridgeDays"
+              label="Show bridge days (days between holidays and weekends)"
+              checked={prefs.showBridgeDays ?? true}
+              onChange={(e) => setPrefs(prev => ({ ...prev, showBridgeDays: e.target.checked }))}
+            />
+          </Form.Group>
         </Form>
 
         {success && <Alert variant="success" className="mt-3">Settings saved!</Alert>}

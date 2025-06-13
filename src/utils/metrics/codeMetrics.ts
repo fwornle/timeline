@@ -55,25 +55,36 @@ export function calculateCodeMetrics(events: TimelineEvent[]): CodeMetricsPoint[
   // Use daily intervals for short periods to avoid weekend detection issues
   const dayMs = 24 * 60 * 60 * 1000;
   const totalDays = Math.ceil(totalTimeSpan / dayMs);
-  const intervalMs = totalDays <= 30 ? dayMs : Math.max(dayMs, totalTimeSpan / 50); // Daily for short periods, max 50 points for longer periods
+  const intervalMs = totalDays <= 90 ? dayMs : Math.max(dayMs, totalTimeSpan / 50); // Daily for periods up to 90 days, max 50 points for longer periods
 
   // Debug logging
-  Logger.debug(Logger.Categories.DATA, 'calculateCodeMetrics processing', {
+  Logger.info(Logger.Categories.DATA, 'calculateCodeMetrics processing', {
     gitEventsCount: gitEvents.length,
     startTime: startTime.toISOString(),
     endTime: endTime.toISOString(),
     totalTimeSpanDays: totalTimeSpan / (24 * 60 * 60 * 1000),
     intervalDays: intervalMs / (24 * 60 * 60 * 1000),
+    totalDays: totalDays,
+    usingDailyIntervals: totalDays <= 90
   });
   const timePoints: Date[] = [];
 
-  if (totalDays <= 30) {
+  if (totalDays <= 90) {
     // For short periods, ensure one point per day for accurate weekend detection
-    const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
-    const endDay = new Date(endTime.getFullYear(), endTime.getMonth(), endTime.getDate());
+    // Use UTC dates to avoid timezone/DST issues
+    const startDay = new Date(Date.UTC(startTime.getUTCFullYear(), startTime.getUTCMonth(), startTime.getUTCDate()));
+    const endDay = new Date(Date.UTC(endTime.getUTCFullYear(), endTime.getUTCMonth(), endTime.getUTCDate()));
     
-    for (let time = startDay.getTime(); time <= endDay.getTime(); time += dayMs) {
-      timePoints.push(new Date(time));
+    // Generate consecutive days by incrementing date values, not milliseconds
+    let currentDay = new Date(startDay);
+    while (currentDay <= endDay) {
+      timePoints.push(new Date(currentDay));
+      // Increment by one day using UTC date methods to avoid DST issues
+      currentDay = new Date(Date.UTC(
+        currentDay.getUTCFullYear(),
+        currentDay.getUTCMonth(),
+        currentDay.getUTCDate() + 1
+      ));
     }
   } else {
     // For longer periods, use the calculated interval
@@ -86,6 +97,16 @@ export function calculateCodeMetrics(events: TimelineEvent[]): CodeMetricsPoint[
       timePoints.push(endTime);
     }
   }
+
+  // Debug: Check what timePoints were actually generated
+  Logger.info(Logger.Categories.DATA, 'TimePoints generation debug', {
+    timePointsCount: timePoints.length,
+    firstTenTimePoints: timePoints.slice(0, 10).map(p => ({
+      date: p.toISOString().split('T')[0],
+      dayOfWeek: p.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+    })),
+    allTimePointsFirst20: timePoints.slice(0, 20).map(p => p.toISOString().split('T')[0])
+  });
 
   // Process each time point
   let eventIndex = 0;
@@ -136,8 +157,18 @@ export function calculateCodeMetrics(events: TimelineEvent[]): CodeMetricsPoint[
   });
 
   // Debug logging for final results
-  Logger.debug(Logger.Categories.DATA, 'Final metrics points calculated', {
+  Logger.info(Logger.Categories.DATA, 'Final metrics points calculated', {
     pointsCount: metricsPoints.length,
+    timePointsGenerated: timePoints.length,
+    shouldBeEqual: metricsPoints.length === timePoints.length,
+    firstTenTimePoints: timePoints.slice(0, 10).map(p => ({
+      date: p.toISOString().split('T')[0],
+      dayOfWeek: p.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+    })),
+    firstTenMetricsPoints: metricsPoints.slice(0, 10).map(p => ({
+      date: p.timestamp.toISOString().split('T')[0],
+      dayOfWeek: p.timestamp.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+    })),
     samplePoints: metricsPoints.slice(0, 5).map(p => ({
       date: p.timestamp.toISOString().split('T')[0],
       commits: p.commitCount,

@@ -193,7 +193,7 @@ export class SpecStoryService {
 
       if (data.stats) {
         // Use server-provided stats
-        Logger.debug(Logger.Categories.DATA, 'Using server-provided stats for spec', { id: data.id, stats: data.stats });
+        Logger.trace(Logger.Categories.DATA, 'Using server-provided stats for spec', { id: data.id, stats: data.stats });
         stats = {
           promptCount: data.stats.promptCount || 0,
           filesCreated: data.stats.filesCreated || 0,
@@ -205,7 +205,7 @@ export class SpecStoryService {
         };
       } else {
         // Generate statistics based on the description content
-        Logger.debug(Logger.Categories.DATA, 'Generating stats for spec', { id: data.id });
+        Logger.trace(Logger.Categories.DATA, 'Generating stats for spec', { id: data.id });
         stats = {
           promptCount: 0,
           filesCreated: 0,
@@ -245,7 +245,7 @@ export class SpecStoryService {
       }
 
       // Debug: Log the final stats
-      Logger.debug(Logger.Categories.DATA, 'Final stats for spec', { id: data.id, stats });
+      Logger.trace(Logger.Categories.DATA, 'Final stats for spec', { id: data.id, stats });
 
       const event: SpecTimelineEvent = {
         id: `spec-${specId}-${version}`,
@@ -259,7 +259,7 @@ export class SpecStoryService {
         stats
       };
 
-      Logger.debug(Logger.Categories.DATA, 'Successfully parsed spec event', {
+      Logger.trace(Logger.Categories.DATA, 'Successfully parsed spec event', {
         specId,
         version,
         changeCount: changes.length,
@@ -290,7 +290,7 @@ export class SpecStoryService {
       this.validateDateParams(startDate, endDate);
       const specDir = this.resolveSpecDirectory(this.repository);
 
-      Logger.debug(Logger.Categories.DATA, 'Starting spec history fetch', {
+      Logger.trace(Logger.Categories.DATA, 'Starting spec history fetch', {
         repository: this.repository,
         specDir,
         startDate,
@@ -313,14 +313,14 @@ export class SpecStoryService {
       );
 
       // Debug: Log the raw response data
-      Logger.debug(Logger.Categories.API, 'Raw spec history response', { response });
+      Logger.trace(Logger.Categories.API, 'Raw spec history response', { response });
 
       const events = response.data.map((spec: SpecHistoryResponse) => {
         // Debug: Log each raw spec before parsing
-        Logger.debug(Logger.Categories.DATA, 'Raw spec event', { id: spec.id, stats: spec.stats });
+        Logger.trace(Logger.Categories.DATA, 'Raw spec event', { id: spec.id, stats: spec.stats });
         const parsedSpec = this.parseSpecEvent(spec);
         // Debug: Log each parsed spec
-        Logger.debug(Logger.Categories.DATA, 'Parsed spec event', { id: parsedSpec.id, stats: parsedSpec.stats });
+        Logger.trace(Logger.Categories.DATA, 'Parsed spec event', { id: parsedSpec.id, stats: parsedSpec.stats });
         return parsedSpec;
       });
 
