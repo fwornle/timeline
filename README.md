@@ -19,6 +19,9 @@ A sophisticated 3D timeline visualization application that transforms git reposi
 - **Activity Patterns**: Visualize periods of development activity and inactivity
 - **Expandable Interface**: Compact view with expandable detailed metrics display
 - **Interactive Filtering**: Toggle individual metrics (LOC, Files, Commits) on/off
+- **Holiday & Bridge Day Markers**: Visual indicators for public holidays and bridge days
+- **Scrollable Chart**: Automatic horizontal scrolling for large datasets
+- **Redux State Management**: All metrics plot state centrally managed following MVI architecture
 
 ### 🎮 Interactive Controls
 - **Timeline Navigation**: Click-to-move timeline marker with smooth animations

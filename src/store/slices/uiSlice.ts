@@ -64,6 +64,20 @@ interface UIState {
   metricsPlotExpanded: boolean;
   metricsPlotHoveredPoint: number;
   metricsPlotVisibleMetrics: string[];
+  metricsPlotCalendarData: {
+    holidays: Array<{ date: string; name: string }>;
+    bridgeDays: Array<{ date: string; name: string }>;
+    year: number;
+    country: string;
+  } | null;
+  metricsPlotChartDimensions: {
+    width: number;
+    height: number;
+    visibleWidth: number;
+    needsScrolling: boolean;
+    dayWidth: number;
+    visibleDays: number;
+  };
 }
 
 const initialState: UIState = {
@@ -102,6 +116,15 @@ const initialState: UIState = {
   metricsPlotExpanded: false,
   metricsPlotHoveredPoint: -1,
   metricsPlotVisibleMetrics: ['linesOfCode', 'totalFiles', 'commitCount'],
+  metricsPlotCalendarData: null,
+  metricsPlotChartDimensions: {
+    width: 1200,
+    height: 180,
+    visibleWidth: 1200,
+    needsScrolling: false,
+    dayWidth: 0,
+    visibleDays: 0
+  },
 };
 
 const uiSlice = createSlice({
@@ -226,6 +249,12 @@ const uiSlice = createSlice({
         state.metricsPlotVisibleMetrics = [...currentMetrics, metric];
       }
     },
+    setMetricsPlotCalendarData: (state, action: PayloadAction<UIState['metricsPlotCalendarData']>) => {
+      state.metricsPlotCalendarData = action.payload;
+    },
+    setMetricsPlotChartDimensions: (state, action: PayloadAction<UIState['metricsPlotChartDimensions']>) => {
+      state.metricsPlotChartDimensions = action.payload;
+    },
   },
 });
 
@@ -264,6 +293,8 @@ export const {
   setMetricsPlotHoveredPoint,
   setMetricsPlotVisibleMetrics,
   toggleMetricsPlotMetric,
+  setMetricsPlotCalendarData,
+  setMetricsPlotChartDimensions,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;
