@@ -67,6 +67,11 @@ class UIState {
   +isInitializing: boolean
   +isReloadingSoft: boolean
   +isReloadingHard: boolean
+  +metricsPlotExpanded: boolean ⭐
+  +metricsPlotHoveredPoint: number ⭐
+  +metricsPlotVisibleMetrics: string[] ⭐
+  +metricsPlotCalendarData: CalendarData | null ⭐
+  +metricsPlotChartDimensions: ChartDimensions ⭐
   --
   Actions:
   +updateCameraState(state) ⭐
@@ -85,6 +90,11 @@ class UIState {
   +setDroneMode(enabled)
   +setViewAll(enabled)
   +setAnimationSpeed(speed)
+  +setMetricsPlotExpanded(expanded) ⭐
+  +setMetricsPlotHoveredPoint(point) ⭐
+  +toggleMetricsPlotMetric(metric) ⭐
+  +setMetricsPlotCalendarData(data) ⭐
+  +setMetricsPlotChartDimensions(dims) ⭐
 }
 
 class RepositoryState {
@@ -152,6 +162,22 @@ class FadedCardsRange {
   +maxTimestamp: number
 }
 
+class CalendarData {
+  +holidays: Holiday[]
+  +bridgeDays: BridgeDay[]
+  +year: number
+  +country: string
+}
+
+class ChartDimensions {
+  +width: number
+  +height: number
+  +visibleWidth: number
+  +needsScrolling: boolean
+  +dayWidth: number
+  +visibleDays: number
+}
+
 class TimelineEvent {
   +id: string
   +type: 'git' | 'spec'
@@ -193,6 +219,8 @@ RootState --> LoggingState
 
 UIState --> CameraState
 UIState --> FadedCardsRange
+UIState --> CalendarData
+UIState --> ChartDimensions
 PreferencesState --> StoredCameraState
 TimelineState --> TimelineEvent
 TimelineEvent --> EventStats
@@ -217,7 +245,10 @@ note bottom of UIState
     isMarkerDragging, isTimelineHovering, globalError, globalLoading
   ⭐ Migrated from component local state and sessionStorage
   ⭐ Occlusion system: markerFadeOpacity, debugMarkerFade, fadedCardsTemporalRange
+  ⭐ Metrics Plot states: metricsPlotExpanded, metricsPlotHoveredPoint,
+    metricsPlotVisibleMetrics, metricsPlotCalendarData, metricsPlotChartDimensions
   Controls visual clarity through intelligent marker and card fading
+  Metrics plot now fully managed through Redux following MVI pattern
 end note
 
 note right of LoggingState

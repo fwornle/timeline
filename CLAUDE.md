@@ -92,6 +92,11 @@ This is a 3D timeline visualization application built with **MVI (Model-View-Int
 - Marker position persistence across app reloads
 - Global card interaction system prevents conflicts
 
+**Metrics Plot State Management:**
+- Calendar data (holidays/bridge days) stored in Redux
+- Chart dimensions and scrolling state managed centrally
+- All local React states moved to Redux following MVI pattern
+
 **Animation System:**
 - Timeline marker and camera state automatically persist to localStorage
 - Multiple camera modes: manual, view-all, focus, drone mode
@@ -120,11 +125,13 @@ This is a 3D timeline visualization application built with **MVI (Model-View-Int
 - `src/store/index.ts` - Store configuration and typed hooks
 - `src/store/intents/uiIntents.ts` - User interaction handling
 - `src/store/intents/timelineIntents.ts` - Data fetching logic
+- `src/store/intents/metricsPlotIntents.ts` - Metrics plot state management
 
 **Main Components:**
 - `src/components/TimelineVisualization.tsx` - Connects Redux to 3D visualization
 - `src/components/three/TimelineScene.tsx` - Three.js scene setup and coordination
 - `src/components/three/TimelineCamera.tsx` - Complex camera state management
+- `src/components/metrics/HorizontalMetricsPlot.tsx` - Metrics visualization with Redux state
 
 **Critical Systems:**
 - `src/services/storage.ts` - Preference persistence (camera, marker position)

@@ -1,7 +1,7 @@
 /**
  * Horizontal metrics plot component showing code evolution over time
  */
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import type { TimelineEvent } from '../../data/types/TimelineEvent';
 import {
   calculateCodeMetrics,
@@ -9,14 +9,17 @@ import {
   positionToTimestamp,
 } from '../../utils/metrics/codeMetrics';
 import { metricsConfig } from '../../config';
-import { getCachedCalendarData, type CalendarData } from '../../services/calendarService';
-import { getCountryForTimezone, DEFAULT_TIMEZONE } from '../../config/timezones';
+import { DEFAULT_TIMEZONE } from '../../config/timezones';
 import { useAppSelector, useAppDispatch } from '../../store';
 import { 
   setMetricsPlotExpanded, 
   setMetricsPlotHoveredPoint, 
   toggleMetricsPlotMetric 
 } from '../../store/slices/uiSlice';
+import { 
+  fetchMetricsPlotCalendarData,
+  updateMetricsPlotChartDimensions
+} from '../../store/intents/metricsPlotIntents';
 import { Logger } from '../../utils/logging/Logger';
 
 interface HorizontalMetricsPlotProps {
@@ -49,7 +52,8 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
   const isExpanded = useAppSelector(state => state.ui.metricsPlotExpanded);
   const hoveredPoint = useAppSelector(state => state.ui.metricsPlotHoveredPoint);
   
-  const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
+  // Get calendar data from Redux
+  const calendarData = useAppSelector(state => state.ui.metricsPlotCalendarData);
 
   // Get timezone and calendar preferences
   const timezone = useAppSelector(state => state.preferences.timezone) || DEFAULT_TIMEZONE;
@@ -58,59 +62,8 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
 
   // Fetch calendar data when timezone, preferences, or date range changes
   useEffect(() => {
-    if (!startDate || !endDate || (!showHolidays && !showBridgeDays)) {
-      setCalendarData(null);
-      return;
-    }
-
-    const fetchCalendarData = async () => {
-      try {
-        const country = getCountryForTimezone(timezone);
-        if (!country) return;
-
-        const startYear = startDate.getFullYear();
-        const endYear = endDate.getFullYear();
-
-        // Fetch calendar data for all years in the range
-        const calendarPromises = [];
-        for (let year = startYear; year <= endYear; year++) {
-          calendarPromises.push(getCachedCalendarData(year, country, timezone));
-        }
-
-        const calendarResults = await Promise.all(calendarPromises);
-
-        // Combine all calendar data
-        const combinedCalendarData: CalendarData = {
-          holidays: calendarResults.flatMap(data => data.holidays),
-          bridgeDays: calendarResults.flatMap(data => data.bridgeDays),
-          year: startYear,
-          country: country
-        };
-
-        // Debug logging
-        Logger.info(Logger.Categories.DATA, '🎯 CALENDAR DATA CHECK:', {
-          holidays: combinedCalendarData.holidays.length,
-          bridgeDays: combinedCalendarData.bridgeDays.length,
-          holidayDates: combinedCalendarData.holidays.map(h => ({
-            date: h.date,
-            name: h.name,
-            dayOfWeek: new Date(h.date + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short' })
-          })),
-          bridgeDayDates: combinedCalendarData.bridgeDays.map(b => ({
-            date: b.date,
-            dayOfWeek: new Date(b.date + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short' })
-          }))
-        });
-
-        setCalendarData(combinedCalendarData);
-      } catch (error) {
-        Logger.warn(Logger.Categories.DATA, 'Failed to fetch calendar data:', error);
-        setCalendarData(null);
-      }
-    };
-
-    fetchCalendarData();
-  }, [timezone, startDate, endDate, showHolidays, showBridgeDays]);
+    dispatch(fetchMetricsPlotCalendarData(startDate, endDate));
+  }, [dispatch, startDate, endDate, timezone, showHolidays, showBridgeDays]);
 
   // Calculate metrics from events
   const metricsPoints = useMemo(() => {
@@ -168,19 +121,11 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
     return data;
   }, [metricsPoints]);
 
-  // SVG chart dimensions - use full available width
+  // SVG chart dimensions from Redux
   const { chart } = metricsConfig;
-  const [chartDimensions, setChartDimensions] = useState({
-    width: chart.width,
-    height: chart.height,
-    visibleWidth: chart.width,
-    needsScrolling: false,
-    dayWidth: 0,
-    visibleDays: 0
-  });
+  const chartDimensions = useAppSelector(state => state.ui.metricsPlotChartDimensions);
 
   // Constants for scrolling behavior
-  const MIN_DAY_WIDTH = 16; // Minimum width per day for readability
   const SCROLL_EDGE_THRESHOLD = 0.25; // Scroll when marker is 25% from edge
 
   // Update chart dimensions based on container size
@@ -188,47 +133,14 @@ export const HorizontalMetricsPlot: React.FC<HorizontalMetricsPlotProps> = ({
     const updateDimensions = () => {
       if (containerRef.current && chartData && chartData.length > 0) {
         const containerWidth = containerRef.current.offsetWidth;
-        const availableWidth = containerWidth - 16; // Minimal padding
-        const marginWidth = chart.margin.left + chart.margin.right;
-        const innerAvailableWidth = availableWidth - marginWidth;
-        
-        // Calculate actual day width if we show all days
-        const actualDayWidth = innerAvailableWidth / chartData.length;
-        
-        // Check if we need scrolling
-        const needsScrolling = actualDayWidth < MIN_DAY_WIDTH;
-        
-        if (needsScrolling) {
-          // Calculate how many days we can show with minimum width
-          const visibleDays = Math.floor(innerAvailableWidth / MIN_DAY_WIDTH);
-          const totalWidth = chartData.length * MIN_DAY_WIDTH + marginWidth;
-          
-          setChartDimensions({
-            width: totalWidth,
-            height: chart.height,
-            visibleWidth: availableWidth,
-            needsScrolling: true,
-            dayWidth: MIN_DAY_WIDTH,
-            visibleDays: visibleDays
-          });
-        } else {
-          // Show all days without scrolling
-          setChartDimensions({
-            width: availableWidth,
-            height: chart.height,
-            visibleWidth: availableWidth,
-            needsScrolling: false,
-            dayWidth: actualDayWidth,
-            visibleDays: chartData.length
-          });
-        }
+        dispatch(updateMetricsPlotChartDimensions(containerWidth, chartData.length));
       }
     };
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, [chart.height, chart.margin, chartData]);
+  }, [dispatch, chartData]);
 
   // Debug logging after dimensions are calculated
   useEffect(() => {
