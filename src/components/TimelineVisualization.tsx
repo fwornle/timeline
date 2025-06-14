@@ -189,7 +189,12 @@ export const TimelineVisualization = React.forwardRef<TimelineVisualizationRef, 
   // Calculate date range and timeline length for metrics plot
   const { startDate, endDate, timelineLength } = useMemo(() => {
     if (events.length === 0) {
-      return { startDate: undefined, endDate: undefined, timelineLength: 100 };
+      // Use current year as default date range when no events are loaded
+      // This ensures calendar data (holidays/bridge days) can still be fetched
+      const now = new Date();
+      const yearStart = new Date(now.getFullYear(), 0, 1); // January 1st
+      const yearEnd = new Date(now.getFullYear(), 11, 31); // December 31st
+      return { startDate: yearStart, endDate: yearEnd, timelineLength: 100 };
     }
 
     // Sort events by timestamp
