@@ -8,7 +8,8 @@ import { dimensions, threeColors, threeOpacities } from '../../config';
 import { useDebugLogger } from '../../utils/logging/useDebugLogger';
 import { usePerformanceProfiler, useThreeJsProfiler } from '../../utils/performance/usePerformanceProfiler';
 import { ReactProfilerComponent } from '../../utils/performance/ReactProfiler';
-import { useAppSelector } from '../../store';
+import { useAppSelector, useAppDispatch } from '../../store';
+import { openDetailsForEvent } from '../../store/slices/uiSlice';
 import {
   globalClickHandlers,
   registerAnimatingCard,
@@ -121,6 +122,7 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
   
   // Get performance profiling state from Redux
   const performanceProfilingEnabled = useAppSelector(state => state.ui.performanceProfilingEnabled);
+  const dispatch = useAppDispatch();
   
   // Performance profiling
   const { trackExpensiveOperation } = usePerformanceProfiler({
@@ -808,6 +810,14 @@ const TimelineCardComponent: React.FC<TimelineCardProps> = ({
           logger.debug('Error calling onHover in click handler', { error });
         }
       }
+    }
+
+    // Open details sidebar for this event
+    try {
+      dispatch(openDetailsForEvent(event));
+      logger.debug('Opened details sidebar for event', { eventId: event.id, eventType: event.type });
+    } catch (error) {
+      logger.debug('Error opening details sidebar', { error, eventId: event.id });
     }
   };
 

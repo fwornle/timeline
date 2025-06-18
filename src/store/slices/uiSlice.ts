@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { TimelineEvent } from '../../data/types/TimelineEvent';
 
 // Use plain objects instead of Three.js Vector3 for Redux serialization
 export interface CameraState {
@@ -54,6 +55,7 @@ interface UIState {
 
   // Layout states
   sidebarOpen: boolean;
+  selectedEventForDetails: TimelineEvent | null;
 
   // Loading states
   isInitializing: boolean;
@@ -110,6 +112,7 @@ const initialState: UIState = {
   showPreferences: false,
   showLoggingControl: false,
   sidebarOpen: false,
+  selectedEventForDetails: null,
   isInitializing: true,
   isReloadingSoft: false,
   isReloadingHard: false,
@@ -188,6 +191,17 @@ const uiSlice = createSlice({
     setSidebarOpen: (state, action: PayloadAction<boolean>) => {
       state.sidebarOpen = action.payload;
     },
+    setSelectedEventForDetails: (state, action: PayloadAction<TimelineEvent | null>) => {
+      state.selectedEventForDetails = action.payload;
+    },
+    openDetailsForEvent: (state, action: PayloadAction<TimelineEvent>) => {
+      state.selectedEventForDetails = action.payload;
+      state.sidebarOpen = true;
+    },
+    closeDetails: (state) => {
+      state.sidebarOpen = false;
+      state.selectedEventForDetails = null;
+    },
     setIsInitializing: (state, action: PayloadAction<boolean>) => {
       state.isInitializing = action.payload;
     },
@@ -223,6 +237,8 @@ const uiSlice = createSlice({
       state.hoveredCardId = null;
       state.showPreferences = false;
       state.showLoggingControl = false;
+      state.sidebarOpen = false;
+      state.selectedEventForDetails = null;
       state.viewAll = false;
       state.focusCurrentMode = false;
       state.isAutoScrolling = false;
@@ -279,6 +295,9 @@ export const {
   setShowPreferences,
   setShowLoggingControl,
   setSidebarOpen,
+  setSelectedEventForDetails,
+  openDetailsForEvent,
+  closeDetails,
   setIsInitializing,
   setIsReloadingSoft,
   setIsReloadingHard,

@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import TopBar from '../components/TopBar';
 import BottomBar from '../components/BottomBar';
+import DetailsSidebar from '../components/DetailsSidebar';
 import { useAppDispatch, useAppSelector } from '../store';
 import { useLogger } from '../utils/logging/hooks/useLogger';
 import { usePreferencesMigration } from '../store/hooks/usePreferencesMigration';
@@ -260,6 +261,7 @@ const MainLayoutRedux: React.FC<MainLayoutProps> = ({ children }) => {
         {React.isValidElement(children) ? React.cloneElement(children, homeProps as any) : children}
       </main>
       <BottomBar {...bottomBarProps} />
+      <DetailsSidebar />
     </div>
   );
 };

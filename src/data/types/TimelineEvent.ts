@@ -46,7 +46,26 @@ export interface SpecTimelineEvent extends BaseTimelineEvent {
     linesDeleted: number;
     linesDelta: number;
     toolInvocations: number;
+    // Enhanced analytics fields
+    toolTypes?: Record<string, number>;
+    toolCategories?: {
+      search: number;
+      action: number;
+      read: number;
+      write: number;
+    };
+    toolSequence?: string[];
+    toolPatterns?: {
+      searchPhase: boolean;
+      implementationPhase: boolean;
+      debuggingPhase: boolean;
+      verificationPhase: boolean;
+    };
+    workflowPatterns?: string[];
   };
+  // Full content for detailed view
+  fullPromptText?: string;
+  fullResponseText?: string;
 }
 
 export type TimelineEvent = GitTimelineEvent | SpecTimelineEvent;
