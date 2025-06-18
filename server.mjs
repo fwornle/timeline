@@ -721,8 +721,22 @@ async function processSpecsWithPromptLevel(repository) {
             linesAdded: prompt.linesAdded,
             linesDeleted: prompt.linesDeleted,
             linesDelta: prompt.linesDelta,
-            toolInvocations: prompt.toolInvocations
-          }
+            toolInvocations: prompt.toolInvocations,
+            // Enhanced analytics from parser
+            toolTypes: prompt.toolTypes || {},
+            toolCategories: prompt.toolCategories || { search: 0, action: 0, read: 0, write: 0 },
+            toolSequence: prompt.toolSequence || [],
+            toolPatterns: prompt.toolPatterns || {
+              searchPhase: false,
+              implementationPhase: false,
+              debuggingPhase: false,
+              verificationPhase: false
+            },
+            workflowPatterns: prompt.workflowPatterns || []
+          },
+          // Add full prompt text and assistant response for detailed view
+          fullPromptText: prompt.prompt || '',
+          fullResponseText: prompt.response || ''
         });
       }
     }
