@@ -221,12 +221,50 @@ function buildSpecFileResult(filename, fileDate, prompts) {
     toolInvocations: prompts.reduce((sum, p) => sum + p.toolInvocations, 0)
   };
 
+  // Aggregate tool types across all prompts
+  const aggregatedToolTypes = {};
+  const aggregatedToolCategories = { search: 0, action: 0, read: 0, write: 0 };
+  const allWorkflowPatterns = [];
+  const allToolSequences = [];
+  
+  prompts.forEach(prompt => {
+    if (prompt.toolTypes) {
+      Object.entries(prompt.toolTypes).forEach(([tool, count]) => {
+        aggregatedToolTypes[tool] = (aggregatedToolTypes[tool] || 0) + count;
+      });
+    }
+    
+    if (prompt.toolCategories) {
+      Object.entries(prompt.toolCategories).forEach(([category, count]) => {
+        aggregatedToolCategories[category] += count;
+      });
+    }
+    
+    if (prompt.workflowPatterns) {
+      allWorkflowPatterns.push(...prompt.workflowPatterns);
+    }
+    
+    if (prompt.toolSequence) {
+      allToolSequences.push(prompt.toolSequence);
+    }
+  });
+
+  // Enhanced total stats
+  totalStats.toolTypes = aggregatedToolTypes;
+  totalStats.toolCategories = aggregatedToolCategories;
+  totalStats.workflowPatterns = [...new Set(allWorkflowPatterns)]; // Remove duplicates
+  totalStats.sessionComplexity = prompts.length > 10 ? 'high' : prompts.length > 5 ? 'medium' : 'low';
+  totalStats.toolDensity = totalStats.toolInvocations / totalStats.promptCount;
+  totalStats.mostUsedTool = Object.entries(aggregatedToolTypes).reduce((a, b) => 
+    aggregatedToolTypes[a[0]] > aggregatedToolTypes[b[0]] ? a : b, ['none', 0])[0];
+
   return {
     filename,
     fileDate,
     prompts,
     totalStats,
-    hasDetailedTiming: prompts.some(p => p.hasDetailedTiming)
+    hasDetailedTiming: prompts.some(p => p.hasDetailedTiming),
+    enhancedAnalytics: true
   };
 }
 
@@ -240,12 +278,56 @@ function parsePromptStats(responseLines) {
     linesAdded: 0,
     linesDeleted: 0,
     linesDelta: 0,
-    toolInvocations: 0
+    toolInvocations: 0,
+    toolTypes: {},
+    toolSequence: [],
+    toolPatterns: {
+      searchPhase: false,
+      implementationPhase: false,
+      debuggingPhase: false,
+      verificationPhase: false
+    },
+    toolCategories: {
+      search: 0,
+      action: 0,
+      read: 0,
+      write: 0
+    },
+    workflowPatterns: []
   };
 
   let inCodeBlock = false;
   let codeBlockType = '';
   let isFileDiff = false;
+
+  // Enhanced tool detection patterns
+  const toolDetectionRegex = /\[Tool:\s*([^\]]+)\]/g;
+  
+  // Detect tool usage from [Tool: ToolName] patterns
+  const responseText = responseLines.join('\n');
+  let toolMatch;
+  while ((toolMatch = toolDetectionRegex.exec(responseText)) !== null) {
+    const toolName = toolMatch[1].trim();
+    stats.toolInvocations++;
+    
+    // Track tool types
+    if (!stats.toolTypes[toolName]) {
+      stats.toolTypes[toolName] = 0;
+    }
+    stats.toolTypes[toolName]++;
+    
+    // Add to sequence
+    stats.toolSequence.push(toolName);
+    
+    // Categorize tools
+    const toolCategory = categorizeTools(toolName);
+    if (toolCategory && stats.toolCategories[toolCategory] !== undefined) {
+      stats.toolCategories[toolCategory]++;
+    }
+  }
+  
+  // Analyze workflow patterns
+  analyzeWorkflowPatterns(stats);
 
   for (let i = 0; i < responseLines.length; i++) {
     const line = responseLines[i].trim();
@@ -306,6 +388,96 @@ function parsePromptStats(responseLines) {
   stats.linesDelta = stats.linesAdded - stats.linesDeleted;
 
   return stats;
+}
+
+/**
+ * Categorize tools into functional groups
+ */
+function categorizeTools(toolName) {
+  const searchTools = ['Grep', 'Glob', 'WebSearch', 'Task'];
+  const readTools = ['Read', 'LS', 'WebFetch', 'NotebookRead'];
+  const writeTools = ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'];
+  const actionTools = ['Bash', 'TodoWrite', 'TodoRead'];
+  
+  if (searchTools.includes(toolName)) return 'search';
+  if (readTools.includes(toolName)) return 'read';
+  if (writeTools.includes(toolName)) return 'write';
+  if (actionTools.includes(toolName)) return 'action';
+  
+  // Handle MCP tools
+  if (toolName.startsWith('mcp__')) {
+    if (toolName.includes('memory')) return 'read';
+    if (toolName.includes('browser')) return 'action';
+    if (toolName.includes('ide')) return 'action';
+  }
+  
+  return 'action'; // default category
+}
+
+/**
+ * Analyze workflow patterns from tool sequences
+ */
+function analyzeWorkflowPatterns(stats) {
+  const sequence = stats.toolSequence;
+  if (sequence.length === 0) return;
+  
+  // Detect research phase (multiple search/read tools)
+  const searchReadTools = sequence.filter(tool => 
+    ['Grep', 'Glob', 'Read', 'LS', 'Task', 'WebSearch', 'WebFetch'].includes(tool)
+  );
+  if (searchReadTools.length >= 3) {
+    stats.toolPatterns.searchPhase = true;
+    stats.workflowPatterns.push('research-heavy');
+  }
+  
+  // Detect implementation phase (read -> edit -> test pattern)
+  const hasReadEditPattern = sequence.some((tool, i) => {
+    if (i < sequence.length - 1) {
+      const current = tool;
+      const next = sequence[i + 1];
+      return ['Read', 'Grep', 'Glob'].includes(current) && 
+             ['Edit', 'MultiEdit', 'Write'].includes(next);
+    }
+    return false;
+  });
+  
+  if (hasReadEditPattern) {
+    stats.toolPatterns.implementationPhase = true;
+    stats.workflowPatterns.push('implementation');
+  }
+  
+  // Detect debugging phase (repeated tool usage)
+  const toolCounts = {};
+  sequence.forEach(tool => {
+    toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+  });
+  
+  const hasRepeatedTools = Object.values(toolCounts).some(count => count >= 3);
+  if (hasRepeatedTools) {
+    stats.toolPatterns.debuggingPhase = true;
+    stats.workflowPatterns.push('debugging');
+  }
+  
+  // Detect verification phase (build/test tools)
+  const hasVerification = sequence.some(tool => 
+    tool === 'Bash' && sequence.includes('Read') // Assuming bash used for builds/tests
+  );
+  if (hasVerification) {
+    stats.toolPatterns.verificationPhase = true;
+    stats.workflowPatterns.push('verification');
+  }
+  
+  // Detect common patterns
+  const sequenceStr = sequence.join(' -> ');
+  if (sequenceStr.includes('Grep -> Read -> Edit')) {
+    stats.workflowPatterns.push('search-read-edit');
+  }
+  if (sequenceStr.includes('Task -> Read -> MultiEdit')) {
+    stats.workflowPatterns.push('research-implement');
+  }
+  if (sequenceStr.includes('Edit -> Bash')) {
+    stats.workflowPatterns.push('edit-test');
+  }
 }
 
 /**
