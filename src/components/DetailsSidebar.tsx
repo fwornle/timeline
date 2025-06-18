@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppSelector, useAppDispatch, type RootState } from '../store';
 import { closeDetails } from '../store/slices/uiSlice';
 import { SpecTimelineEvent, GitTimelineEvent } from '../data/types/TimelineEvent';
@@ -9,6 +9,7 @@ import { Logger } from '../utils/logging/Logger';
 const DetailsSidebar: React.FC = () => {
   const dispatch = useAppDispatch();
   const { sidebarOpen, selectedEventForDetails } = useAppSelector((state: RootState) => state.ui);
+  const [layoutDimensions, setLayoutDimensions] = useState({ topOffset: 60, bottomOffset: 60 });
 
   const handleClose = () => {
     dispatch(closeDetails());
@@ -46,6 +47,37 @@ const DetailsSidebar: React.FC = () => {
 
     return () => {
       document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [sidebarOpen]);
+
+  // Calculate responsive layout dimensions
+  useEffect(() => {
+    const updateDimensions = () => {
+      // Try to find actual TopBar and BottomBar elements for dynamic sizing
+      const topBarElement = document.querySelector('.main-layout > :first-child') as HTMLElement;
+      const bottomBarElement = document.querySelector('.main-layout > :last-child:not([data-sidebar-content])') as HTMLElement;
+      
+      const topOffset = topBarElement?.offsetHeight || 60;
+      const bottomOffset = bottomBarElement?.offsetHeight || 60;
+      
+      setLayoutDimensions({ topOffset, bottomOffset });
+    };
+
+    // Update on mount and window resize
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    
+    // Update when sidebar opens/closes in case layout changes
+    if (sidebarOpen) {
+      const timeout = setTimeout(updateDimensions, 100);
+      return () => {
+        clearTimeout(timeout);
+        window.removeEventListener('resize', updateDimensions);
+      };
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
     };
   }, [sidebarOpen]);
 
@@ -96,9 +128,9 @@ const DetailsSidebar: React.FC = () => {
     <div
       className="fixed left-0"
       style={{
-        top: '80px', // Below TopBar and white line
-        bottom: '60px', // Above BottomBar
-        height: 'calc(100vh - 140px)', // Total height minus TopBar, line, and BottomBar
+        top: `${layoutDimensions.topOffset}px`,
+        bottom: `${layoutDimensions.bottomOffset}px`,
+        height: `calc(100vh - ${layoutDimensions.topOffset}px - ${layoutDimensions.bottomOffset}px)`,
         width: actualWidth,
         maxWidth,
         minWidth,

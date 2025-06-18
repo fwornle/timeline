@@ -175,33 +175,34 @@ const SpecDetailsView: React.FC<SpecDetailsViewProps> = ({ event }) => {
           Basic Information
         </h3>
         <div 
-          className="p-4 rounded-md text-sm leading-relaxed space-y-3" 
+          className="p-4 rounded-md" 
           style={{
             backgroundColor: colors.surface.dark,
-            color: colors.text.primary.dark,
             border: `1px solid ${colors.border.dark}`
           }}
         >
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Timestamp:</span>
-            <span style={{ color: colors.text.primary.dark }}>
-              {formatTimestamp(event.timestamp)}
-            </span>
-          </div>
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Spec ID:</span>
-            <span 
-              className="font-mono text-xs break-all" 
-              style={{ color: colors.accent[400] }}
-            >
-              {event.specId}
-            </span>
-          </div>
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Version:</span>
-            <span style={{ color: colors.text.primary.dark }}>
-              {event.version}
-            </span>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Timestamp:</span>
+              <span style={{ color: colors.text.primary.dark }}>
+                {formatTimestamp(event.timestamp)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Spec ID:</span>
+              <span 
+                className="font-mono text-xs break-all ml-2" 
+                style={{ color: colors.accent[400] }}
+              >
+                {event.specId}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Version:</span>
+              <span style={{ color: colors.text.primary.dark }}>
+                {event.version}
+              </span>
+            </div>
           </div>
         </div>
       </div>
