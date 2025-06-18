@@ -35,3 +35,18 @@ According to the `README.md`, the application provides "real-time visualization 
 
 ---
 
+_**User**_
+
+@KM vkb
+
+---
+
+_**Assistant**_
+
+## Knowledge Base Viewer
+
+❌ Error launching viewer: 
+
+
+---
+
