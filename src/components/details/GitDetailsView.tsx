@@ -16,7 +16,10 @@ const GitDetailsView: React.FC<GitDetailsViewProps> = ({ event }) => {
     hasStats: !!event.stats,
     authorName: event.authorName,
     files: event.files || [],
-    firstFile: event.files?.[0] || null
+    firstFile: event.files?.[0] || null,
+    filesArray: event.files,
+    filesType: typeof event.files,
+    isFilesArray: Array.isArray(event.files)
   });
 
   const formatTimestamp = (timestamp: Date) => {
@@ -24,16 +27,6 @@ const GitDetailsView: React.FC<GitDetailsViewProps> = ({ event }) => {
   };
 
 
-  const groupFilesByType = () => {
-    const grouped = {
-      added: event.files.filter(f => f.changeType === 'added'),
-      modified: event.files.filter(f => f.changeType === 'modified'),
-      deleted: event.files.filter(f => f.changeType === 'deleted'),
-    };
-    return grouped;
-  };
-
-  const groupedFiles = groupFilesByType();
 
   return (
     <div className="p-8 space-y-6">
@@ -52,45 +45,46 @@ const GitDetailsView: React.FC<GitDetailsViewProps> = ({ event }) => {
           Commit Information
         </h3>
         <div 
-          className="p-4 rounded-md text-sm leading-relaxed space-y-3" 
+          className="p-4 rounded-md" 
           style={{
             backgroundColor: colors.surface.dark,
-            color: colors.text.primary.dark,
             border: `1px solid ${colors.border.dark}`
           }}
         >
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Timestamp:</span>
-            <span style={{ color: colors.text.primary.dark }}>
-              {formatTimestamp(event.timestamp)}
-            </span>
-          </div>
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Hash:</span>
-            <span 
-              className="font-mono text-xs break-all" 
-              style={{ color: colors.accent[400] }}
-            >
-              {event.commitHash}
-            </span>
-          </div>
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Branch:</span>
-            <span style={{ color: colors.text.primary.dark }}>
-              {event.branch}
-            </span>
-          </div>
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Author:</span>
-            <span style={{ color: colors.text.primary.dark }}>
-              {event.authorName}
-            </span>
-          </div>
-          <div className="flex">
-            <span className="w-24 flex-shrink-0 font-medium" style={{ color: colors.text.secondary.dark }}>Email:</span>
-            <span style={{ color: colors.text.primary.dark }}>
-              {event.authorEmail}
-            </span>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Timestamp:</span>
+              <span style={{ color: colors.text.primary.dark }}>
+                {formatTimestamp(event.timestamp)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Hash:</span>
+              <span 
+                className="font-mono text-xs break-all ml-2" 
+                style={{ color: colors.accent[400] }}
+              >
+                {event.commitHash}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Branch:</span>
+              <span style={{ color: colors.text.primary.dark }}>
+                {event.branch}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Author:</span>
+              <span style={{ color: colors.text.primary.dark }}>
+                {event.authorName}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: colors.text.secondary.dark }}>Email:</span>
+              <span className="ml-2 break-all" style={{ color: colors.text.primary.dark }}>
+                {event.authorEmail}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -263,62 +257,59 @@ const GitDetailsView: React.FC<GitDetailsViewProps> = ({ event }) => {
         </h3>
         
         <div 
-          className="p-4 rounded-md max-h-64 overflow-y-auto" 
+          className="p-4 rounded-md max-h-64" 
           style={{
             backgroundColor: colors.surface.dark,
             border: `1px solid ${colors.border.dark}`
           }}
         >
-          {event.files && event.files.length > 0 ? (
-            <div className="space-y-1">
-              {groupedFiles.added.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs font-medium mb-2" style={{ color: colors.success }}>Added ({groupedFiles.added.length})</div>
-                  {groupedFiles.added.map((file, index) => (
-                    <div key={index} className="flex items-center space-x-2 text-sm py-1">
-                      <span style={{ color: colors.success }}>+</span>
-                      <span className="font-mono text-xs" style={{ color: colors.text.primary.dark }}>
-                        {file.path}
+          <div className="overflow-y-auto max-h-56">
+            {event.files && Array.isArray(event.files) && event.files.length > 0 ? (
+              <div className="space-y-2">
+                {/* Show all files with ordinal numbers and qualifiers after filename */}
+                {event.files.map((file, index) => {
+                  const getQualifierInfo = (changeType: string) => {
+                    switch (changeType) {
+                      case 'added':
+                        return { symbol: ' (+)', color: colors.success };
+                      case 'modified':
+                        return { symbol: ' (~)', color: colors.accent[400] };
+                      case 'deleted':
+                        return { symbol: ' (-)', color: colors.error };
+                      default:
+                        return { symbol: ' (?)', color: colors.text.secondary.dark };
+                    }
+                  };
+                  
+                  const qualifier = getQualifierInfo(file.changeType);
+                  
+                  return (
+                    <div key={index} className="flex items-start space-x-2 text-sm py-1">
+                      <span className="flex-shrink-0" style={{ color: colors.text.secondary.dark }}>
+                        [{index + 1}]
                       </span>
+                      <div className="flex-1 break-all">
+                        <span className="font-mono text-xs" style={{ color: colors.text.primary.dark }}>
+                          {file.path}
+                        </span>
+                        <span className="font-mono text-xs" style={{ color: qualifier.color }}>
+                          {qualifier.symbol}
+                        </span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              
-              {groupedFiles.modified.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs font-medium mb-2" style={{ color: colors.accent[400] }}>Modified ({groupedFiles.modified.length})</div>
-                  {groupedFiles.modified.map((file, index) => (
-                    <div key={index} className="flex items-center space-x-2 text-sm py-1">
-                      <span style={{ color: colors.accent[400] }}>M</span>
-                      <span className="font-mono text-xs" style={{ color: colors.text.primary.dark }}>
-                        {file.path}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {groupedFiles.deleted.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs font-medium mb-2" style={{ color: colors.error }}>Deleted ({groupedFiles.deleted.length})</div>
-                  {groupedFiles.deleted.map((file, index) => (
-                    <div key={index} className="flex items-center space-x-2 text-sm py-1">
-                      <span style={{ color: colors.error }}>-</span>
-                      <span className="font-mono text-xs" style={{ color: colors.text.primary.dark }}>
-                        {file.path}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="text-2xl mb-2" style={{ color: colors.text.secondary.dark }}>📝</div>
-              <p className="text-sm" style={{ color: colors.text.secondary.dark }}>No file changes found for this commit</p>
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-2xl mb-2" style={{ color: colors.text.secondary.dark }}>📝</div>
+                <p className="text-sm" style={{ color: colors.text.secondary.dark }}>No file changes found for this commit</p>
+                <p className="text-xs mt-1" style={{ color: colors.text.secondary.dark }}>
+                  Files available: {event.files ? `${event.files.length}` : 'undefined'}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

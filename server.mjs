@@ -452,17 +452,17 @@ function generateMockGitData() {
 
       // Add modified files
       for (let j = 0; j < filesModified; j++) {
-        files.push({ path: `src/file${(i + j) % 5}.js`, type: 'modified' });
+        files.push({ path: `src/file${(i + j) % 5}.js`, changeType: 'modified' });
       }
 
       // Add added files
       for (let j = 0; j < filesAdded; j++) {
-        files.push({ path: `docs/doc${(i + j) % 3}.md`, type: 'added' });
+        files.push({ path: `docs/doc${(i + j) % 3}.md`, changeType: 'added' });
       }
 
       // Add deleted files
       for (let j = 0; j < filesDeleted; j++) {
-        files.push({ path: `test/test${(i + j) % 4}.js`, type: 'deleted' });
+        files.push({ path: `test/test${(i + j) % 4}.js`, changeType: 'deleted' });
       }
 
       mockCommits.push({
