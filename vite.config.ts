@@ -9,7 +9,7 @@ export default defineConfig({
     port: 3001, // Use a different port for the frontend
     proxy: {
       '/api': {
-        target: 'http://localhost:3030',
+        target: 'http://localhost:3031',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path
