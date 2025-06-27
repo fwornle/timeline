@@ -63,6 +63,11 @@ function getCacheFilePath(repository, type) {
   return path.join(TIMELINE_CACHE_DIR, `${safeRepo}.${type}.json`);
 }
 
+// Helper function to get holiday cache file path
+function getHolidayCacheFilePath(year, country) {
+  return path.join(TIMELINE_CACHE_DIR, `holidays_${country}_${year}.json`);
+}
+
 function readCache(repository, type) {
   const filePath = getCacheFilePath(repository, type);
   if (fs.existsSync(filePath)) {
@@ -83,6 +88,35 @@ function writeCache(repository, type, data) {
   const filePath = getCacheFilePath(repository, type);
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   console.log(`[${localTime()}] [CACHE] Wrote ${type} cache for repo ${repository}: ${data.data?.length || 0} items`);
+}
+
+// Helper function to read holiday cache
+function readHolidayCache(year, country) {
+  const filePath = getHolidayCacheFilePath(year, country);
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      console.log(`[${localTime()}] [CACHE] Read holiday cache for ${country} ${year}: ${data.holidays?.length || 0} holidays, ${data.bridgeDays?.length || 0} bridge days`);
+      return data;
+    } catch (e) {
+      console.log(`[${localTime()}] [CACHE] Failed to read holiday cache for ${country} ${year}:`, e);
+      return null;
+    }
+  }
+  console.log(`[${localTime()}] [CACHE] No holiday cache for ${country} ${year}`);
+  return null;
+}
+
+// Helper function to write holiday cache
+function writeHolidayCache(year, country, data) {
+  const filePath = getHolidayCacheFilePath(year, country);
+  const cacheData = {
+    ...data,
+    cachedAt: new Date().toISOString(),
+    cacheVersion: '1.0'
+  };
+  fs.writeFileSync(filePath, JSON.stringify(cacheData, null, 2), 'utf-8');
+  console.log(`[${localTime()}] [CACHE] Wrote holiday cache for ${country} ${year}: ${data.holidays?.length || 0} holidays, ${data.bridgeDays?.length || 0} bridge days`);
 }
 
 // Soft purge - only removes cache files, keeps cloned repo
@@ -278,8 +312,8 @@ function localTime() {
 }
 
 // Helper function to fetch holiday data from external API using Node.js https
-async function fetchHolidayData(year, country, timezone) {
-  console.log(`[${localTime()}] Fetching holiday data for ${country} ${year}`);
+async function fetchHolidayData(year, country) {
+  console.log(`[${localTime()}] Attempting to fetch holiday data from API for ${country} ${year}`);
 
   return new Promise((resolve) => {
     try {
@@ -297,7 +331,7 @@ async function fetchHolidayData(year, country, timezone) {
           try {
             if (res.statusCode === 200) {
               const holidays = JSON.parse(data);
-              console.log(`[${localTime()}] Retrieved ${holidays.length} holidays for ${country} ${year}`);
+              console.log(`[${localTime()}] Successfully retrieved ${holidays.length} holidays from API for ${country} ${year}`);
 
               // Process holidays and detect bridge days
               const processedHolidays = holidays.map(holiday => ({
@@ -310,50 +344,71 @@ async function fetchHolidayData(year, country, timezone) {
               // Detect bridge days (days between holidays and weekends)
               const bridgeDays = detectBridgeDays(processedHolidays, year);
 
-              resolve({
+              const result = {
                 holidays: processedHolidays,
                 bridgeDays: bridgeDays,
                 year: year,
-                country: country
-              });
+                country: country,
+                source: 'api',
+                fetchedAt: new Date().toISOString()
+              };
+
+              // Cache the successful result
+              writeHolidayCache(year, country, result);
+              
+              resolve(result);
             } else {
               console.warn(`[${localTime()}] Holiday API returned ${res.statusCode} for ${country} ${year}`);
-              resolve({
-                holidays: [],
-                bridgeDays: [],
-                year: year,
-                country: country
-              });
+              resolve(null);
             }
           } catch (parseError) {
             console.warn(`[${localTime()}] Failed to parse holiday data for ${country} ${year}:`, parseError.message);
-            resolve({
-              holidays: [],
-              bridgeDays: [],
-              year: year,
-              country: country
-            });
+            resolve(null);
           }
         });
       }).on('error', (error) => {
         console.warn(`[${localTime()}] Failed to fetch holidays for ${country} ${year}:`, error.message);
-        resolve({
-          holidays: [],
-          bridgeDays: [],
-          year: year,
-          country: country
-        });
+        resolve(null);
       });
     } catch (error) {
       console.warn(`[${localTime()}] Error setting up holiday request for ${country} ${year}:`, error.message);
-      resolve({
-        holidays: [],
-        bridgeDays: [],
-        year: year,
-        country: country
-      });
+      resolve(null);
     }
   });
+}
+
+// Helper function to get holiday data with cache fallback
+async function getHolidayDataWithCache(year, country) {
+  // First, check if we have cached data
+  const cachedData = readHolidayCache(year, country);
+  
+  // Try to fetch fresh data from API
+  const freshData = await fetchHolidayData(year, country);
+  
+  if (freshData) {
+    // Successfully fetched fresh data
+    console.log(`[${localTime()}] Using fresh holiday data from API for ${country} ${year}`);
+    return freshData;
+  } else if (cachedData) {
+    // API failed but we have cached data
+    console.log(`[${localTime()}] API unavailable, using cached holiday data for ${country} ${year}`);
+    return {
+      ...cachedData,
+      source: 'cache',
+      cachedAt: cachedData.cachedAt
+    };
+  } else {
+    // No cached data and API failed - return empty data
+    console.log(`[${localTime()}] No holiday data available for ${country} ${year} (API failed, no cache)`);
+    return {
+      holidays: [],
+      bridgeDays: [],
+      year: year,
+      country: country,
+      source: 'none',
+      error: 'No data available'
+    };
+  }
 }
 
 // Helper function to detect bridge days
@@ -979,8 +1034,8 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Fetch holiday data from external API
-        const calendarData = await fetchHolidayData(parseInt(year), country, timezone);
+        // Use cache-first approach for holiday data
+        const calendarData = await getHolidayDataWithCache(parseInt(year), country);
 
         const response = {
           success: true,
