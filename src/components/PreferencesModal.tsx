@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Modal, Form, Alert } from 'react-bootstrap';
 import type { Preferences } from '../services/storage';
 import { useAppSelector, useAppDispatch } from '../store';
@@ -38,15 +38,15 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
     setPrefs(prev => ({ ...prev, [name]: value }));
   };
 
-  const validate = () => {
+  const validate = useCallback(() => {
     const errs: { [k: string]: string } = {};
     if (repoUrl && !repoUrl.match(/^(https?:\/\/|git@|ssh:\/\/).+\.git$/)) {
       errs.repoUrl = 'Repository URL should end with .git and start with http://, https://, git@, or ssh://';
     }
     return errs;
-  };
+  }, [repoUrl]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
@@ -63,9 +63,14 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
     dispatch(updatePreferences(otherPrefs));
 
     // Store credentials if provided for HTTPS URLs
-    if (repoUrl.startsWith('http') && username && password) {
-      const credentials = btoa(`${username}:${password}`);
-      localStorage.setItem('git-credentials', credentials);
+    if (repoUrl.startsWith('http')) {
+      if (username && password) {
+        const credentials = btoa(`${username}:${password}`);
+        localStorage.setItem('git-credentials', credentials);
+      } else {
+        // Clear credentials if not provided
+        localStorage.removeItem('git-credentials');
+      }
     }
 
     // Notify parent component about repo URL change
@@ -77,7 +82,29 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
     setSuccess(true);
     setTimeout(() => setSuccess(false), 1500);
     onClose();
-  };
+  }, [dispatch, repoUrl, username, password, prefs, onRepoUrlChange, onClose, validate]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    if (!show) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        // Don't trigger save if user is in a textarea and pressing Enter
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          handleSave();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [show, onClose, handleSave]);
 
   return (
     <Modal
@@ -165,27 +192,27 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ show, onClose, onRe
           {repoUrl && repoUrl.startsWith('http') && (
             <>
               <Form.Group className="mb-3">
-                <Form.Label>Username (for HTTPS repositories)</Form.Label>
+                <Form.Label>Username (for private HTTPS repositories)</Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder="Git username"
+                  placeholder="Git username (optional for public repos)"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
               </Form.Group>
 
               <Form.Group className="mb-3">
-                <Form.Label>Password/Token (for HTTPS repositories)</Form.Label>
+                <Form.Label>Password/Token (for private HTTPS repositories)</Form.Label>
                 <Form.Control
                   type="password"
-                  placeholder="Git password or personal access token"
+                  placeholder="Personal access token (optional for public repos)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
                 />
                 <Form.Text muted>
-                  For GitHub, use a personal access token instead of your password.
-                  Your credentials are stored securely in your browser.
+                  Leave empty for public repositories. For private repos, use a personal access token
+                  instead of your password (GitHub requires this). Credentials are stored locally in your browser.
                 </Form.Text>
               </Form.Group>
             </>
