@@ -50,3 +50,6 @@ kotlin-js-store/
 .timeline-cache/
 # SpecStory explanation file
 .specstory/.what-is-this.md
+
+# Private history repo — chat logs live in a separate <name>-history repo
+.specstory/history/
